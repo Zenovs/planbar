@@ -1,6 +1,7 @@
 generator client {
     provider = "prisma-client-js"
     binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/planbar/nextjs_space/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -15,7 +16,7 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
-  role          String    @default("member")
+  role          String    @default("member") // member or admin
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
@@ -70,8 +71,8 @@ model Ticket {
   id          String   @id @default(cuid())
   title       String
   description String?
-  status      String   @default("open")
-  priority    String   @default("medium")
+  status      String   @default("open") // open, in_progress, done, closed
+  priority    String   @default("medium") // low, medium, high, critical
   deadline    DateTime?
   
   createdById String
