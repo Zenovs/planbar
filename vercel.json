@@ -1,7 +1,0 @@
-{
-  "buildCommand": "cd nextjs_space && yarn install && yarn build",
-  "devCommand": "cd nextjs_space && yarn dev",
-  "installCommand": "cd nextjs_space && yarn install",
-  "framework": "nextjs",
-  "outputDirectory": "nextjs_space/.next"
-}
