@@ -1,0 +1,88 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/planbar/nextjs_space/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          String    @default("member") // member or admin
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  accounts      Account[]
+  sessions      Session[]
+  assignedTickets Ticket[] @relation("AssignedTickets")
+  createdTickets  Ticket[] @relation("CreatedTickets")
+  
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("open") // open, in_progress, done, closed
+  priority    String   @default("medium") // low, medium, high, critical
+  deadline    DateTime?
+  
+  createdById String
+  createdBy   User     @relation("CreatedTickets", fields: [createdById], references: [id], onDelete: Cascade)
+  
+  assignedToId String?
+  assignedTo   User?    @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("tickets")
+}
