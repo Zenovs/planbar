@@ -128,7 +128,7 @@ export async function PATCH(req: NextRequest) {
       hashedNewPassword = await bcrypt.hash(newPassword, 10);
     }
 
-    // Delete old image if new image is provided
+    // Delete old image if new image is provided and different
     if (image && currentUser.image && currentUser.image !== image) {
       try {
         await deleteFile(currentUser.image);
@@ -138,7 +138,7 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // Delete old background image if new one is provided
+    // Delete old background image if new one is provided and different
     if (backgroundImage && currentUser.backgroundImage && currentUser.backgroundImage !== backgroundImage) {
       try {
         await deleteFile(currentUser.backgroundImage);
@@ -148,25 +148,28 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    // Build update data object
+    const updateData: any = {};
+    
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (hashedNewPassword) updateData.password = hashedNewPassword;
+    if (image !== undefined) updateData.image = image;
+    if (imagePublic !== undefined) updateData.imagePublic = imagePublic;
+    if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications;
+    if (primaryColor !== undefined) updateData.primaryColor = primaryColor;
+    if (secondaryColor !== undefined) updateData.secondaryColor = secondaryColor;
+    if (accentColor !== undefined) updateData.accentColor = accentColor;
+    if (borderRadius !== undefined) updateData.borderRadius = borderRadius;
+    if (backgroundImage !== undefined) updateData.backgroundImage = backgroundImage;
+    if (backgroundImagePublic !== undefined) updateData.backgroundImagePublic = backgroundImagePublic;
+    if (layout !== undefined) updateData.layout = layout;
+    if (designTemplate !== undefined) updateData.designTemplate = designTemplate;
+
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(email !== undefined && { email }),
-        ...(hashedNewPassword && { password: hashedNewPassword }),
-        ...(image !== undefined && { image }),
-        ...(imagePublic !== undefined && { imagePublic }),
-        ...(emailNotifications !== undefined && { emailNotifications }),
-        ...(primaryColor !== undefined && { primaryColor }),
-        ...(secondaryColor !== undefined && { secondaryColor }),
-        ...(accentColor !== undefined && { accentColor }),
-        ...(borderRadius !== undefined && { borderRadius }),
-        ...(backgroundImage !== undefined && { backgroundImage }),
-        ...(backgroundImagePublic !== undefined && { backgroundImagePublic }),
-        ...(layout !== undefined && { layout }),
-        ...(designTemplate !== undefined && { designTemplate }),
-      },
+      data: updateData,
       select: {
         id: true,
         name: true,
@@ -187,7 +190,11 @@ export async function PATCH(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { message: 'Profil erfolgreich aktualisiert', user: updatedUser },
+      { 
+        message: 'Profil erfolgreich aktualisiert', 
+        user: updatedUser,
+        success: true
+      },
       { status: 200 }
     );
   } catch (error) {

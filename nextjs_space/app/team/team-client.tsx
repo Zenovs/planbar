@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { Header } from '@/components/header';
 import { motion } from 'framer-motion';
-import { Users, Plus, Mail, Ticket, Shield, Trash2, Edit } from 'lucide-react';
+import { Users, Plus, Mail, Ticket, Shield, Trash2, Edit, Check, X, UserCog } from 'lucide-react';
 import { UserWithStats } from '@/lib/types';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface TeamClientProps {
   users: UserWithStats[];
@@ -23,6 +24,8 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithStats | null>(null);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [tempRole, setTempRole] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
@@ -56,8 +59,10 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
       setUsers([...users, { ...data.user, _count: { assignedTickets: 0 } }]);
       setShowAddModal(false);
       setFormData({ name: '', email: '', password: '', role: 'member' });
+      toast.success('Benutzer erfolgreich hinzugefügt');
     } catch (err) {
       setError('Ein Fehler ist aufgetreten');
+      toast.error('Fehler beim Hinzufügen des Benutzers');
     } finally {
       setLoading(false);
     }
@@ -92,8 +97,10 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
       setShowEditModal(false);
       setEditingUser(null);
       setFormData({ name: '', email: '', password: '', role: 'member' });
+      toast.success('Benutzer erfolgreich aktualisiert');
     } catch (err) {
       setError('Ein Fehler ist aufgetreten');
+      toast.error('Fehler beim Aktualisieren des Benutzers');
     } finally {
       setLoading(false);
     }
@@ -113,13 +120,52 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
 
       if (!response.ok) {
         const data = await response.json();
-        alert(data?.error || 'Fehler beim Löschen des Benutzers');
+        toast.error(data?.error || 'Fehler beim Löschen des Benutzers');
         return;
       }
 
       setUsers(users.filter((u) => u.id !== userId));
+      toast.success('Benutzer erfolgreich gelöscht');
     } catch (err) {
-      alert('Ein Fehler ist aufgetreten');
+      toast.error('Ein Fehler ist aufgetreten');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startEditingRole = (userId: string, currentRole: string) => {
+    setEditingRoleId(userId);
+    setTempRole(currentRole);
+  };
+
+  const cancelEditingRole = () => {
+    setEditingRoleId(null);
+    setTempRole('');
+  };
+
+  const saveRole = async (userId: string) => {
+    if (!tempRole) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: tempRole }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Fehler beim Aktualisieren der Rolle');
+      }
+
+      setUsers(users.map((u) => (u.id === userId ? { ...u, role: tempRole } : u)));
+      setEditingRoleId(null);
+      setTempRole('');
+      toast.success('Rolle erfolgreich aktualisiert');
+    } catch (err: any) {
+      toast.error(err.message || 'Fehler beim Aktualisieren der Rolle');
     } finally {
       setLoading(false);
     }
@@ -136,6 +182,26 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
     setShowEditModal(true);
   };
 
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'member':
+      default:
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+    }
+  };
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'Administrator';
+      case 'member':
+      default:
+        return 'Mitglied';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <Header />
@@ -145,7 +211,7 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Team-Verwaltung</h1>
             <p className="text-gray-600">
-              Verwalte deine Team-Mitglieder und deren Zugriffsrechte.
+              Verwalte deine Team-Mitglieder und deren Rollen.
             </p>
           </div>
           {isAdmin && (
@@ -161,72 +227,146 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {users?.map((user, index) => (
-            <motion.div
-              key={user?.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-              className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-6 border border-gray-100"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg">
-                    {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+        {users?.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-md p-12 text-center">
+            <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">Keine Teammitglieder</h3>
+            <p className="text-gray-500 mb-6">Füge dein erstes Teammitglied hinzu, um loszulegen.</p>
+            {isAdmin && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all inline-flex items-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                Mitglied hinzufügen
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {users.map((user, index) => (
+              <motion.div
+                key={user?.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-6 border border-gray-100"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg">
+                      {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        {user?.name || 'Kein Name'}
+                      </h3>
+                      {user?.id === currentUser?.id && (
+                        <span className="text-xs text-gray-500">(Sie)</span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">
-                      {user?.name || 'Kein Name'}
-                    </h3>
-                    {user?.role === 'admin' && (
-                      <span className="inline-flex items-center gap-1 text-xs text-purple-600 font-medium">
-                        <Shield className="w-3 h-3" />
-                        Admin
-                      </span>
+                  {isAdmin && user?.id !== currentUser?.id && (
+                    <div className="flex gap-1">
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => openEditModal(user)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                        title="Benutzer bearbeiten"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleDeleteUser(user?.id || '')}
+                        disabled={loading}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
+                        title="Benutzer löschen"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </motion.button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Mail className="w-4 h-4" />
+                    <span>{user?.email || 'Keine E-Mail'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Ticket className="w-4 h-4" />
+                    <span>{user?._count?.assignedTickets || 0} offene Tickets</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                      <UserCog className="w-4 h-4" />
+                      Rolle:
+                    </span>
+                    {editingRoleId === user?.id ? (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={tempRole}
+                          onChange={(e) => setTempRole(e.target.value)}
+                          className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          disabled={loading}
+                        >
+                          <option value="member">Mitglied</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                        <button
+                          onClick={() => saveRole(user?.id || '')}
+                          disabled={loading}
+                          className="p-1 text-green-600 hover:bg-green-50 rounded transition-all disabled:opacity-50"
+                          title="Speichern"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={cancelEditingRole}
+                          disabled={loading}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded transition-all disabled:opacity-50"
+                          title="Abbrechen"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-xs font-medium px-3 py-1 rounded-full border ${
+                            getRoleBadgeColor(user?.role || 'member')
+                          }`}
+                        >
+                          {user?.role === 'admin' && <Shield className="w-3 h-3 inline mr-1" />}
+                          {getRoleLabel(user?.role || 'member')}
+                        </span>
+                        {isAdmin && user?.id !== currentUser?.id && (
+                          <button
+                            onClick={() => startEditingRole(user?.id || '', user?.role || 'member')}
+                            className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                            title="Rolle ändern"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
-                {isAdmin && user?.id !== currentUser?.id && (
-                  <div className="flex gap-1">
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => openEditModal(user)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => handleDeleteUser(user?.id || '')}
-                      disabled={loading}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </motion.button>
-                  </div>
-                )}
-              </div>
 
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Mail className="w-4 h-4" />
-                  <span>{user?.email || 'Keine E-Mail'}</span>
+                <div className="text-xs text-gray-500 pt-3 mt-3 border-t border-gray-100">
+                  Mitglied seit: {user?.createdAt ? format(new Date(user.createdAt), 'dd.MM.yyyy', { locale: de }) : 'Unbekannt'}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Ticket className="w-4 h-4" />
-                  <span>{user?._count?.assignedTickets || 0} offene Tickets</span>
-                </div>
-              </div>
-
-              <div className="text-xs text-gray-500 pt-4 border-t border-gray-100">
-                Mitglied seit: {user?.createdAt ? format(new Date(user.createdAt), 'dd.MM.yyyy', { locale: de }) : 'Unbekannt'}
-              </div>
-            </motion.div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Add User Modal */}
@@ -241,7 +381,7 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
 
             <form onSubmit={handleAddUser} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -270,18 +410,20 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
+                  minLength={6}
+                  placeholder="Mindestens 6 Zeichen"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Rolle</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Rolle *</label>
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="member">Mitglied</option>
-                  <option value="admin">Admin</option>
+                  <option value="admin">Administrator</option>
                 </select>
               </div>
 
@@ -350,6 +492,7 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Leer lassen, um nicht zu ändern"
+                  minLength={6}
                 />
               </div>
 
@@ -361,7 +504,7 @@ export function TeamClient({ users: initialUsers, currentUser }: TeamClientProps
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="member">Mitglied</option>
-                  <option value="admin">Admin</option>
+                  <option value="admin">Administrator</option>
                 </select>
               </div>
 

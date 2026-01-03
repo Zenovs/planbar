@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Palette, Save, RotateCcw, Upload, X, Sparkles, Layout, Circle } from 'lucide-react';
+import { Palette, Save, RotateCcw, Upload, X, Sparkles, Layout as LayoutIcon, Circle, ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -42,19 +42,29 @@ export default function DesignClient() {
   const [loading, setLoading] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
   const [settings, setSettings] = useState<DesignSettings>(DEFAULT_SETTINGS);
+  const [originalSettings, setOriginalSettings] = useState<DesignSettings>(DEFAULT_SETTINGS);
   const [bgImageFile, setBgImageFile] = useState<File | null>(null);
   const [bgImagePreview, setBgImagePreview] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     loadDesignSettings();
   }, []);
 
+  useEffect(() => {
+    // Check if settings have changed
+    const changed = JSON.stringify(settings) !== JSON.stringify(originalSettings) || bgImageFile !== null;
+    setHasChanges(changed);
+  }, [settings, originalSettings, bgImageFile]);
+
   const loadDesignSettings = async () => {
     try {
-      const res = await fetch('/api/profile');
+      const res = await fetch('/api/profile', {
+        cache: 'no-store',
+      });
       if (res.ok) {
         const data = await res.json();
-        setSettings({
+        const loadedSettings = {
           primaryColor: data.user.primaryColor || DEFAULT_SETTINGS.primaryColor,
           secondaryColor: data.user.secondaryColor || DEFAULT_SETTINGS.secondaryColor,
           accentColor: data.user.accentColor || DEFAULT_SETTINGS.accentColor,
@@ -63,25 +73,24 @@ export default function DesignClient() {
           backgroundImagePublic: data.user.backgroundImagePublic ?? true,
           layout: data.user.layout || DEFAULT_SETTINGS.layout,
           designTemplate: data.user.designTemplate || DEFAULT_SETTINGS.designTemplate,
-        });
+        };
+        setSettings(loadedSettings);
+        setOriginalSettings(loadedSettings);
 
         // Load background image preview if exists
         if (data.user.backgroundImage) {
-          const imageUrl = await getImageUrl(data.user.backgroundImage, data.user.backgroundImagePublic);
-          setBgImagePreview(imageUrl);
+          // For S3 images, construct the URL based on public/private setting
+          if (data.user.backgroundImagePublic) {
+            setBgImagePreview(data.user.backgroundImage);
+          } else {
+            setBgImagePreview(data.user.backgroundImage);
+          }
         }
       }
     } catch (error) {
       console.error('Error loading design settings:', error);
+      toast.error('Fehler beim Laden der Design-Einstellungen');
     }
-  };
-
-  const getImageUrl = async (path: string, isPublic: boolean) => {
-    if (isPublic) {
-      return `${process.env.NEXT_PUBLIC_S3_URL || ''}/${path}`;
-    }
-    // For private images, we would need a signed URL endpoint
-    return path;
   };
 
   const handleBgImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,7 +124,7 @@ export default function DesignClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fileName: file.name,
+          fileName: `bg-${Date.now()}-${file.name}`,
           contentType: file.type,
           isPublic: settings.backgroundImagePublic,
         }),
@@ -167,43 +176,81 @@ export default function DesignClient() {
   };
 
   const handleSave = async () => {
+    if (!hasChanges) {
+      toast.info('Keine Änderungen zum Speichern');
+      return;
+    }
+
     setLoading(true);
-    setUploadingBg(true);
     try {
       let backgroundImagePath = settings.backgroundImage;
 
       // Upload background image if selected
       if (bgImageFile) {
+        setUploadingBg(true);
         const uploadedPath = await uploadBackgroundImage(bgImageFile);
         if (uploadedPath) {
           backgroundImagePath = uploadedPath;
         } else {
           throw new Error('Fehler beim Hochladen des Hintergrundbildes');
         }
+        setUploadingBg(false);
       }
+
+      // Build update data
+      const updateData = {
+        primaryColor: settings.primaryColor,
+        secondaryColor: settings.secondaryColor,
+        accentColor: settings.accentColor,
+        borderRadius: settings.borderRadius,
+        backgroundImage: backgroundImagePath,
+        backgroundImagePublic: settings.backgroundImagePublic,
+        layout: settings.layout,
+        designTemplate: settings.designTemplate,
+      };
 
       const res = await fetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...settings,
-          backgroundImage: backgroundImagePath,
-        }),
+        body: JSON.stringify(updateData),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || 'Fehler beim Speichern');
       }
 
+      // Success
       toast.success('Design erfolgreich gespeichert!');
-      await update();
-      router.refresh();
       
-      // Force page reload to apply new design
-      setTimeout(() => window.location.reload(), 500);
+      // Update session
+      if (update) {
+        await update();
+      }
+      
+      // Clear file state
+      setBgImageFile(null);
+      
+      // Update original settings to match saved settings
+      const newSettings = {
+        ...settings,
+        backgroundImage: backgroundImagePath,
+      };
+      setSettings(newSettings);
+      setOriginalSettings(newSettings);
+      setHasChanges(false);
+      
+      // Show reload message
+      toast.info('Seite wird neu geladen, um Design anzuwenden...');
+      
+      // Reload after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error: any) {
-      toast.error(error.message || 'Fehler beim Speichern');
+      console.error('Save design error:', error);
+      toast.error(error.message || 'Fehler beim Speichern des Designs');
     } finally {
       setLoading(false);
       setUploadingBg(false);
@@ -240,6 +287,15 @@ export default function DesignClient() {
       }}
     >
       <div className="max-w-6xl mx-auto">
+        <Button
+          variant="ghost"
+          onClick={() => router.back()}
+          className="mb-6"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Zurück
+        </Button>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -251,181 +307,211 @@ export default function DesignClient() {
               <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Design-Studio
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Gestalten Sie planbar nach Ihrem Geschmack
-              </p>
+              <h1 className="text-3xl font-bold">Design Studio</h1>
+              <p className="text-gray-600">Personalisieren Sie Ihr Dashboard</p>
             </div>
           </div>
 
-          {/* Templates Section */}
-          <Card className="mb-6 shadow-lg">
+          {/* Template Gallery */}
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5" />
-                Vordefinierte Templates
+                <Palette className="w-5 h-5" />
+                Design-Vorlagen
               </CardTitle>
               <CardDescription>
-                Wählen Sie ein komplettes Design-Paket
+                Wählen Sie ein vorgefertigtes Design oder passen Sie es individuell an
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {DESIGN_TEMPLATES.map((template) => (
-                  <button
+                  <motion.div
                     key={template.id}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => applyTemplate(template)}
-                    className={`group relative overflow-hidden rounded-lg border-2 transition-all hover:scale-105 ${
+                    className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
                       settings.designTemplate === template.id
-                        ? 'border-purple-500 ring-2 ring-purple-200'
-                        : 'border-gray-200 hover:border-purple-400'
+                        ? 'border-blue-500 shadow-lg'
+                        : 'border-gray-200 hover:border-gray-300'
                     }`}
+                    style={{
+                      background: `linear-gradient(135deg, ${template.colors.primaryColor}, ${template.colors.secondaryColor})`,
+                    }}
                   >
-                    <div className="aspect-square p-3 space-y-2" style={{ background: `linear-gradient(135deg, ${template.colors.primaryColor}, ${template.colors.secondaryColor})` }}>
-                      <div className="text-4xl text-center">{template.preview}</div>
+                    <div className="text-white">
+                      <h3 className="font-semibold mb-1">{template.name}</h3>
+                      <p className="text-xs text-white/80">{template.description}</p>
                     </div>
-                    <div className="bg-white p-2 text-center">
-                      <div className="font-semibold text-sm">{template.name}</div>
-                      <div className="text-xs text-gray-500 line-clamp-2">{template.description}</div>
-                    </div>
-                  </button>
+                    {settings.designTemplate === template.id && (
+                      <div className="mt-2 flex items-center text-white text-sm">
+                        <Check className="w-4 h-4 mr-1" />
+                        Aktiv
+                      </div>
+                    )}
+                  </motion.div>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Colors */}
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="w-5 h-5" />
-                  Farbpalette
-                </CardTitle>
-                <CardDescription>
-                  Passen Sie die Hauptfarben an
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          {/* Custom Colors */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Circle className="w-5 h-5" />
+                Eigene Farben
+              </CardTitle>
+              <CardDescription>
+                Definieren Sie Ihre individuellen Farben
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="primaryColor">Primärfarbe</Label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
+                  <div className="flex gap-2">
+                    <Input
                       id="primaryColor"
+                      type="color"
                       value={settings.primaryColor}
                       onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                      className="h-12 w-12 rounded cursor-pointer border-2 border-gray-300"
+                      className="w-20 h-10 cursor-pointer"
                     />
                     <Input
                       type="text"
                       value={settings.primaryColor}
                       onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
                       className="flex-1"
+                      placeholder="#3b82f6"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="secondaryColor">Sekundärfarbe</Label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
+                  <div className="flex gap-2">
+                    <Input
                       id="secondaryColor"
+                      type="color"
                       value={settings.secondaryColor}
                       onChange={(e) => setSettings({ ...settings, secondaryColor: e.target.value })}
-                      className="h-12 w-12 rounded cursor-pointer border-2 border-gray-300"
+                      className="w-20 h-10 cursor-pointer"
                     />
                     <Input
                       type="text"
                       value={settings.secondaryColor}
                       onChange={(e) => setSettings({ ...settings, secondaryColor: e.target.value })}
                       className="flex-1"
+                      placeholder="#8b5cf6"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="accentColor">Akzentfarbe</Label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
+                  <div className="flex gap-2">
+                    <Input
                       id="accentColor"
+                      type="color"
                       value={settings.accentColor}
                       onChange={(e) => setSettings({ ...settings, accentColor: e.target.value })}
-                      className="h-12 w-12 rounded cursor-pointer border-2 border-gray-300"
+                      className="w-20 h-10 cursor-pointer"
                     />
                     <Input
                       type="text"
                       value={settings.accentColor}
                       onChange={(e) => setSettings({ ...settings, accentColor: e.target.value })}
                       className="flex-1"
+                      placeholder="#ec4899"
                     />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Border Radius */}
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Circle className="w-5 h-5" />
-                  Formen & Abrundungen
-                </CardTitle>
-                <CardDescription>
-                  Eckig, abgerundet oder dazwischen?
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-3">
+              {/* Live Preview */}
+              <div className="p-4 rounded-lg" style={{ backgroundColor: '#f8f9fa' }}>
+                <p className="text-sm font-medium mb-3">Vorschau:</p>
+                <div className="flex gap-2">
+                  <div
+                    className="w-16 h-16 rounded-lg shadow-md"
+                    style={{ backgroundColor: settings.primaryColor }}
+                  />
+                  <div
+                    className="w-16 h-16 rounded-lg shadow-md"
+                    style={{ backgroundColor: settings.secondaryColor }}
+                  />
+                  <div
+                    className="w-16 h-16 rounded-lg shadow-md"
+                    style={{ backgroundColor: settings.accentColor }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Layout & Style */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LayoutIcon className="w-5 h-5" />
+                Layout & Stil
+              </CardTitle>
+              <CardDescription>
+                Passen Sie die Darstellung an
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Border Radius */}
+              <div className="space-y-3">
+                <Label>Ecken-Rundung</Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {BORDER_RADIUS_OPTIONS.map((option) => (
                     <button
                       key={option.value}
                       onClick={() => setSettings({ ...settings, borderRadius: option.value })}
-                      className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
+                      className={`p-3 border-2 rounded-lg transition-all ${
                         settings.borderRadius === option.value
-                          ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200'
-                          : 'border-gray-200 hover:border-purple-300'
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
                       }`}
+                      style={{
+                        borderRadius: getBorderRadiusValue(option.value),
+                      }}
                     >
-                      <div className="text-3xl mb-2">{option.preview}</div>
-                      <div className="text-sm font-semibold">{option.label}</div>
+                      <div className="text-sm font-medium">{option.label}</div>
+                      <div className="text-xs text-gray-500">{option.value}</div>
                     </button>
                   ))}
                 </div>
+              </div>
 
-                <Separator className="my-4" />
-
-                {/* Layout */}
-                <div className="space-y-3">
-                  <Label className="flex items-center gap-2">
-                    <Layout className="w-4 h-4" />
-                    Layout-Dichte
-                  </Label>
+              {/* Layout Density */}
+              <div className="space-y-3">
+                <Label>Layout-Dichte</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {LAYOUT_OPTIONS.map((option) => (
                     <button
                       key={option.value}
                       onClick={() => setSettings({ ...settings, layout: option.value })}
-                      className={`w-full p-3 rounded-lg border-2 text-left transition-all hover:scale-105 ${
+                      className={`p-4 border-2 rounded-lg transition-all text-left ${
                         settings.layout === option.value
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:border-purple-300'
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className="font-semibold text-sm">{option.label}</div>
+                      <div className="text-sm font-medium mb-1">{option.label}</div>
                       <div className="text-xs text-gray-500">{option.description}</div>
                     </button>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Background Image */}
-          <Card className="mb-6 shadow-lg">
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Upload className="w-5 h-5" />
@@ -435,108 +521,79 @@ export default function DesignClient() {
                 Laden Sie ein eigenes Hintergrundbild hoch (optional)
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {bgImagePreview ? (
-                  <div className="relative aspect-video rounded-lg overflow-hidden border-2 border-gray-200">
+            <CardContent className="space-y-4">
+              {bgImagePreview ? (
+                <div className="relative">
+                  <div className="relative w-full h-48 rounded-lg overflow-hidden">
                     <Image
                       src={bgImagePreview}
                       alt="Background preview"
                       fill
                       className="object-cover"
                     />
-                    <button
-                      onClick={handleRemoveBackground}
-                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
                   </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center aspect-video border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-400 transition-colors">
-                    <Upload className="w-12 h-12 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-600">Klicken Sie, um ein Bild hochzuladen</span>
-                    <span className="text-xs text-gray-400 mt-1">Max. 5MB, JPEG/PNG</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleBgImageSelect}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleRemoveBackground}
+                    className="mt-2"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Entfernen
+                  </Button>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 mb-3">
+                    Laden Sie ein Hintergrundbild hoch (max. 5MB)
+                  </p>
+                  <Input
+                    id="bg-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleBgImageSelect}
+                    disabled={loading || uploadingBg}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => document.getElementById('bg-upload')?.click()}
+                    disabled={loading || uploadingBg}
+                  >
+                    {uploadingBg ? 'Hochladen...' : 'Bild auswählen'}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Preview */}
-          <Card className="mb-6 shadow-lg">
-            <CardHeader>
-              <CardTitle>Vorschau</CardTitle>
-              <CardDescription>
-                So wird Ihr Design aussehen
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Buttons Preview */}
-                <div className="flex gap-3 flex-wrap">
-                  <div
-                    className="px-6 py-3 font-semibold text-white"
-                    style={{
-                      background: `linear-gradient(to right, ${settings.primaryColor}, ${settings.secondaryColor})`,
-                      borderRadius: getBorderRadiusValue(settings.borderRadius),
-                    }}
-                  >
-                    Primär-Button
-                  </div>
-                  <div
-                    className="px-6 py-3 font-semibold text-white"
-                    style={{
-                      backgroundColor: settings.accentColor,
-                      borderRadius: getBorderRadiusValue(settings.borderRadius),
-                    }}
-                  >
-                    Akzent-Button
-                  </div>
-                </div>
-
-                {/* Card Preview */}
-                <div
-                  className="p-6 text-white shadow-lg"
-                  style={{
-                    background: `linear-gradient(135deg, ${settings.primaryColor}, ${settings.secondaryColor})`,
-                    borderRadius: getBorderRadiusValue(settings.borderRadius),
-                  }}
-                >
-                  <h3 className="text-xl font-bold mb-2">Beispiel-Karte</h3>
-                  <p className="opacity-90">Layout: {LAYOUT_OPTIONS.find(l => l.value === settings.layout)?.label}</p>
-                  <p className="opacity-90">Abrundung: {BORDER_RADIUS_OPTIONS.find(b => b.value === settings.borderRadius)?.label}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Actions */}
-          <div className="flex items-center gap-4">
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3">
             <Button
-              onClick={handleSave}
-              disabled={loading}
-              className="flex-1"
-              style={{
-                background: `linear-gradient(to right, ${settings.primaryColor}, ${settings.secondaryColor})`,
-              }}
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {loading ? (uploadingBg ? 'Wird hochgeladen...' : 'Speichern...') : 'Design speichern'}
-            </Button>
-            <Button
-              onClick={handleReset}
               variant="outline"
+              onClick={handleReset}
               disabled={loading}
             >
               <RotateCcw className="w-4 h-4 mr-2" />
               Zurücksetzen
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={loading || uploadingBg || !hasChanges}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+            >
+              {loading || uploadingBg ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {uploadingBg ? 'Bild wird hochgeladen...' : 'Speichern...'}
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Design speichern
+                </>
+              )}
             </Button>
           </div>
         </motion.div>
