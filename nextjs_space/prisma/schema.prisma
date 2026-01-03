@@ -1,8 +1,8 @@
 generator client {
     provider = "prisma-client-js"
     binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/planbar/nextjs_space/node_modules/.prisma/client"
 }
-
 
 datasource db {
     provider = "postgresql"
@@ -15,8 +15,23 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
+  imagePublic   Boolean   @default(true) // whether image is publicly accessible
   password      String?
-  role          String    @default("member")
+  role          String    @default("member") // member or admin
+  emailNotifications Boolean @default(true) // enable/disable email notifications
+  
+  // Personal branding settings - Colors
+  primaryColor    String   @default("#3b82f6") // Tailwind blue-500
+  secondaryColor  String   @default("#8b5cf6") // Tailwind purple-500
+  accentColor     String   @default("#ec4899") // Tailwind pink-500
+  
+  // Personal design settings - Advanced
+  borderRadius    String   @default("medium") // small, medium, large, none
+  backgroundImage String?  // S3 path to background image
+  backgroundImagePublic Boolean @default(true)
+  layout          String   @default("standard") // compact, standard, spacious
+  designTemplate  String   @default("default") // default, modern, minimal, colorful, etc.
+  
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
@@ -71,8 +86,8 @@ model Ticket {
   id          String   @id @default(cuid())
   title       String
   description String?
-  status      String   @default("open")
-  priority    String   @default("medium")
+  status      String   @default("open") // open, in_progress, done, closed
+  priority    String   @default("medium") // low, medium, high, critical
   deadline    DateTime?
   
   createdById String
@@ -85,4 +100,23 @@ model Ticket {
   updatedAt   DateTime @updatedAt
   
   @@map("tickets")
+}
+
+model Settings {
+  id              String   @id @default(cuid())
+  companyName     String   @default("planbar")
+  logo            String?  // S3 path to logo image
+  logoPublic      Boolean  @default(true)
+  primaryColor    String   @default("#3b82f6") // Tailwind blue-500
+  secondaryColor  String   @default("#8b5cf6") // Tailwind purple-500
+  accentColor     String   @default("#ec4899") // Tailwind pink-500
+  smtpHost        String?  // SMTP server for email notifications
+  smtpPort        Int?     @default(587)
+  smtpUser        String?
+  smtpPassword    String?
+  smtpFrom        String?  // From email address
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("settings")
 }
