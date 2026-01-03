@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { sendTicketStatusChangedEmail, sendTicketAssignedEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,7 @@ export async function GET(
       include: {
         assignedTo: true,
         createdBy: true,
+        team: true,
       },
     });
 
@@ -51,7 +53,21 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { title, description, status, priority, assignedToId, deadline } = body;
+    const { title, description, status, priority, assignedToId, deadline, teamId } = body;
+
+    // Get old ticket data for comparison
+    const oldTicket = await prisma.ticket.findUnique({
+      where: { id: params.id },
+      include: {
+        assignedTo: true,
+        createdBy: true,
+        team: true,
+      },
+    });
+
+    if (!oldTicket) {
+      return NextResponse.json({ error: 'Ticket nicht gefunden' }, { status: 404 });
+    }
 
     const updateData: any = {};
 
@@ -59,7 +75,26 @@ export async function PATCH(
     if (description !== undefined) updateData.description = description;
     if (status !== undefined) updateData.status = status;
     if (priority !== undefined) updateData.priority = priority;
-    if (assignedToId !== undefined) updateData.assignedToId = assignedToId;
+    if (assignedToId !== undefined) {
+      updateData.assignedToId = assignedToId;
+      
+      // If a new user is assigned, automatically update the ticket's team to that user's team
+      if (assignedToId) {
+        const assignedUser = await prisma.user.findUnique({
+          where: { id: assignedToId },
+          select: { teamId: true },
+        });
+        updateData.teamId = assignedUser?.teamId || null;
+      } else {
+        updateData.teamId = null;
+      }
+    }
+    
+    // Allow manual team override
+    if (teamId !== undefined) {
+      updateData.teamId = teamId;
+    }
+    
     if (deadline !== undefined) {
       updateData.deadline = deadline ? new Date(deadline) : null;
     }
@@ -70,8 +105,60 @@ export async function PATCH(
       include: {
         assignedTo: true,
         createdBy: true,
+        team: true,
       },
     });
+
+    // Send email notifications
+    try {
+      // Status changed notification
+      if (status !== undefined && status !== oldTicket.status) {
+        // Notify assigned user
+        if (ticket.assignedTo && ticket.assignedTo.emailNotifications) {
+          await sendTicketStatusChangedEmail(
+            ticket.assignedTo.email,
+            ticket.assignedTo.name || ticket.assignedTo.email,
+            ticket.title,
+            ticket.id,
+            oldTicket.status,
+            ticket.status,
+            session.user.name || session.user.email || 'Unbekannt'
+          );
+        }
+        // Notify creator if different from assigned user
+        if (
+          ticket.createdBy &&
+          ticket.createdBy.emailNotifications &&
+          ticket.createdBy.id !== ticket.assignedTo?.id
+        ) {
+          await sendTicketStatusChangedEmail(
+            ticket.createdBy.email,
+            ticket.createdBy.name || ticket.createdBy.email,
+            ticket.title,
+            ticket.id,
+            oldTicket.status,
+            ticket.status,
+            session.user.name || session.user.email || 'Unbekannt'
+          );
+        }
+      }
+
+      // Assignment changed notification
+      if (assignedToId !== undefined && assignedToId !== oldTicket.assignedToId) {
+        if (ticket.assignedTo && ticket.assignedTo.emailNotifications) {
+          await sendTicketAssignedEmail(
+            ticket.assignedTo.email,
+            ticket.assignedTo.name || ticket.assignedTo.email,
+            ticket.title,
+            ticket.id,
+            session.user.name || session.user.email || 'Unbekannt'
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send email notification:', error);
+      // Don't fail the request if email fails
+    }
 
     return NextResponse.json({ ticket });
   } catch (error) {

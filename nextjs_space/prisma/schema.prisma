@@ -1,6 +1,7 @@
 generator client {
     provider = "prisma-client-js"
     binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/planbar/nextjs_space/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -31,6 +32,10 @@ model User {
   layout          String   @default("standard") // compact, standard, spacious
   designTemplate  String   @default("default") // default, modern, minimal, colorful, etc.
   
+  // Team relationship
+  teamId          String?  // User's team assignment
+  team            Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
@@ -40,6 +45,21 @@ model User {
   createdTickets  Ticket[] @relation("CreatedTickets")
   
   @@map("users")
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String   @default("#3b82f6") // Team color for visual identification
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  members     User[]   // Team members
+  tickets     Ticket[] // Tickets assigned to this team
+  
+  @@map("teams")
 }
 
 model Account {
@@ -94,6 +114,10 @@ model Ticket {
   
   assignedToId String?
   assignedTo   User?    @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  
+  // Team assignment for ticket visibility control
+  teamId       String?
+  team         Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

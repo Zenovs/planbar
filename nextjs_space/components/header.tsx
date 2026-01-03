@@ -38,9 +38,12 @@ export function Header() {
             <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-2 rounded-lg">
               <Ticket className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              planbar
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                planbar
+              </span>
+              <span className="text-[10px] text-gray-500 -mt-1">powered by wireon</span>
+            </div>
           </Link>
 
           <nav className="flex items-center gap-2">
