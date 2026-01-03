@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
       });
 
       // Add each ticket as event
-      tickets.forEach((ticket) => {
+      tickets.forEach((ticket: any) => {
         const event = calendar.createEvent({
           start: ticket.deadline!,
           end: ticket.deadline!,

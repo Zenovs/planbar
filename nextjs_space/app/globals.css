@@ -33,6 +33,14 @@
     --ring: 222.2 84% 4.9%;
  
     --radius: 0.5rem;
+    
+    /* User-specific design variables */
+    --user-primary: #3b82f6;
+    --user-secondary: #8b5cf6;
+    --user-accent: #ec4899;
+    --user-border-radius: 8px;
+    --user-padding: 1.5rem;
+    --user-gap: 1.5rem;
   }
  
   .dark {
@@ -72,5 +80,34 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Apply user-specific design settings */
+@layer utilities {
+  .user-theme-card {
+    border-radius: var(--user-border-radius);
+  }
+  
+  .user-theme-button {
+    background: var(--user-primary);
+    border-radius: var(--user-border-radius);
+  }
+  
+  .user-theme-button:hover {
+    background: var(--user-secondary);
+  }
+  
+  .user-theme-accent {
+    color: var(--user-accent);
+  }
+  
+  .user-theme-gradient {
+    background: linear-gradient(135deg, var(--user-primary), var(--user-secondary));
+  }
+  
+  .user-theme-spacing {
+    padding: var(--user-padding);
+    gap: var(--user-gap);
   }
 }
