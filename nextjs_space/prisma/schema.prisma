@@ -15,7 +15,7 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
-  role          String    @default("member") // member or admin
+  role          String    @default("member")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
@@ -70,8 +70,8 @@ model Ticket {
   id          String   @id @default(cuid())
   title       String
   description String?
-  status      String   @default("open") // open, in_progress, done, closed
-  priority    String   @default("medium") // low, medium, high, critical
+  status      String   @default("open")
+  priority    String   @default("medium")
   deadline    DateTime?
   
   createdById String
