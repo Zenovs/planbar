@@ -345,7 +345,7 @@ export default function TeamClient() {
                   className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-purple-600 text-white min-h-[44px]"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  <span className="hidden xs:inline">Team</span>
+                  <span>Team erstellen</span>
                 </Button>
                 <Button
                   onClick={() => setShowAddUserModal(true)}
@@ -353,7 +353,7 @@ export default function TeamClient() {
                   className="flex-1 sm:flex-none min-h-[44px]"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  <span className="hidden xs:inline">Benutzer</span>
+                  <span>Benutzer</span>
                 </Button>
               </div>
             )}
