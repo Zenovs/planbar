@@ -22,6 +22,10 @@ export async function GET(
         assignedTo: true,
         createdBy: true,
         team: true,
+        category: true,
+        subTasks: {
+          orderBy: { position: 'asc' },
+        },
       },
     });
 
@@ -53,7 +57,7 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { title, description, status, priority, assignedToId, deadline, teamId } = body;
+    const { title, description, status, priority, assignedToId, deadline, teamId, categoryId } = body;
 
     // Get old ticket data for comparison
     const oldTicket = await prisma.ticket.findUnique({
@@ -75,6 +79,7 @@ export async function PATCH(
     if (description !== undefined) updateData.description = description;
     if (status !== undefined) updateData.status = status;
     if (priority !== undefined) updateData.priority = priority;
+    if (categoryId !== undefined) updateData.categoryId = categoryId;
     if (assignedToId !== undefined) {
       updateData.assignedToId = assignedToId;
       
@@ -106,6 +111,10 @@ export async function PATCH(
         assignedTo: true,
         createdBy: true,
         team: true,
+        category: true,
+        subTasks: {
+          orderBy: { position: 'asc' },
+        },
       },
     });
 

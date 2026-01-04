@@ -118,10 +118,87 @@ model Ticket {
   teamId       String?
   team         Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
   
+  // Category for color coding
+  categoryId   String?
+  category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
+  // Public share token for customer access
+  shareToken   String?   @unique // unique token for public access
+  shareEnabled Boolean   @default(false) // enable/disable public sharing
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  subTasks    SubTask[] // Checkpoints/Sub-tasks
+  
   @@map("tickets")
+}
+
+model SubTask {
+  id          String   @id @default(cuid())
+  title       String
+  completed   Boolean  @default(false)
+  position    Int      @default(0) // for ordering
+  
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("sub_tasks")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  color       String   @default("#3b82f6") // Category color
+  description String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  tickets     Ticket[]
+  templates   TicketTemplate[] // Templates can belong to categories
+  
+  @@map("categories")
+}
+
+model TicketTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Template ticket data
+  title       String
+  content     String? // template description
+  status      String   @default("open")
+  priority    String   @default("medium")
+  
+  // Category assignment
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
+  // Predefined sub-tasks
+  subTasks    TemplateSubTask[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("ticket_templates")
+}
+
+model TemplateSubTask {
+  id          String   @id @default(cuid())
+  title       String
+  position    Int      @default(0)
+  
+  templateId  String
+  template    TicketTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("template_sub_tasks")
 }
 
 model Settings {
