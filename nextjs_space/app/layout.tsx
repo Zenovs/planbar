@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'] });
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://planbar-one.vercel.app')),
   title: 'planbar - Ticket Management System',
   description: 'Modernes Ticket-Management für kleine Teams',
   icons: {
