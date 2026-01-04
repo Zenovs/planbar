@@ -4,113 +4,130 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { randomBytes } from 'crypto';
 
-// POST /api/share - Generate share token for a ticket
+// POST - Share-Link generieren oder deaktivieren
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     const { ticketId, enabled } = body;
 
     if (!ticketId) {
-      return NextResponse.json({ error: 'TicketId erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'ticketId is required' }, { status: 400 });
     }
 
-    // Check if ticket exists and user has access
+    // Hole Ticket
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
+      include: { team: true }
     });
 
     if (!ticket) {
-      return NextResponse.json({ error: 'Ticket nicht gefunden' }, { status: 404 });
+      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     }
 
-    // Only admin, creator, or assignee can share
-    const isAdmin = session.user.role === 'admin';
-    const isCreator = ticket.createdById === session.user.id;
-    const isAssignee = ticket.assignedToId === session.user.id;
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! }
+    });
 
-    if (!isAdmin && !isCreator && !isAssignee) {
-      return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
+    // Zugriffskontrolle (nur Creator, Assigned oder Admin)
+    const isAdmin = user?.role === 'admin';
+    const isCreator = ticket.createdById === user?.id;
+    const isAssigned = ticket.assignedToId === user?.id;
+    const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
+
+    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Generate new token if needed
+    // Wenn enabled === false, deaktiviere den Link
+    if (enabled === false) {
+      const updatedTicket = await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { shareEnabled: false }
+      });
+      return NextResponse.json({ 
+        shareEnabled: false,
+        shareToken: updatedTicket.shareToken 
+      });
+    }
+
+    // Wenn kein Token existiert, erstelle einen neuen
     let shareToken = ticket.shareToken;
-    if (!shareToken || enabled) {
-      shareToken = randomBytes(32).toString('hex');
+    if (!shareToken) {
+      shareToken = randomBytes(16).toString('hex');
     }
 
+    // Aktiviere den Share-Link
     const updatedTicket = await prisma.ticket.update({
       where: { id: ticketId },
       data: {
         shareToken,
-        shareEnabled: enabled ?? true,
-      },
+        shareEnabled: true
+      }
     });
 
     return NextResponse.json({
+      shareEnabled: true,
       shareToken: updatedTicket.shareToken,
-      shareEnabled: updatedTicket.shareEnabled,
-      shareUrl: `${process.env.NEXTAUTH_URL}/share/${updatedTicket.shareToken}`,
+      shareUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/share/${updatedTicket.shareToken}`
     });
   } catch (error) {
-    console.error('Fehler beim Erstellen des Share-Links:', error);
-    return NextResponse.json({ error: 'Fehler beim Erstellen des Share-Links' }, { status: 500 });
+    console.error('POST /api/share error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// GET /api/share?token=xyz - Get public ticket details
+// GET - Öffentliches Ticket laden (ohne Auth)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
 
     if (!token) {
-      return NextResponse.json({ error: 'Token erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'token is required' }, { status: 400 });
     }
 
-    const ticket = await prisma.ticket.findFirst({
-      where: {
-        shareToken: token,
-        shareEnabled: true,
-      },
+    // Finde Ticket mit diesem Token
+    const ticket = await prisma.ticket.findUnique({
+      where: { shareToken: token },
       include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
         assignedTo: {
           select: {
             id: true,
             name: true,
-            email: true,
-          },
+            email: true
+          }
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
         },
         category: true,
         subTasks: {
-          orderBy: { position: 'asc' },
-        },
-      },
+          orderBy: { position: 'asc' }
+        }
+      }
     });
 
     if (!ticket) {
-      return NextResponse.json({ error: 'Ticket nicht gefunden oder Link deaktiviert' }, { status: 404 });
+      return NextResponse.json({ error: 'Ticket not found or link expired' }, { status: 404 });
     }
 
-    // Calculate progress
-    const progress = ticket.subTasks.length > 0
-      ? Math.round((ticket.subTasks.filter(st => st.completed).length / ticket.subTasks.length) * 100)
-      : 0;
+    // Prüfe ob Share aktiviert ist
+    if (!ticket.shareEnabled) {
+      return NextResponse.json({ error: 'Share link is disabled' }, { status: 403 });
+    }
 
-    return NextResponse.json({ ...ticket, progress });
+    return NextResponse.json(ticket);
   } catch (error) {
-    console.error('Fehler beim Laden des öffentlichen Tickets:', error);
-    return NextResponse.json({ error: 'Fehler beim Laden des Tickets' }, { status: 500 });
+    console.error('GET /api/share error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

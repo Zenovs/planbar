@@ -3,129 +3,190 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 
-// GET /api/categories
+// GET - Alle Kategorien laden
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const categories = await prisma.category.findMany({
-      orderBy: { name: 'asc' },
       include: {
         _count: {
-          select: { tickets: true },
-        },
+          select: { tickets: true }
+        }
       },
+      orderBy: { name: 'asc' }
     });
 
     return NextResponse.json(categories);
   } catch (error) {
-    console.error('Fehler beim Laden der Kategorien:', error);
-    return NextResponse.json({ error: 'Fehler beim Laden der Kategorien' }, { status: 500 });
+    console.error('GET /api/categories error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST /api/categories (Admin only)
+// POST - Neue Kategorie erstellen (nur Admin)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! }
+    });
+
+    if (user?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
     const body = await request.json();
     const { name, color, description } = body;
 
     if (!name || !color) {
-      return NextResponse.json({ error: 'Name und Farbe erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'name and color are required' }, { status: 400 });
+    }
+
+    // Prüfe ob Name bereits existiert
+    const existing = await prisma.category.findUnique({
+      where: { name }
+    });
+
+    if (existing) {
+      return NextResponse.json({ error: 'Category with this name already exists' }, { status: 409 });
     }
 
     const category = await prisma.category.create({
       data: {
         name,
         color,
-        description: description || null,
-      },
+        description
+      }
     });
 
     return NextResponse.json(category, { status: 201 });
   } catch (error) {
-    console.error('Fehler beim Erstellen der Kategorie:', error);
-    return NextResponse.json({ error: 'Fehler beim Erstellen der Kategorie' }, { status: 500 });
+    console.error('POST /api/categories error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// PATCH /api/categories?id=123 (Admin only)
+// PATCH - Kategorie aktualisieren (nur Admin)
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! }
+    });
+
+    if (user?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'Kategorie-ID erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
     const body = await request.json();
     const { name, color, description } = body;
 
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name;
-    if (color !== undefined) updateData.color = color;
-    if (description !== undefined) updateData.description = description;
+    // Prüfe ob Kategorie existiert
+    const existing = await prisma.category.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+    }
+
+    // Prüfe ob neuer Name bereits existiert (bei Name-Änderung)
+    if (name && name !== existing.name) {
+      const nameExists = await prisma.category.findUnique({
+        where: { name }
+      });
+      if (nameExists) {
+        return NextResponse.json({ error: 'Category with this name already exists' }, { status: 409 });
+      }
+    }
 
     const category = await prisma.category.update({
       where: { id },
-      data: updateData,
+      data: {
+        ...(name !== undefined && { name }),
+        ...(color !== undefined && { color }),
+        ...(description !== undefined && { description })
+      }
     });
 
     return NextResponse.json(category);
   } catch (error) {
-    console.error('Fehler beim Aktualisieren der Kategorie:', error);
-    return NextResponse.json({ error: 'Fehler beim Aktualisieren der Kategorie' }, { status: 500 });
+    console.error('PATCH /api/categories error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// DELETE /api/categories?id=123 (Admin only)
+// DELETE - Kategorie löschen (nur Admin)
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! }
+    });
+
+    if (user?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'Kategorie-ID erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    // Check if category has tickets
-    const ticketCount = await prisma.ticket.count({
-      where: { categoryId: id },
+    // Prüfe ob Kategorie existiert
+    const category = await prisma.category.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { tickets: true }
+        }
+      }
     });
 
-    if (ticketCount > 0) {
+    if (!category) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+    }
+
+    // Verhindere Löschen wenn Tickets zugeordnet sind
+    if (category._count.tickets > 0) {
       return NextResponse.json(
-        { error: `Kategorie kann nicht gelöscht werden. ${ticketCount} Tickets verwenden diese Kategorie.` },
-        { status: 400 }
+        { error: `Cannot delete category with ${category._count.tickets} assigned tickets` },
+        { status: 409 }
       );
     }
 
     await prisma.category.delete({
-      where: { id },
+      where: { id }
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ message: 'Category deleted' });
   } catch (error) {
-    console.error('Fehler beim Löschen der Kategorie:', error);
-    return NextResponse.json({ error: 'Fehler beim Löschen der Kategorie' }, { status: 500 });
+    console.error('DELETE /api/categories error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

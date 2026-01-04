@@ -1,64 +1,42 @@
 generator client {
-    provider = "prisma-client-js"
-    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  imagePublic   Boolean   @default(true) // whether image is publicly accessible
-  password      String?
-  role          String    @default("member") // member or admin
-  emailNotifications Boolean @default(true) // enable/disable email notifications
+  id                 String    @id @default(cuid())
+  name               String?
+  email              String    @unique
+  password           String
+  role               String    @default("member")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  image              String?
+  imagePublic        Boolean   @default(false)
+  emailNotifications Boolean   @default(true)
   
-  // Personal branding settings - Colors
-  primaryColor    String   @default("#3b82f6") // Tailwind blue-500
-  secondaryColor  String   @default("#8b5cf6") // Tailwind purple-500
-  accentColor     String   @default("#ec4899") // Tailwind pink-500
-  
-  // Personal design settings - Advanced
-  borderRadius    String   @default("medium") // small, medium, large, none
-  backgroundImage String?  // S3 path to background image
-  backgroundImagePublic Boolean @default(true)
-  layout          String   @default("standard") // compact, standard, spacious
-  designTemplate  String   @default("default") // default, modern, minimal, colorful, etc.
-  
-  // Team relationship
-  teamId          String?  // User's team assignment
-  team            Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  accounts      Account[]
-  sessions      Session[]
-  assignedTickets Ticket[] @relation("AssignedTickets")
-  createdTickets  Ticket[] @relation("CreatedTickets")
-  
-  @@map("users")
-}
+  // Design-Einstellungen
+  designPrimaryColor   String?   @default("#3b82f6")
+  designSecondaryColor String?   @default("#8b5cf6")
+  designAccentColor    String?   @default("#ec4899")
+  designBorderRadius   String?   @default("medium")
+  designLayoutDensity  String?   @default("standard")
+  designBackgroundImage String?
+  designBackgroundPublic Boolean @default(false)
 
-model Team {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  color       String   @default("#3b82f6") // Team color for visual identification
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  members     User[]   // Team members
-  tickets     Ticket[] // Tickets assigned to this team
-  
-  @@map("teams")
+  accounts         Account[]
+  sessions         Session[]
+  createdTickets   Ticket[]  @relation("CreatedTickets")
+  assignedTickets  Ticket[]  @relation("AssignedTickets")
+  teamId           String?
+  team             Team?     @relation(fields: [teamId], references: [id])
+
+  @@map("users")
 }
 
 model Account {
@@ -100,122 +78,106 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
-model Ticket {
+model Team {
   id          String   @id @default(cuid())
-  title       String
+  name        String
   description String?
-  status      String   @default("open") // open, in_progress, done, closed
-  priority    String   @default("medium") // low, medium, high, critical
-  deadline    DateTime?
-  
-  createdById String
-  createdBy   User     @relation("CreatedTickets", fields: [createdById], references: [id], onDelete: Cascade)
-  
-  assignedToId String?
-  assignedTo   User?    @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
-  
-  // Team assignment for ticket visibility control
-  teamId       String?
-  team         Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  
-  // Category for color coding
-  categoryId   String?
-  category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  
-  // Public share token for customer access
-  shareToken   String?   @unique // unique token for public access
-  shareEnabled Boolean   @default(false) // enable/disable public sharing
-  
+  color       String   @default("#3b82f6")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  members User[]
+  tickets Ticket[]
+
+  @@map("teams")
+}
+
+model Ticket {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("open")
+  priority    String    @default("medium")
+  deadline    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdById String
+  createdBy   User   @relation("CreatedTickets", fields: [createdById], references: [id])
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedTickets", fields: [assignedToId], references: [id])
+
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id])
+
+  // Neue Features
+  categoryId   String?
+  category     Category? @relation(fields: [categoryId], references: [id])
   
-  subTasks    SubTask[] // Checkpoints/Sub-tasks
+  shareToken   String?   @unique
+  shareEnabled Boolean   @default(false)
   
+  subTasks     SubTask[]
+
   @@map("tickets")
 }
 
+// Neue Models für Features
+
 model SubTask {
-  id          String   @id @default(cuid())
-  title       String
-  completed   Boolean  @default(false)
-  position    Int      @default(0) // for ordering
-  
-  ticketId    String
-  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id        String   @id @default(cuid())
+  title     String
+  completed Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
   @@map("sub_tasks")
 }
 
 model Category {
   id          String   @id @default(cuid())
   name        String   @unique
-  color       String   @default("#3b82f6") // Category color
+  color       String
   description String?
-  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  tickets     Ticket[]
-  templates   TicketTemplate[] // Templates can belong to categories
-  
+
+  tickets   Ticket[]
+  templates TicketTemplate[]
+
   @@map("categories")
 }
 
 model TicketTemplate {
   id          String   @id @default(cuid())
-  name        String
-  description String?
-  
-  // Template ticket data
+  name        String   @unique
   title       String
-  content     String? // template description
+  description String?
   status      String   @default("open")
   priority    String   @default("medium")
-  
-  // Category assignment
-  categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  
-  // Predefined sub-tasks
-  subTasks    TemplateSubTask[]
-  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  subTasks TemplateSubTask[]
+
   @@map("ticket_templates")
 }
 
 model TemplateSubTask {
-  id          String   @id @default(cuid())
-  title       String
-  position    Int      @default(0)
-  
-  templateId  String
-  template    TicketTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  
-  @@map("template_sub_tasks")
-}
+  id       String @id @default(cuid())
+  title    String
+  position Int    @default(0)
 
-model Settings {
-  id              String   @id @default(cuid())
-  companyName     String   @default("planbar")
-  logo            String?  // S3 path to logo image
-  logoPublic      Boolean  @default(true)
-  primaryColor    String   @default("#3b82f6") // Tailwind blue-500
-  secondaryColor  String   @default("#8b5cf6") // Tailwind purple-500
-  accentColor     String   @default("#ec4899") // Tailwind pink-500
-  smtpHost        String?  // SMTP server for email notifications
-  smtpPort        Int?     @default(587)
-  smtpUser        String?
-  smtpPassword    String?
-  smtpFrom        String?  // From email address
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  @@map("settings")
+  templateId String
+  template   TicketTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("template_sub_tasks")
 }

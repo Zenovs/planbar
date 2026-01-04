@@ -1,12 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser } from '@/lib/types';
+import { toast } from 'sonner';
+
+interface Category {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface Template {
+  id: string;
+  name: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  categoryId: string | null;
+  subTasks: { title: string; position: number }[];
+}
 
 interface NewTicketClientProps {
   users: SimpleUser[];
@@ -16,6 +34,10 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -23,7 +45,77 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     priority: 'medium',
     assignedToId: '',
     deadline: '',
+    categoryId: '',
+    subTasks: [] as { title: string }[],
   });
+  const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
+
+  useEffect(() => {
+    loadCategories();
+    loadTemplates();
+  }, []);
+
+  async function loadCategories() {
+    try {
+      const res = await fetch('/api/categories');
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  }
+
+  async function loadTemplates() {
+    try {
+      const res = await fetch('/api/templates');
+      if (res.ok) {
+        const data = await res.json();
+        setTemplates(data);
+      }
+    } catch (error) {
+      console.error('Failed to load templates:', error);
+    }
+  }
+
+  function handleTemplateChange(templateId: string) {
+    setSelectedTemplateId(templateId);
+    
+    if (!templateId) return;
+
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return;
+
+    // Übernehme Template-Daten
+    setFormData({
+      ...formData,
+      title: template.title,
+      description: template.description || '',
+      status: template.status,
+      priority: template.priority,
+      categoryId: template.categoryId || '',
+      subTasks: template.subTasks.map(st => ({ title: st.title }))
+    });
+
+    toast.success(`Vorlage "${template.name}" geladen`);
+  }
+
+  function addSubTask() {
+    if (!newSubTaskTitle.trim()) return;
+    setFormData({
+      ...formData,
+      subTasks: [...formData.subTasks, { title: newSubTaskTitle.trim() }]
+    });
+    setNewSubTaskTitle('');
+  }
+
+  function removeSubTask(index: number) {
+    setFormData({
+      ...formData,
+      subTasks: formData.subTasks.filter((_, i) => i !== index)
+    });
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +130,8 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
           ...formData,
           assignedToId: formData.assignedToId || null,
           deadline: formData.deadline || null,
+          categoryId: formData.categoryId || null,
+          templateId: selectedTemplateId || null,
         }),
       });
 
@@ -48,6 +142,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
         return;
       }
 
+      toast.success('Ticket erfolgreich erstellt!');
       router.push(`/tickets/${data?.ticket?.id || ''}`);
     } catch (err) {
       setError('Ein Fehler ist aufgetreten');
@@ -76,6 +171,30 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
           <h1 className="text-3xl font-bold text-gray-900 mb-6">Neues Ticket erstellen</h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Template-Auswahl */}
+            {templates.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  🔗 Vorlage auswählen (optional)
+                </label>
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => handleTemplateChange(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Keine Vorlage</option>
+                  {templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Wähle eine Vorlage um Felder automatisch auszufüllen
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Titel *
@@ -103,7 +222,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Status
@@ -133,6 +252,25 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                   {PRIORITY_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Kategorie */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Kategorie
+                </label>
+                <select
+                  value={formData.categoryId}
+                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Keine Kategorie</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
                     </option>
                   ))}
                 </select>
@@ -168,6 +306,51 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                   onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+              </div>
+            </div>
+
+            {/* Sub-Tasks */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sub-Tasks
+              </label>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newSubTaskTitle}
+                    onChange={(e) => setNewSubTaskTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSubTask())}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Sub-Task hinzufügen..."
+                  />
+                  <button
+                    type="button"
+                    onClick={addSubTask}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {formData.subTasks.length > 0 && (
+                  <div className="space-y-1 mt-3">
+                    {formData.subTasks.map((subTask, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between bg-gray-50 p-2 rounded"
+                      >
+                        <span className="text-sm">{subTask.title}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeSubTask(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

@@ -1,5 +1,5 @@
-import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import SettingsClient from './settings-client';
 
@@ -12,7 +12,7 @@ export default async function SettingsPage() {
     redirect('/');
   }
 
-  // Only admins can access settings
+  // Nur Admins haben Zugriff auf Settings
   if (session.user.role !== 'admin') {
     redirect('/dashboard');
   }

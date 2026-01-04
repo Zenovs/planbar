@@ -3,121 +3,224 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 
-// GET /api/subtasks?ticketId=123
+// GET - Alle SubTasks eines Tickets laden
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const ticketId = searchParams.get('ticketId');
 
     if (!ticketId) {
-      return NextResponse.json({ error: 'TicketId erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'ticketId is required' }, { status: 400 });
     }
 
-    const subtasks = await prisma.subTask.findMany({
-      where: { ticketId },
-      orderBy: { position: 'asc' },
+    // Prüfe ob User Zugriff auf das Ticket hat
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: { team: true }
     });
 
-    return NextResponse.json(subtasks);
+    if (!ticket) {
+      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! }
+    });
+
+    // Zugriffskontrolle
+    const isAdmin = user?.role === 'admin';
+    const isCreator = ticket.createdById === user?.id;
+    const isAssigned = ticket.assignedToId === user?.id;
+    const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
+
+    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const subTasks = await prisma.subTask.findMany({
+      where: { ticketId },
+      orderBy: { position: 'asc' }
+    });
+
+    return NextResponse.json(subTasks);
   } catch (error) {
-    console.error('Fehler beim Laden der SubTasks:', error);
-    return NextResponse.json({ error: 'Fehler beim Laden der SubTasks' }, { status: 500 });
+    console.error('GET /api/subtasks error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST /api/subtasks
+// POST - Neue SubTask erstellen
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { ticketId, title, position } = body;
+    const { ticketId, title, position = 0 } = body;
 
     if (!ticketId || !title) {
-      return NextResponse.json({ error: 'TicketId und Titel erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'ticketId and title are required' }, { status: 400 });
     }
 
-    const subtask = await prisma.subTask.create({
+    // Prüfe ob User Zugriff auf das Ticket hat
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: { team: true }
+    });
+
+    if (!ticket) {
+      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! }
+    });
+
+    // Zugriffskontrolle (nur Creator, Assigned oder Admin)
+    const isAdmin = user?.role === 'admin';
+    const isCreator = ticket.createdById === user?.id;
+    const isAssigned = ticket.assignedToId === user?.id;
+    const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
+
+    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const subTask = await prisma.subTask.create({
       data: {
         ticketId,
         title,
-        position: position ?? 0,
-        completed: false,
-      },
+        position,
+        completed: false
+      }
     });
 
-    return NextResponse.json(subtask, { status: 201 });
+    return NextResponse.json(subTask, { status: 201 });
   } catch (error) {
-    console.error('Fehler beim Erstellen der SubTask:', error);
-    return NextResponse.json({ error: 'Fehler beim Erstellen der SubTask' }, { status: 500 });
+    console.error('POST /api/subtasks error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// PATCH /api/subtasks?id=123
+// PATCH - SubTask aktualisieren (z.B. abhaken)
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'SubTask-ID erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
     const body = await request.json();
     const { title, completed, position } = body;
 
-    const updateData: any = {};
-    if (title !== undefined) updateData.title = title;
-    if (completed !== undefined) updateData.completed = completed;
-    if (position !== undefined) updateData.position = position;
-
-    const subtask = await prisma.subTask.update({
+    // Hole SubTask mit Ticket
+    const subTask = await prisma.subTask.findUnique({
       where: { id },
-      data: updateData,
+      include: {
+        ticket: {
+          include: { team: true }
+        }
+      }
     });
 
-    return NextResponse.json(subtask);
+    if (!subTask) {
+      return NextResponse.json({ error: 'SubTask not found' }, { status: 404 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! }
+    });
+
+    // Zugriffskontrolle
+    const isAdmin = user?.role === 'admin';
+    const isCreator = subTask.ticket.createdById === user?.id;
+    const isAssigned = subTask.ticket.assignedToId === user?.id;
+    const isTeamMember = subTask.ticket.teamId && subTask.ticket.teamId === user?.teamId;
+
+    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const updatedSubTask = await prisma.subTask.update({
+      where: { id },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(completed !== undefined && { completed }),
+        ...(position !== undefined && { position })
+      }
+    });
+
+    return NextResponse.json(updatedSubTask);
   } catch (error) {
-    console.error('Fehler beim Aktualisieren der SubTask:', error);
-    return NextResponse.json({ error: 'Fehler beim Aktualisieren der SubTask' }, { status: 500 });
+    console.error('PATCH /api/subtasks error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// DELETE /api/subtasks?id=123
+// DELETE - SubTask löschen
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'SubTask-ID erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    }
+
+    // Hole SubTask mit Ticket
+    const subTask = await prisma.subTask.findUnique({
+      where: { id },
+      include: {
+        ticket: {
+          include: { team: true }
+        }
+      }
+    });
+
+    if (!subTask) {
+      return NextResponse.json({ error: 'SubTask not found' }, { status: 404 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! }
+    });
+
+    // Zugriffskontrolle
+    const isAdmin = user?.role === 'admin';
+    const isCreator = subTask.ticket.createdById === user?.id;
+    const isAssigned = subTask.ticket.assignedToId === user?.id;
+    const isTeamMember = subTask.ticket.teamId && subTask.ticket.teamId === user?.teamId;
+
+    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     await prisma.subTask.delete({
-      where: { id },
+      where: { id }
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ message: 'SubTask deleted' });
   } catch (error) {
-    console.error('Fehler beim Löschen der SubTask:', error);
-    return NextResponse.json({ error: 'Fehler beim Löschen der SubTask' }, { status: 500 });
+    console.error('DELETE /api/subtasks error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
