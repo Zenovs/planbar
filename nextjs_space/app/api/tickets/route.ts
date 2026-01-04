@@ -141,11 +141,11 @@ export async function POST(req: NextRequest) {
     // Load template data if templateId is provided
     let templateData: any = null;
     if (templateId) {
-      templateData = await prisma.ticketTemplate.findUnique({
+      templateData = await prisma.template.findUnique({
         where: { id: templateId },
         include: {
-          subTasks: {
-            orderBy: { position: 'asc' },
+          subTickets: {
+            orderBy: { order: 'asc' },
           },
         },
       });
@@ -161,21 +161,27 @@ export async function POST(req: NextRequest) {
       finalTeamId = assignedUser?.teamId || null;
     }
 
-    // Prepare ticket data with template fallbacks
+    // Prepare ticket data
     const ticketData: any = {
-      title: title || templateData?.title,
-      description: description || templateData?.content || null,
-      status: status || templateData?.status || 'open',
-      priority: priority || templateData?.priority || 'medium',
+      title,
+      description: description || null,
+      status: status || 'open',
+      priority: priority || 'medium',
       assignedToId: assignedToId || null,
       deadline: deadline ? new Date(deadline) : null,
       teamId: finalTeamId || null,
-      categoryId: categoryId || templateData?.categoryId || null,
+      categoryId: categoryId || null,
       createdById: session.user.id,
     };
 
     // Create sub-tasks from request or template
-    const subTasksData = subTasks || templateData?.subTasks || [];
+    let subTasksData = subTasks || [];
+    
+    // If template is provided and no sub-tasks in request, use template sub-tickets
+    if (templateData && (!subTasks || subTasks.length === 0)) {
+      subTasksData = templateData.subTickets || [];
+    }
+    
     if (subTasksData.length > 0) {
       ticketData.subTasks = {
         create: subTasksData.map((st: any, index: number) => ({

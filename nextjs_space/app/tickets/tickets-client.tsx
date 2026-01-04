@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/header';
 import { TicketCard } from '@/components/ticket-card';
-import { Search, Filter, Plus, SortAsc, ChevronDown, ChevronUp } from 'lucide-react';
+import { TemplatesDialog } from '@/components/templates-dialog';
+import { Search, Filter, Plus, SortAsc, ChevronDown, ChevronUp, FolderKanban } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { TicketWithRelations, STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser } from '@/lib/types';
@@ -22,6 +23,7 @@ export function TicketsClient({ users }: TicketsClientProps) {
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
   const [showFilters, setShowFilters] = useState(false);
+  const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchTickets();
@@ -64,16 +66,27 @@ export function TicketsClient({ users }: TicketsClientProps) {
               Verwalte deine Tickets effizient.
             </p>
           </div>
-          <Link href="/tickets/new" className="w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all min-h-[48px]"
+              onClick={() => setTemplatesDialogOpen(true)}
+              className="flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-300 px-6 py-3 rounded-lg font-medium hover:shadow-md transition-all min-h-[48px]"
             >
-              <Plus className="w-5 h-5" />
-              <span>Neues Ticket</span>
+              <FolderKanban className="w-5 h-5" />
+              <span>Vorlagen verwalten</span>
             </motion.button>
-          </Link>
+            <Link href="/tickets/new" className="w-full sm:w-auto">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all min-h-[48px]"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Neues Ticket</span>
+              </motion.button>
+            </Link>
+          </div>
         </div>
 
         {/* Filters Section */}
@@ -227,6 +240,12 @@ export function TicketsClient({ users }: TicketsClientProps) {
           </div>
         )}
       </main>
+
+      {/* Templates Dialog */}
+      <TemplatesDialog
+        open={templatesDialogOpen}
+        onOpenChange={setTemplatesDialogOpen}
+      />
     </div>
   );
 }

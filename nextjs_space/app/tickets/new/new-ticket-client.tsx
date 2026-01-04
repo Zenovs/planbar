@@ -18,12 +18,17 @@ interface Category {
 interface Template {
   id: string;
   name: string;
-  title: string;
   description: string | null;
-  status: string;
-  priority: string;
-  categoryId: string | null;
-  subTasks: { title: string; position: number }[];
+  subTickets: { 
+    id: string;
+    title: string; 
+    description: string | null;
+    order: number;
+  }[];
+  team: {
+    id: string;
+    name: string;
+  };
 }
 
 interface NewTicketClientProps {
@@ -87,18 +92,13 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     const template = templates.find(t => t.id === templateId);
     if (!template) return;
 
-    // Übernehme Template-Daten
+    // Übernehme Template Sub-Tickets
     setFormData({
       ...formData,
-      title: template.title,
-      description: template.description || '',
-      status: template.status,
-      priority: template.priority,
-      categoryId: template.categoryId || '',
-      subTasks: template.subTasks.map(st => ({ title: st.title }))
+      subTasks: template.subTickets.map(st => ({ title: st.title }))
     });
 
-    toast.success(`Vorlage "${template.name}" geladen`);
+    toast.success(`Vorlage "${template.name}" geladen - ${template.subTickets.length} Sub-Tickets hinzugefügt`);
   }
 
   function addSubTask() {
