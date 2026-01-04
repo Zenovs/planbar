@@ -164,7 +164,9 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
 
       if (res.ok) {
         const data = await res.json();
-        setShareUrl(data.shareUrl);
+        // Construct share URL client-side to use correct origin
+        const clientShareUrl = `${window.location.origin}/share/${data.shareToken}`;
+        setShareUrl(clientShareUrl);
         setTicket({ ...ticket, shareToken: data.shareToken, shareEnabled: true });
         setShowShareDialog(true);
         toast.success('Share-Link erstellt');
