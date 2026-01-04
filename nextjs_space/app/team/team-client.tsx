@@ -249,7 +249,7 @@ export default function TeamClient() {
       if (res.ok) {
         toast.success('Team gelöscht');
         loadTeams();
-        loadUsers(); // Reload users as their teamId might have changed
+        loadUsers();
       } else {
         toast.error('Fehler beim Löschen');
       }
@@ -321,37 +321,39 @@ export default function TeamClient() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <Header />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="flex items-center justify-between mb-8">
+          {/* Header - Stack on mobile */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                <Users className="w-6 h-6 text-white" />
+              <div className="p-2.5 sm:p-3 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">Team-Verwaltung</h1>
-                <p className="text-gray-600">Verwalten Sie Ihre Teams und Mitglieder</p>
+                <h1 className="text-2xl sm:text-3xl font-bold">Team-Verwaltung</h1>
+                <p className="text-sm sm:text-base text-gray-600">Verwalten Sie Teams und Mitglieder</p>
               </div>
             </div>
             {isAdmin && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   onClick={() => setShowAddTeamModal(true)}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                  className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-purple-600 text-white min-h-[44px]"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Team erstellen
+                  <span className="hidden xs:inline">Team</span>
                 </Button>
                 <Button
                   onClick={() => setShowAddUserModal(true)}
                   variant="outline"
+                  className="flex-1 sm:flex-none min-h-[44px]"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Benutzer hinzufügen
+                  <span className="hidden xs:inline">Benutzer</span>
                 </Button>
               </div>
             )}
@@ -359,25 +361,26 @@ export default function TeamClient() {
 
           {/* Teams Section */}
           {isAdmin && teams.length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold mb-4">Teams</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Teams</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {teams.map((team) => (
                   <Card key={team.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
+                    <CardHeader className="p-4 sm:p-6">
                       <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <div
-                            className="w-3 h-3 rounded-full"
+                            className="w-3 h-3 rounded-full flex-shrink-0"
                             style={{ backgroundColor: team.color }}
                           />
-                          <CardTitle className="text-lg">{team.name}</CardTitle>
+                          <CardTitle className="text-base sm:text-lg truncate">{team.name}</CardTitle>
                         </div>
                         {isAdmin && (
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 flex-shrink-0">
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="min-w-[40px] min-h-[40px]"
                               onClick={() => {
                                 setSelectedTeamForAssign(team);
                                 setShowAssignMemberModal(true);
@@ -388,6 +391,7 @@ export default function TeamClient() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="min-w-[40px] min-h-[40px]"
                               onClick={() => handleDeleteTeam(team.id)}
                             >
                               <Trash2 className="w-4 h-4 text-red-600" />
@@ -396,10 +400,10 @@ export default function TeamClient() {
                         )}
                       </div>
                       {team.description && (
-                        <CardDescription>{team.description}</CardDescription>
+                        <CardDescription className="text-sm">{team.description}</CardDescription>
                       )}
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-600">Mitglieder:</span>
@@ -418,16 +422,17 @@ export default function TeamClient() {
                               key={member.id}
                               className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
                             >
-                              <div className="flex items-center gap-2">
-                                <div className="text-sm">
-                                  <p className="font-medium">{member.name}</p>
-                                  <p className="text-xs text-gray-500">{member.email}</p>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="text-sm min-w-0">
+                                  <p className="font-medium truncate">{member.name}</p>
+                                  <p className="text-xs text-gray-500 truncate">{member.email}</p>
                                 </div>
                               </div>
                               {isAdmin && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  className="min-w-[40px] min-h-[40px] flex-shrink-0"
                                   onClick={() => handleRemoveUserFromTeam(member.id, team.id)}
                                 >
                                   <UserMinus className="w-4 h-4 text-red-600" />
@@ -446,16 +451,16 @@ export default function TeamClient() {
 
           {/* Users Section */}
           <div>
-            <h2 className="text-2xl font-bold mb-4">Alle Benutzer</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Alle Benutzer</h2>
             {users.length === 0 ? (
               <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Users className="w-12 h-12 text-gray-400 mb-4" />
-                  <p className="text-gray-600 mb-4">Noch keine Teammitglieder vorhanden</p>
+                <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12">
+                  <Users className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mb-4" />
+                  <p className="text-gray-600 mb-4 text-sm sm:text-base">Noch keine Teammitglieder</p>
                   {isAdmin && (
                     <Button
                       onClick={() => setShowAddUserModal(true)}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white min-h-[44px]"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Ersten Benutzer hinzufügen
@@ -464,7 +469,7 @@ export default function TeamClient() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {users.map((user) => (
                   <motion.div
                     key={user.id}
@@ -472,40 +477,40 @@ export default function TeamClient() {
                     transition={{ duration: 0.2 }}
                   >
                     <Card className="h-full hover:shadow-lg transition-shadow">
-                      <CardHeader>
+                      <CardHeader className="p-4 sm:p-6">
                         <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-base sm:text-lg flex-shrink-0">
                               {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
                             </div>
-                            <div>
-                              <CardTitle className="text-lg">{user.name || 'Unbenannt'}</CardTitle>
-                              <CardDescription className="flex items-center gap-2 mt-1">
-                                <Mail className="w-3 h-3" />
-                                {user.email}
+                            <div className="min-w-0">
+                              <CardTitle className="text-base sm:text-lg truncate">{user.name || 'Unbenannt'}</CardTitle>
+                              <CardDescription className="flex items-center gap-1 sm:gap-2 mt-1 text-xs sm:text-sm">
+                                <Mail className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{user.email}</span>
                               </CardDescription>
                             </div>
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Offene Tickets:</span>
+                            <span className="text-xs sm:text-sm text-gray-600">Offene Tickets:</span>
                             <Badge variant="outline">
                               {user._count?.assignedTickets || 0}
                             </Badge>
                           </div>
 
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Rolle:</span>
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="text-xs sm:text-sm text-gray-600">Rolle:</span>
                             {editingRoleId === user.id ? (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1 sm:gap-2">
                                 <Select
                                   value={tempRole}
                                   onValueChange={setTempRole}
                                 >
-                                  <SelectTrigger className="w-32">
+                                  <SelectTrigger className="w-24 sm:w-32 min-h-[36px] text-xs sm:text-sm">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -516,6 +521,7 @@ export default function TeamClient() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
+                                  className="min-w-[36px] min-h-[36px]"
                                   onClick={() => handleUpdateRole(user.id, tempRole)}
                                   disabled={loading}
                                 >
@@ -524,14 +530,15 @@ export default function TeamClient() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
+                                  className="min-w-[36px] min-h-[36px]"
                                   onClick={() => setEditingRoleId(null)}
                                 >
                                   <X className="w-4 h-4 text-red-600" />
                                 </Button>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2">
-                                <Badge className={getRoleBadgeColor(user.role)}>
+                              <div className="flex items-center gap-1 sm:gap-2">
+                                <Badge className={`${getRoleBadgeColor(user.role)} text-xs`}>
                                   {user.role === 'admin' && <Shield className="w-3 h-3 mr-1" />}
                                   {getRoleLabel(user.role)}
                                 </Badge>
@@ -539,6 +546,7 @@ export default function TeamClient() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
+                                    className="min-w-[36px] min-h-[36px]"
                                     onClick={() => {
                                       setEditingRoleId(user.id);
                                       setTempRole(user.role);
@@ -552,21 +560,21 @@ export default function TeamClient() {
                           </div>
 
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Team:</span>
+                            <span className="text-xs sm:text-sm text-gray-600">Team:</span>
                             {user.teamId ? (
-                              <Badge variant="secondary">
+                              <Badge variant="secondary" className="text-xs">
                                 {teams.find(t => t.id === user.teamId)?.name || 'Unbekannt'}
                               </Badge>
                             ) : (
-                              <Badge variant="outline">Kein Team</Badge>
+                              <Badge variant="outline" className="text-xs">Kein Team</Badge>
                             )}
                           </div>
 
                           <Separator />
 
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Calendar className="w-4 h-4" />
-                            <span>Mitglied seit {format(new Date(user.createdAt), 'dd.MM.yyyy')}</span>
+                          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
+                            <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                            <span>Seit {format(new Date(user.createdAt), 'dd.MM.yyyy')}</span>
                           </div>
 
                           {isAdmin && user.id !== session?.user?.id && (
@@ -576,7 +584,7 @@ export default function TeamClient() {
                                 size="sm"
                                 onClick={() => handleDeleteUser(user.id)}
                                 disabled={loading}
-                                className="w-full"
+                                className="w-full min-h-[44px]"
                               >
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 Löschen
@@ -594,9 +602,9 @@ export default function TeamClient() {
         </motion.div>
       </div>
 
-      {/* Add User Modal */}
+      {/* Add User Modal - Mobile optimized */}
       <Dialog open={showAddUserModal} onOpenChange={setShowAddUserModal}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md mx-auto rounded-t-2xl sm:rounded-xl">
           <DialogHeader>
             <DialogTitle>Neuen Benutzer hinzufügen</DialogTitle>
             <DialogDescription>
@@ -611,6 +619,7 @@ export default function TeamClient() {
                 value={newUserForm.name}
                 onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
                 placeholder="Max Mustermann"
+                className="min-h-[44px]"
               />
             </div>
             <div>
@@ -621,6 +630,7 @@ export default function TeamClient() {
                 value={newUserForm.email}
                 onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
                 placeholder="max@example.com"
+                className="min-h-[44px]"
               />
             </div>
             <div>
@@ -631,6 +641,7 @@ export default function TeamClient() {
                 value={newUserForm.password}
                 onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
                 placeholder="Mindestens 6 Zeichen"
+                className="min-h-[44px]"
               />
             </div>
             <div>
@@ -639,7 +650,7 @@ export default function TeamClient() {
                 value={newUserForm.role}
                 onValueChange={(value) => setNewUserForm({ ...newUserForm, role: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="min-h-[44px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -649,20 +660,20 @@ export default function TeamClient() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddUserModal(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowAddUserModal(false)} className="w-full sm:w-auto min-h-[44px]">
               Abbrechen
             </Button>
-            <Button onClick={handleAddUser} disabled={loading}>
+            <Button onClick={handleAddUser} disabled={loading} className="w-full sm:w-auto min-h-[44px]">
               {loading ? 'Erstellen...' : 'Benutzer erstellen'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Add Team Modal */}
+      {/* Add Team Modal - Mobile optimized */}
       <Dialog open={showAddTeamModal} onOpenChange={setShowAddTeamModal}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md mx-auto rounded-t-2xl sm:rounded-xl">
           <DialogHeader>
             <DialogTitle>Neues Team erstellen</DialogTitle>
             <DialogDescription>
@@ -676,7 +687,8 @@ export default function TeamClient() {
                 id="teamName"
                 value={newTeamForm.name}
                 onChange={(e) => setNewTeamForm({ ...newTeamForm, name: e.target.value })}
-                placeholder="z.B. Entwicklung, Marketing, Support"
+                placeholder="z.B. Entwicklung, Marketing"
+                className="min-h-[44px]"
               />
             </div>
             <div>
@@ -685,7 +697,8 @@ export default function TeamClient() {
                 id="teamDescription"
                 value={newTeamForm.description}
                 onChange={(e) => setNewTeamForm({ ...newTeamForm, description: e.target.value })}
-                placeholder="Kurze Beschreibung des Teams"
+                placeholder="Kurze Beschreibung"
+                className="min-h-[44px]"
               />
             </div>
             <div>
@@ -696,48 +709,48 @@ export default function TeamClient() {
                   type="color"
                   value={newTeamForm.color}
                   onChange={(e) => setNewTeamForm({ ...newTeamForm, color: e.target.value })}
-                  className="w-20 h-10 cursor-pointer"
+                  className="w-16 sm:w-20 h-11 cursor-pointer"
                 />
                 <Input
                   type="text"
                   value={newTeamForm.color}
                   onChange={(e) => setNewTeamForm({ ...newTeamForm, color: e.target.value })}
-                  className="flex-1"
+                  className="flex-1 min-h-[44px]"
                   placeholder="#3b82f6"
                 />
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddTeamModal(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowAddTeamModal(false)} className="w-full sm:w-auto min-h-[44px]">
               Abbrechen
             </Button>
-            <Button onClick={handleAddTeam} disabled={loading}>
+            <Button onClick={handleAddTeam} disabled={loading} className="w-full sm:w-auto min-h-[44px]">
               {loading ? 'Erstellen...' : 'Team erstellen'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Assign Member Modal */}
+      {/* Assign Member Modal - Mobile optimized */}
       <Dialog open={showAssignMemberModal} onOpenChange={setShowAssignMemberModal}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md mx-auto rounded-t-2xl sm:rounded-xl">
           <DialogHeader>
             <DialogTitle>Mitglied zu {selectedTeamForAssign?.name} hinzufügen</DialogTitle>
             <DialogDescription>
-              Wählen Sie ein Mitglied aus, das diesem Team hinzugefügt werden soll
+              Wählen Sie ein Mitglied aus
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto">
             {getUnassignedUsers().length === 0 ? (
-              <p className="text-center text-gray-500 py-8">
-                Keine verfügbaren Benutzer. Alle Benutzer sind bereits einem Team zugewiesen.
+              <p className="text-center text-gray-500 py-8 text-sm">
+                Keine verfügbaren Benutzer. Alle sind bereits einem Team zugewiesen.
               </p>
             ) : (
               getUnassignedUsers().map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer active:bg-gray-100 min-h-[56px]"
                   onClick={() => {
                     if (selectedTeamForAssign) {
                       handleAssignUserToTeam(user.id, selectedTeamForAssign.id);
@@ -745,11 +758,11 @@ export default function TeamClient() {
                     }
                   }}
                 >
-                  <div>
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-sm text-gray-500">{user.email}</p>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm sm:text-base truncate">{user.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 truncate">{user.email}</p>
                   </div>
-                  <Button size="sm" variant="ghost">
+                  <Button size="sm" variant="ghost" className="min-w-[40px] min-h-[40px] flex-shrink-0">
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
@@ -757,7 +770,7 @@ export default function TeamClient() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignMemberModal(false)}>
+            <Button variant="outline" onClick={() => setShowAssignMemberModal(false)} className="w-full min-h-[44px]">
               Schließen
             </Button>
           </DialogFooter>

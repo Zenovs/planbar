@@ -31,28 +31,30 @@ export function DashboardClient({ session, stats, recentTickets, users }: Dashbo
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex items-start justify-between">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Header Section - Stack on mobile */}
+        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Willkommen zurück, {session?.user?.name || 'User'}!
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">
+              Willkommen, {session?.user?.name?.split(' ')[0] || 'User'}!
             </h1>
-            <p className="text-gray-600">
-              Hier ist eine Übersicht über deine Tickets und das Team.
+            <p className="text-sm sm:text-base text-gray-600">
+              Übersicht deiner Tickets und Team.
             </p>
           </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleExportAllToCalendar}
-            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all flex items-center gap-2 shadow-md"
+            className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all flex items-center justify-center gap-2 shadow-md min-h-[48px] sm:min-h-0"
           >
             <CalendarDays className="w-5 h-5" />
-            Tickets exportieren
+            <span>Tickets exportieren</span>
           </motion.button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Stats Grid - 2x2 on mobile, 4 cols on desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <StatsCard
             title="Gesamt"
             value={stats?.total || 0}
@@ -83,27 +85,28 @@ export function DashboardClient({ session, stats, recentTickets, users }: Dashbo
           />
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Neueste Tickets</h2>
+        {/* Recent Tickets Section */}
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Neueste Tickets</h2>
             <div className="flex gap-2">
-              <Link href="/tickets/new">
+              <Link href="/tickets/new" className="flex-1 sm:flex-none">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:shadow-lg transition-all"
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all min-h-[44px]"
                 >
                   <Plus className="w-4 h-4" />
-                  Neues Ticket
+                  <span className="text-sm sm:text-base">Neues Ticket</span>
                 </motion.button>
               </Link>
-              <Link href="/tickets">
+              <Link href="/tickets" className="flex-1 sm:flex-none">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition-all"
+                  className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg font-medium hover:bg-gray-200 transition-all min-h-[44px]"
                 >
-                  Alle anzeigen
+                  <span className="text-sm sm:text-base">Alle</span>
                   <ArrowRight className="w-4 h-4" />
                 </motion.button>
               </Link>
@@ -111,20 +114,20 @@ export function DashboardClient({ session, stats, recentTickets, users }: Dashbo
           </div>
 
           {recentTickets && recentTickets.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               {recentTickets.slice(0, 6).map((ticket, index) => (
                 <TicketCard key={ticket?.id} ticket={ticket} index={index} />
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <Ticket className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 mb-4">Noch keine Tickets vorhanden</p>
+            <div className="text-center py-8 sm:py-12">
+              <Ticket className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-4 text-sm sm:text-base">Noch keine Tickets vorhanden</p>
               <Link href="/tickets/new">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all"
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all min-h-[48px]"
                 >
                   Erstes Ticket erstellen
                 </motion.button>
@@ -133,49 +136,47 @@ export function DashboardClient({ session, stats, recentTickets, users }: Dashbo
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Team-Übersicht</h2>
+        {/* Team Section */}
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Team-Übersicht</h2>
             <Link href="/team">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium min-h-[44px] px-2"
               >
-                Zum Team
+                <span className="text-sm sm:text-base">Zum Team</span>
                 <ArrowRight className="w-4 h-4" />
               </motion.button>
             </Link>
           </div>
 
           {users && users.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {users.map((user, index) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {users.slice(0, 6).map((user, index) => (
                 <motion.div
-                  key={user?.id}
+                  key={user.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-4 border border-gray-100"
+                  transition={{ delay: index * 0.1 }}
+                  className="flex items-center gap-3 p-3 sm:p-4 bg-gray-50 rounded-lg"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">
-                      {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">
-                        {user?.name || user?.email}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {user?._count?.assignedTickets || 0} offene Tickets
-                      </p>
-                    </div>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0">
+                    {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-gray-900 truncate text-sm sm:text-base">{user.name || 'Unbekannt'}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 truncate">{user.email}</p>
+                    <p className="text-xs text-blue-600 mt-0.5">
+                      {user._count?.tickets || 0} Tickets
+                    </p>
                   </div>
                 </motion.div>
               ))}
             </div>
           ) : (
-            <p className="text-center text-gray-500 py-8">Keine Team-Mitglieder gefunden</p>
+            <p className="text-center text-gray-500 py-8 text-sm sm:text-base">Keine Teammitglieder gefunden</p>
           )}
         </div>
       </main>

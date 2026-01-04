@@ -8,6 +8,14 @@ const config: Config = {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    screens: {
+      'xs': '375px',  // Small phones (iPhone SE, etc.)
+      'sm': '640px',  // Large phones / small tablets
+      'md': '768px',  // iPad Mini / tablets
+      'lg': '1024px', // iPad Pro / laptops
+      'xl': '1280px', // Desktop
+      '2xl': '1536px', // Large desktop
+    },
     extend: {
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

@@ -14,7 +14,8 @@ import {
   Share2, 
   Copy,
   CheckCircle2,
-  Circle
+  Circle,
+  MoreVertical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/status-badge';
 import { PriorityBadge } from '@/components/priority-badge';
@@ -279,22 +286,24 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-3 sm:p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
+        {/* Header - Mobile optimized */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8"
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8"
         >
-          <div className="flex items-center gap-4">
-            <Button onClick={() => router.push('/tickets')} variant="outline" size="sm">
-              <ArrowLeft size={16} className="mr-2" />
-              Zurück
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button onClick={() => router.push('/tickets')} variant="outline" size="sm" className="min-h-[44px] min-w-[44px] sm:min-w-0 px-2 sm:px-3">
+              <ArrowLeft size={18} />
+              <span className="hidden sm:inline ml-2">Zurück</span>
             </Button>
-            <h1 className="text-3xl font-bold">Ticket Details</h1>
+            <h1 className="text-xl sm:text-3xl font-bold">Ticket Details</h1>
           </div>
-          <div className="flex gap-2">
+          
+          {/* Desktop actions */}
+          <div className="hidden sm:flex gap-2">
             <Button onClick={handleGenerateShareLink} variant="outline" size="sm">
               <Share2 size={16} className="mr-2" />
               Teilen
@@ -322,34 +331,74 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
               </>
             )}
           </div>
+
+          {/* Mobile actions */}
+          <div className="flex sm:hidden gap-2 w-full">
+            {isEditing ? (
+              <>
+                <Button onClick={handleSave} size="sm" disabled={isSaving} className="flex-1 min-h-[44px]">
+                  <Save size={16} className="mr-2" />
+                  Speichern
+                </Button>
+                <Button onClick={() => setIsEditing(false)} variant="outline" size="sm" className="min-h-[44px] min-w-[44px]">
+                  <X size={18} />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button onClick={handleGenerateShareLink} variant="outline" size="sm" className="flex-1 min-h-[44px]">
+                  <Share2 size={16} className="mr-2" />
+                  Teilen
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="min-h-[44px] min-w-[44px]">
+                      <MoreVertical size={18} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                      <Edit2 size={16} className="mr-2" />
+                      Bearbeiten
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+                      <Trash2 size={16} className="mr-2" />
+                      Löschen
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
+          </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Content Grid - Stack on mobile */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="p-4 sm:p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     {isEditing ? (
                       <Input
                         value={formData.title}
                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        className="text-2xl font-bold mb-3"
+                        className="text-lg sm:text-2xl font-bold mb-3 min-h-[48px]"
                       />
                     ) : (
-                      <CardTitle className="text-2xl">{ticket.title}</CardTitle>
+                      <CardTitle className="text-lg sm:text-2xl">{ticket.title}</CardTitle>
                     )}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 mt-4">
+                <div className="flex flex-wrap gap-2 mt-3 sm:mt-4">
                   {isEditing ? (
-                    <>
+                    <div className="flex flex-wrap gap-2 w-full">
                       <Select
                         value={formData.status}
                         onValueChange={(value) => setFormData({ ...formData, status: value })}
                       >
-                        <SelectTrigger className="w-40">
+                        <SelectTrigger className="w-full sm:w-40 min-h-[44px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -362,7 +411,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                         value={formData.priority}
                         onValueChange={(value) => setFormData({ ...formData, priority: value })}
                       >
-                        <SelectTrigger className="w-32">
+                        <SelectTrigger className="w-full sm:w-32 min-h-[44px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -371,7 +420,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                           <SelectItem value="high">Hoch</SelectItem>
                         </SelectContent>
                       </Select>
-                    </>
+                    </div>
                   ) : (
                     <>
                       <StatusBadge status={ticket.status} />
@@ -392,17 +441,18 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-4">
                 <div>
-                  <Label>Beschreibung</Label>
+                  <Label className="text-sm font-medium">Beschreibung</Label>
                   {isEditing ? (
                     <Textarea
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows={6}
+                      className="mt-2 min-h-[120px] text-base"
                     />
                   ) : (
-                    <p className="mt-2 text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                    <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
                       {ticket.description || 'Keine Beschreibung'}
                     </p>
                   )}
@@ -412,8 +462,8 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
 
             {/* Sub-Tasks */}
             <Card>
-              <CardHeader>
-                <CardTitle>Sub-Tasks ({(ticket.subTasks || []).length})</CardTitle>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg">Sub-Tasks ({(ticket.subTasks || []).length})</CardTitle>
                 {ticket.subTasks && ticket.subTasks.length > 0 && (
                   <div className="mt-2">
                     <div className="flex items-center justify-between text-sm">
@@ -429,26 +479,26 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                   </div>
                 )}
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-2 sm:space-y-3">
                 {(ticket.subTasks || []).map((subTask) => (
                   <motion.div
                     key={subTask.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    className="flex items-center gap-2 sm:gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
                     <button
                       onClick={() => handleToggleSubTask(subTask.id, subTask.completed)}
-                      className="flex-shrink-0"
+                      className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -m-2"
                     >
                       {subTask.completed ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        <CheckCircle2 className="h-6 w-6 text-green-600" />
                       ) : (
-                        <Circle className="h-5 w-5 text-gray-400" />
+                        <Circle className="h-6 w-6 text-gray-400" />
                       )}
                     </button>
                     <span
-                      className={`flex-1 ${
+                      className={`flex-1 text-sm sm:text-base ${
                         subTask.completed ? 'line-through text-gray-500' : ''
                       }`}
                     >
@@ -458,9 +508,9 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                       onClick={() => handleDeleteSubTask(subTask.id)}
                       size="sm"
                       variant="ghost"
-                      className="text-red-600"
+                      className="text-red-600 min-w-[44px] min-h-[44px]"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={16} />
                     </Button>
                   </motion.div>
                 ))}
@@ -469,6 +519,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                     value={newSubTaskTitle}
                     onChange={(e) => setNewSubTaskTitle(e.target.value)}
                     placeholder="Neue Sub-Task..."
+                    className="flex-1 min-h-[44px] text-base"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -476,29 +527,29 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                       }
                     }}
                   />
-                  <Button onClick={handleAddSubTask} size="sm">
-                    <Plus size={16} />
+                  <Button onClick={handleAddSubTask} size="sm" className="min-w-[44px] min-h-[44px]">
+                    <Plus size={18} />
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
+          {/* Sidebar - Cards */}
+          <div className="space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Details</CardTitle>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg">Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-4">
                 <div>
-                  <Label>Zugewiesen an</Label>
+                  <Label className="text-sm">Zugewiesen an</Label>
                   {isEditing ? (
                     <Select
                       value={formData.assignedToId}
                       onValueChange={(value) => setFormData({ ...formData, assignedToId: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1 min-h-[44px]">
                         <SelectValue placeholder="Niemand" />
                       </SelectTrigger>
                       <SelectContent>
@@ -517,13 +568,13 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                   )}
                 </div>
                 <div>
-                  <Label>Kategorie</Label>
+                  <Label className="text-sm">Kategorie</Label>
                   {isEditing ? (
                     <Select
                       value={formData.categoryId}
                       onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1 min-h-[44px]">
                         <SelectValue placeholder="Keine Kategorie" />
                       </SelectTrigger>
                       <SelectContent>
@@ -546,12 +597,13 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                   )}
                 </div>
                 <div>
-                  <Label>Fälligkeitsdatum</Label>
+                  <Label className="text-sm">Fälligkeitsdatum</Label>
                   {isEditing ? (
                     <Input
                       type="date"
                       value={formData.deadline}
                       onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                      className="mt-1 min-h-[44px]"
                     />
                   ) : (
                     <p className="mt-1 text-sm">
@@ -562,7 +614,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                   )}
                 </div>
                 <div>
-                  <Label>Erstellt von</Label>
+                  <Label className="text-sm">Erstellt von</Label>
                   <p className="mt-1 text-sm">{ticket.createdBy?.name || ticket.createdBy?.email}</p>
                 </div>
               </CardContent>
@@ -571,10 +623,10 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
             {/* Share Link */}
             {ticket.shareToken && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Share-Link</CardTitle>
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="text-base sm:text-lg">Share-Link</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Status:</span>
                     <Badge variant={ticket.shareEnabled ? 'default' : 'secondary'}>
@@ -585,7 +637,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                     onClick={handleToggleShareEnabled}
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="w-full min-h-[44px]"
                   >
                     {ticket.shareEnabled ? 'Deaktivieren' : 'Aktivieren'}
                   </Button>
@@ -598,7 +650,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                       }}
                       variant="outline"
                       size="sm"
-                      className="w-full"
+                      className="w-full min-h-[44px]"
                     >
                       <Copy size={14} className="mr-2" />
                       Link kopieren
@@ -610,31 +662,31 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
           </div>
         </div>
 
-        {/* Share Dialog */}
+        {/* Share Dialog - Mobile optimized */}
         {showShareDialog && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
             onClick={() => setShowShareDialog(false)}
           >
             <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-t-2xl sm:rounded-xl w-full sm:max-w-md"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-xl font-bold mb-4">Share-Link erstellt</h3>
+              <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Share-Link erstellt</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Dieser Link kann öffentlich geteilt werden:
               </p>
               <div className="flex gap-2 mb-4">
-                <Input value={shareUrl} readOnly className="flex-1" />
-                <Button onClick={handleCopyShareLink} size="sm">
-                  <Copy size={16} />
+                <Input value={shareUrl} readOnly className="flex-1 min-h-[44px] text-sm" />
+                <Button onClick={handleCopyShareLink} size="sm" className="min-w-[44px] min-h-[44px]">
+                  <Copy size={18} />
                 </Button>
               </div>
-              <Button onClick={() => setShowShareDialog(false)} className="w-full">
+              <Button onClick={() => setShowShareDialog(false)} className="w-full min-h-[48px]">
                 Schließen
               </Button>
             </motion.div>

@@ -39,15 +39,15 @@ export function StatsCard({ title, value, icon: Icon, color, index = 0 }: StatsC
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-6 border border-gray-100"
+      className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-3 sm:p-6 border border-gray-100"
     >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-gray-900">{count}</p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-gray-600 mb-0.5 sm:mb-1 truncate">{title}</p>
+          <p className="text-xl sm:text-3xl font-bold text-gray-900">{count}</p>
         </div>
-        <div className={`${color} p-4 rounded-xl`}>
-          <Icon className="w-6 h-6 text-white" />
+        <div className={`${color} p-2.5 sm:p-4 rounded-lg sm:rounded-xl flex-shrink-0`}>
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </div>
       </div>
     </motion.div>
