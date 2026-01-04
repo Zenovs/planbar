@@ -25,14 +25,13 @@ export async function GET(req: NextRequest) {
         imagePublic: true,
         role: true,
         emailNotifications: true,
-        primaryColor: true,
-        secondaryColor: true,
-        accentColor: true,
-        borderRadius: true,
-        backgroundImage: true,
-        backgroundImagePublic: true,
-        layout: true,
-        designTemplate: true,
+        designPrimaryColor: true,
+        designSecondaryColor: true,
+        designAccentColor: true,
+        designBorderRadius: true,
+        designLayoutDensity: true,
+        designBackgroundImage: true,
+        designBackgroundPublic: true,
         createdAt: true,
       },
     });
@@ -43,7 +42,7 @@ export async function GET(req: NextRequest) {
 
     // Generate full URLs for images stored in S3
     let imageUrl = user.image;
-    let backgroundImageUrl = user.backgroundImage;
+    let backgroundImageUrl = user.designBackgroundImage;
 
     if (user.image) {
       try {
@@ -53,9 +52,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (user.backgroundImage) {
+    if (user.designBackgroundImage) {
       try {
-        backgroundImageUrl = await getFileUrl(user.backgroundImage, user.backgroundImagePublic);
+        backgroundImageUrl = await getFileUrl(user.designBackgroundImage, user.designBackgroundPublic);
       } catch (error) {
         console.error('Error generating background image URL:', error);
       }
@@ -65,7 +64,7 @@ export async function GET(req: NextRequest) {
       user: {
         ...user,
         image: imageUrl,
-        backgroundImage: backgroundImageUrl,
+        designBackgroundImage: backgroundImageUrl,
       }
     }, { status: 200 });
   } catch (error) {
@@ -94,14 +93,13 @@ export async function PATCH(req: NextRequest) {
       image,
       imagePublic,
       emailNotifications,
-      primaryColor,
-      secondaryColor,
-      accentColor,
-      borderRadius,
-      backgroundImage,
-      backgroundImagePublic,
-      layout,
-      designTemplate,
+      designPrimaryColor,
+      designSecondaryColor,
+      designAccentColor,
+      designBorderRadius,
+      designLayoutDensity,
+      designBackgroundImage,
+      designBackgroundPublic,
     } = body;
 
     // Get current user data
@@ -165,9 +163,9 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Delete old background image if new one is provided and different
-    if (backgroundImage && currentUser.backgroundImage && currentUser.backgroundImage !== backgroundImage) {
+    if (designBackgroundImage && currentUser.designBackgroundImage && currentUser.designBackgroundImage !== designBackgroundImage) {
       try {
-        await deleteFile(currentUser.backgroundImage);
+        await deleteFile(currentUser.designBackgroundImage);
       } catch (error) {
         console.error('Error deleting old background image:', error);
         // Continue anyway
@@ -183,14 +181,13 @@ export async function PATCH(req: NextRequest) {
     if (image !== undefined) updateData.image = image;
     if (imagePublic !== undefined) updateData.imagePublic = imagePublic;
     if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications;
-    if (primaryColor !== undefined) updateData.primaryColor = primaryColor;
-    if (secondaryColor !== undefined) updateData.secondaryColor = secondaryColor;
-    if (accentColor !== undefined) updateData.accentColor = accentColor;
-    if (borderRadius !== undefined) updateData.borderRadius = borderRadius;
-    if (backgroundImage !== undefined) updateData.backgroundImage = backgroundImage;
-    if (backgroundImagePublic !== undefined) updateData.backgroundImagePublic = backgroundImagePublic;
-    if (layout !== undefined) updateData.layout = layout;
-    if (designTemplate !== undefined) updateData.designTemplate = designTemplate;
+    if (designPrimaryColor !== undefined) updateData.designPrimaryColor = designPrimaryColor;
+    if (designSecondaryColor !== undefined) updateData.designSecondaryColor = designSecondaryColor;
+    if (designAccentColor !== undefined) updateData.designAccentColor = designAccentColor;
+    if (designBorderRadius !== undefined) updateData.designBorderRadius = designBorderRadius;
+    if (designLayoutDensity !== undefined) updateData.designLayoutDensity = designLayoutDensity;
+    if (designBackgroundImage !== undefined) updateData.designBackgroundImage = designBackgroundImage;
+    if (designBackgroundPublic !== undefined) updateData.designBackgroundPublic = designBackgroundPublic;
 
     // Update user
     const updatedUser = await prisma.user.update({
@@ -204,14 +201,13 @@ export async function PATCH(req: NextRequest) {
         imagePublic: true,
         role: true,
         emailNotifications: true,
-        primaryColor: true,
-        secondaryColor: true,
-        accentColor: true,
-        borderRadius: true,
-        backgroundImage: true,
-        backgroundImagePublic: true,
-        layout: true,
-        designTemplate: true,
+        designPrimaryColor: true,
+        designSecondaryColor: true,
+        designAccentColor: true,
+        designBorderRadius: true,
+        designLayoutDensity: true,
+        designBackgroundImage: true,
+        designBackgroundPublic: true,
       },
     });
 
