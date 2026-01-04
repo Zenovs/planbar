@@ -93,8 +93,8 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
     status: ticket.status,
     priority: ticket.priority,
     deadline: ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '',
-    assignedToId: ticket.assignedToId || '',
-    categoryId: ticket.categoryId || '',
+    assignedToId: ticket.assignedToId || 'none',
+    categoryId: ticket.categoryId || 'none',
   });
 
   const handleSave = async () => {
@@ -114,8 +114,8 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
           status: formData.status,
           priority: formData.priority,
           deadline: formData.deadline || null,
-          assignedToId: formData.assignedToId || null,
-          categoryId: formData.categoryId || null,
+          assignedToId: formData.assignedToId === 'none' ? null : formData.assignedToId,
+          categoryId: formData.categoryId === 'none' ? null : formData.categoryId,
         }),
       });
 
@@ -553,7 +553,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                         <SelectValue placeholder="Niemand" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Niemand</SelectItem>
+                        <SelectItem value="none">Niemand</SelectItem>
                         {users.map((user) => (
                           <SelectItem key={user.id} value={user.id}>
                             {user.name || user.email}
@@ -578,7 +578,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                         <SelectValue placeholder="Keine Kategorie" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Keine Kategorie</SelectItem>
+                        <SelectItem value="none">Keine Kategorie</SelectItem>
                         {categories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>
                             <div className="flex items-center gap-2">
