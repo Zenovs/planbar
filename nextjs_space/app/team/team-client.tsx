@@ -87,7 +87,7 @@ export default function TeamClient() {
     color: '#3b82f6',
   });
 
-  const isAdmin = status === 'authenticated' && session?.user?.role === 'admin';
+  const isAdmin = status === 'authenticated' && ['admin', 'Administrator', 'ADMIN'].includes(session?.user?.role || '');
 
   useEffect(() => {
     loadUsers();
