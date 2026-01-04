@@ -169,7 +169,7 @@ export function DashboardClient({ session, stats, recentTickets, users }: Dashbo
                     <p className="font-medium text-gray-900 truncate text-sm sm:text-base">{user.name || 'Unbekannt'}</p>
                     <p className="text-xs sm:text-sm text-gray-500 truncate">{user.email}</p>
                     <p className="text-xs text-blue-600 mt-0.5">
-                      {user._count?.tickets || 0} Tickets
+                      {user._count?.assignedTickets || 0} Tickets
                     </p>
                   </div>
                 </motion.div>
