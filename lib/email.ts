@@ -95,7 +95,7 @@ export async function sendTicketAssignedEmail(
           <h3 style="margin: 0 0 10px 0; color: #1f2937;">${ticketTitle}</h3>
           <p style="color: #6b7280; margin: 0;">Zugewiesen von: ${assignedBy}</p>
         </div>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+        <a href="${process.env.NEXTAUTH_URL}/tickets/${ticketId}" 
            style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
           Ticket anzeigen
         </a>
@@ -159,7 +159,7 @@ export async function sendTicketStatusChangedEmail(
           </div>
           <p style="color: #6b7280; margin: 10px 0 0 0;">Geändert von: ${changedBy}</p>
         </div>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+        <a href="${process.env.NEXTAUTH_URL}/tickets/${ticketId}" 
            style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
           Ticket anzeigen
         </a>
@@ -205,7 +205,7 @@ export async function sendTicketCreatedEmail(
           <h3 style="margin: 0 0 10px 0; color: #1f2937;">${ticketTitle}</h3>
           <p style="color: #6b7280; margin: 0;">Erstellt von: ${createdBy}</p>
         </div>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+        <a href="${process.env.NEXTAUTH_URL}/tickets/${ticketId}" 
            style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
           Ticket anzeigen
         </a>
