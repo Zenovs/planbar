@@ -30,16 +30,26 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email! }
+      where: { email: session.user.email! },
+      select: { id: true, role: true, teamId: true }
     });
 
-    // Zugriffskontrolle (nur Creator, Assigned oder Admin)
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+
+    // Zugriffskontrolle (nur Creator, Assigned, Team-Mitglied oder Admin)
     const isAdmin = user?.role === 'admin';
     const isCreator = ticket.createdById === user?.id;
     const isAssigned = ticket.assignedToId === user?.id;
-    const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
+    // Team-Check nur wenn Ticket einem Team zugeordnet ist
+    const isTeamMember = ticket.teamId ? (user?.teamId === ticket.teamId) : false;
 
-    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember) {
+    // Erlaube Zugriff wenn: Admin, Creator, Assigned, oder Team-Mitglied (falls Ticket Team hat)
+    const hasAccess = isAdmin || isCreator || isAssigned || isTeamMember;
+    
+    if (!hasAccess) {
+      console.log('Share access denied:', { userId: user?.id, ticketId, isAdmin, isCreator, isAssigned, isTeamMember });
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
