@@ -7,8 +7,8 @@ import { CheckCircle2, Circle, Clock, AlertCircle, Calendar, User } from 'lucide
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import StatusBadge from '@/components/status-badge';
-import PriorityBadge from '@/components/priority-badge';
+import { StatusBadge } from '@/components/status-badge';
+import { PriorityBadge } from '@/components/priority-badge';
 
 interface SubTask {
   id: string;
