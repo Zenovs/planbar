@@ -338,7 +338,8 @@ export default function TeamClient() {
                 <p className="text-sm sm:text-base text-gray-600">Verwalten Sie Teams und Mitglieder</p>
               </div>
             </div>
-            {isAdmin && (
+            {/* Admin buttons - show for authenticated admins */}
+            {status === 'authenticated' && session?.user?.role === 'admin' && (
               <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   onClick={() => setShowAddTeamModal(true)}
@@ -355,6 +356,12 @@ export default function TeamClient() {
                   <Plus className="w-4 h-4 mr-2" />
                   <span>Benutzer</span>
                 </Button>
+              </div>
+            )}
+            {/* Debug: Show button state */}
+            {status === 'authenticated' && session?.user?.role !== 'admin' && (
+              <div className="text-xs text-gray-400">
+                Role: {session?.user?.role || 'undefined'}
               </div>
             )}
           </div>
