@@ -1,24 +1,22 @@
 import nodemailer from 'nodemailer';
 import prisma from './db';
 
-// Get SMTP configuration from settings
+// Get SMTP configuration from environment variables
 async function getEmailConfig() {
-  const settings = await prisma.settings.findFirst();
-  
-  if (!settings?.smtpHost || !settings?.smtpUser || !settings?.smtpPassword) {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
     console.warn('Email configuration not set up');
     return null;
   }
 
   return {
-    host: settings.smtpHost,
-    port: settings.smtpPort || 587,
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
     secure: false, // true for 465, false for other ports
     auth: {
-      user: settings.smtpUser,
-      pass: settings.smtpPassword,
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
     },
-    from: settings.smtpFrom || settings.smtpUser,
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
   };
 }
 
@@ -76,9 +74,9 @@ export async function sendTicketAssignedEmail(
   ticketId: string,
   assignedBy: string
 ) {
-  const settings = await prisma.settings.findFirst();
-  const companyName = settings?.companyName || 'planbar';
-  const primaryColor = settings?.primaryColor || '#3b82f6';
+  
+  const companyName = process.env.COMPANY_NAME || 'planbar';
+  const primaryColor = process.env.PRIMARY_COLOR || '#3b82f6';
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -124,9 +122,9 @@ export async function sendTicketStatusChangedEmail(
   newStatus: string,
   changedBy: string
 ) {
-  const settings = await prisma.settings.findFirst();
-  const companyName = settings?.companyName || 'planbar';
-  const primaryColor = settings?.primaryColor || '#3b82f6';
+  
+  const companyName = process.env.COMPANY_NAME || 'planbar';
+  const primaryColor = process.env.PRIMARY_COLOR || '#3b82f6';
 
   const statusColors: Record<string, string> = {
     open: '#3b82f6',
@@ -186,9 +184,9 @@ export async function sendTicketCreatedEmail(
   ticketId: string,
   createdBy: string
 ) {
-  const settings = await prisma.settings.findFirst();
-  const companyName = settings?.companyName || 'planbar';
-  const primaryColor = settings?.primaryColor || '#3b82f6';
+  
+  const companyName = process.env.COMPANY_NAME || 'planbar';
+  const primaryColor = process.env.PRIMARY_COLOR || '#3b82f6';
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
