@@ -66,6 +66,10 @@ export async function PATCH(
         assignedTo: true,
         createdBy: true,
         team: true,
+        category: true,
+        subTasks: {
+          orderBy: { position: 'asc' },
+        },
       },
     });
 
@@ -80,6 +84,7 @@ export async function PATCH(
     if (status !== undefined) updateData.status = status;
     if (priority !== undefined) updateData.priority = priority;
     if (categoryId !== undefined) updateData.categoryId = categoryId;
+    
     if (assignedToId !== undefined) {
       updateData.assignedToId = assignedToId;
       
