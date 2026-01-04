@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
-import { deleteFile } from '@/lib/s3';
+import { deleteFile, getFileUrl } from '@/lib/s3';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +41,33 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Benutzer nicht gefunden' }, { status: 404 });
     }
 
-    return NextResponse.json({ user }, { status: 200 });
+    // Generate full URLs for images stored in S3
+    let imageUrl = user.image;
+    let backgroundImageUrl = user.backgroundImage;
+
+    if (user.image) {
+      try {
+        imageUrl = await getFileUrl(user.image, user.imagePublic);
+      } catch (error) {
+        console.error('Error generating image URL:', error);
+      }
+    }
+
+    if (user.backgroundImage) {
+      try {
+        backgroundImageUrl = await getFileUrl(user.backgroundImage, user.backgroundImagePublic);
+      } catch (error) {
+        console.error('Error generating background image URL:', error);
+      }
+    }
+
+    return NextResponse.json({ 
+      user: {
+        ...user,
+        image: imageUrl,
+        backgroundImage: backgroundImageUrl,
+      }
+    }, { status: 200 });
   } catch (error) {
     console.error('Get profile error:', error);
     return NextResponse.json(

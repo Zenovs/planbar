@@ -6,7 +6,7 @@ import { Header } from '@/components/header';
 import { StatusBadge } from '@/components/status-badge';
 import { PriorityBadge } from '@/components/priority-badge';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Trash2, Calendar, User as UserIcon, Clock } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Calendar, CalendarDays, User as UserIcon, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser, TicketWithRelations } from '@/lib/types';
 import { format } from 'date-fns';
@@ -32,6 +32,11 @@ export function TicketDetailClient({ ticket: initialTicket, users }: TicketDetai
       ? format(new Date(initialTicket.deadline), 'yyyy-MM-dd')
       : '',
   });
+
+  const handleExportToCalendar = () => {
+    const exportUrl = `/api/calendar/export?ticketId=${initialTicket?.id}`;
+    window.open(exportUrl, '_blank');
+  };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,6 +125,18 @@ export function TicketDetailClient({ ticket: initialTicket, users }: TicketDetai
                   </h1>
                 </div>
                 <div className="flex gap-2">
+                  {initialTicket?.deadline && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleExportToCalendar}
+                      className="px-4 py-2 bg-purple-500 text-white rounded-lg font-medium hover:bg-purple-600 transition-all flex items-center gap-2"
+                      title="In Kalender exportieren"
+                    >
+                      <CalendarDays className="w-5 h-5" />
+                      Kalender
+                    </motion.button>
+                  )}
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}

@@ -176,7 +176,8 @@ export default function ProfileClient() {
         emailNotifications,
       };
 
-      if (imagePath && imagePath !== profile?.image) {
+      // Always update image if a new file was uploaded
+      if (imageFile && imagePath) {
         updateData.image = imagePath;
         updateData.imagePublic = true;
       }

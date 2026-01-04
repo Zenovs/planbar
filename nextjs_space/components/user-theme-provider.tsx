@@ -30,11 +30,25 @@ export function UserThemeProvider({ children }: UserThemeProviderProps) {
   const { data: session } = useSession() || {};
 
   useEffect(() => {
-    if (session?.user) {
-      // Load user's personal design settings
-      fetch('/api/profile')
-        .then((res) => res.json())
-        .then((data) => {
+    const loadTheme = async () => {
+      if (session?.user) {
+        try {
+          // Load user's personal design settings with cache bypass
+          const res = await fetch('/api/profile', {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          });
+          
+          if (!res.ok) {
+            throw new Error('Failed to load profile');
+          }
+          
+          const data = await res.json();
+          
           if (data.user) {
             const { 
               primaryColor, 
@@ -72,11 +86,8 @@ export function UserThemeProvider({ children }: UserThemeProviderProps) {
 
             // Apply background image
             if (backgroundImage) {
-              // For now, we'll apply it to the body
-              // In a real app, you'd want to generate signed URLs for private images
-              const imageUrl = backgroundImagePublic 
-                ? `${process.env.NEXT_PUBLIC_S3_URL || ''}/${backgroundImage}`
-                : backgroundImage;
+              // Use the S3 URL directly
+              const imageUrl = backgroundImage;
               
               document.body.style.backgroundImage = `linear-gradient(rgba(255,255,255,0.95), rgba(255,255,255,0.95)), url(${imageUrl})`;
               document.body.style.backgroundSize = 'cover';
@@ -87,21 +98,29 @@ export function UserThemeProvider({ children }: UserThemeProviderProps) {
               document.body.style.backgroundImage = '';
             }
           }
-        })
-        .catch((error) => {
+        } catch (error) {
           console.error('Error loading user theme:', error);
-        });
-    } else {
-      // Reset to default design when logged out
-      document.documentElement.style.setProperty('--user-primary', '#3b82f6');
-      document.documentElement.style.setProperty('--user-secondary', '#8b5cf6');
-      document.documentElement.style.setProperty('--user-accent', '#ec4899');
-      document.documentElement.style.setProperty('--user-border-radius', '8px');
-      document.documentElement.style.setProperty('--user-padding', '1.5rem');
-      document.documentElement.style.setProperty('--user-gap', '1.5rem');
-      document.body.style.backgroundImage = '';
-    }
+          // Apply defaults on error
+          applyDefaultTheme();
+        }
+      } else {
+        // Reset to default design when logged out
+        applyDefaultTheme();
+      }
+    };
+    
+    loadTheme();
   }, [session]);
+
+  const applyDefaultTheme = () => {
+    document.documentElement.style.setProperty('--user-primary', '#3b82f6');
+    document.documentElement.style.setProperty('--user-secondary', '#8b5cf6');
+    document.documentElement.style.setProperty('--user-accent', '#ec4899');
+    document.documentElement.style.setProperty('--user-border-radius', '8px');
+    document.documentElement.style.setProperty('--user-padding', '1.5rem');
+    document.documentElement.style.setProperty('--user-gap', '1.5rem');
+    document.body.style.backgroundImage = '';
+  };
 
   return <>{children}</>;
 }

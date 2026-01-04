@@ -3,7 +3,7 @@
 import { Header } from '@/components/header';
 import { StatsCard } from '@/components/stats-card';
 import { TicketCard } from '@/components/ticket-card';
-import { Ticket, Clock, CheckCircle, ListTodo, Plus, ArrowRight } from 'lucide-react';
+import { Ticket, Clock, CheckCircle, ListTodo, Plus, ArrowRight, CalendarDays } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { TicketWithRelations, UserWithStats, SimpleUser } from '@/lib/types';
@@ -22,18 +22,34 @@ interface DashboardClientProps {
 }
 
 export function DashboardClient({ session, stats, recentTickets, users }: DashboardClientProps) {
+  const handleExportAllToCalendar = () => {
+    const exportUrl = `/api/calendar/export`;
+    window.open(exportUrl, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Willkommen zurück, {session?.user?.name || 'User'}!
-          </h1>
-          <p className="text-gray-600">
-            Hier ist eine Übersicht über deine Tickets und das Team.
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Willkommen zurück, {session?.user?.name || 'User'}!
+            </h1>
+            <p className="text-gray-600">
+              Hier ist eine Übersicht über deine Tickets und das Team.
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleExportAllToCalendar}
+            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all flex items-center gap-2 shadow-md"
+          >
+            <CalendarDays className="w-5 h-5" />
+            Tickets exportieren
+          </motion.button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
