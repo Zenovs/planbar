@@ -1,0 +1,183 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  name               String?
+  email              String    @unique
+  password           String
+  role               String    @default("member")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  image              String?
+  imagePublic        Boolean   @default(false)
+  emailNotifications Boolean   @default(true)
+  
+  // Design-Einstellungen
+  designPrimaryColor   String?   @default("#3b82f6")
+  designSecondaryColor String?   @default("#8b5cf6")
+  designAccentColor    String?   @default("#ec4899")
+  designBorderRadius   String?   @default("medium")
+  designLayoutDensity  String?   @default("standard")
+  designBackgroundImage String?
+  designBackgroundPublic Boolean @default(false)
+
+  accounts         Account[]
+  sessions         Session[]
+  createdTickets   Ticket[]  @relation("CreatedTickets")
+  assignedTickets  Ticket[]  @relation("AssignedTickets")
+  teamId           String?
+  team             Team?     @relation(fields: [teamId], references: [id])
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String   @default("#3b82f6")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members User[]
+  tickets Ticket[]
+
+  @@map("teams")
+}
+
+model Ticket {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("open")
+  priority    String    @default("medium")
+  deadline    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdById String
+  createdBy   User   @relation("CreatedTickets", fields: [createdById], references: [id])
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedTickets", fields: [assignedToId], references: [id])
+
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id])
+
+  // Neue Features
+  categoryId   String?
+  category     Category? @relation(fields: [categoryId], references: [id])
+  
+  shareToken   String?   @unique
+  shareEnabled Boolean   @default(false)
+  
+  subTasks     SubTask[]
+
+  @@map("tickets")
+}
+
+// Neue Models für Features
+
+model SubTask {
+  id        String   @id @default(cuid())
+  title     String
+  completed Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("sub_tasks")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  color       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tickets   Ticket[]
+  templates TicketTemplate[]
+
+  @@map("categories")
+}
+
+model TicketTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  title       String
+  description String?
+  status      String   @default("open")
+  priority    String   @default("medium")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  subTasks TemplateSubTask[]
+
+  @@map("ticket_templates")
+}
+
+model TemplateSubTask {
+  id       String @id @default(cuid())
+  title    String
+  position Int    @default(0)
+
+  templateId String
+  template   TicketTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("template_sub_tasks")
+}
