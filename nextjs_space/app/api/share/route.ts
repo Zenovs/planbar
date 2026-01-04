@@ -70,10 +70,15 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Build share URL from request headers (works in production)
+    const host = request.headers.get('host') || 'localhost:3000';
+    const protocol = request.headers.get('x-forwarded-proto') || 'https';
+    const baseUrl = `${protocol}://${host}`;
+    
     return NextResponse.json({
       shareEnabled: true,
       shareToken: updatedTicket.shareToken,
-      shareUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/share/${updatedTicket.shareToken}`
+      shareUrl: `${baseUrl}/share/${updatedTicket.shareToken}`
     });
   } catch (error) {
     console.error('POST /api/share error:', error);
