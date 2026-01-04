@@ -53,7 +53,7 @@ interface Team {
 }
 
 export default function TeamClient() {
-  const { data: session } = useSession() || {};
+  const { data: session, status } = useSession();
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,7 +87,7 @@ export default function TeamClient() {
     color: '#3b82f6',
   });
 
-  const isAdmin = session?.user?.role === 'admin';
+  const isAdmin = status === 'authenticated' && session?.user?.role === 'admin';
 
   useEffect(() => {
     loadUsers();
