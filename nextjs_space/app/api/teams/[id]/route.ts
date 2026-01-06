@@ -63,7 +63,7 @@ export async function PATCH(
       where: { id: session.user.id },
     });
 
-    if (user?.role !== 'admin') {
+    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
       return NextResponse.json(
         { error: 'Nur Administratoren können Teams bearbeiten' },
         { status: 403 }
@@ -115,7 +115,7 @@ export async function DELETE(
       where: { id: session.user.id },
     });
 
-    if (user?.role !== 'admin') {
+    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
       return NextResponse.json(
         { error: 'Nur Administratoren können Teams löschen' },
         { status: 403 }

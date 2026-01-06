@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       where: { email: session.user.email! }
     });
 
-    if (user?.role !== 'admin') {
+    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
       return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
@@ -86,7 +86,7 @@ export async function PATCH(request: NextRequest) {
       where: { email: session.user.email! }
     });
 
-    if (user?.role !== 'admin') {
+    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
       return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
@@ -147,7 +147,7 @@ export async function DELETE(request: NextRequest) {
       where: { email: session.user.email! }
     });
 
-    if (user?.role !== 'admin') {
+    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
       return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 

@@ -21,7 +21,7 @@ export async function POST(
       where: { id: session.user.id },
     });
 
-    if (user?.role !== 'admin') {
+    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
       return NextResponse.json(
         { error: 'Nur Administratoren können Teammitglieder verwalten' },
         { status: 403 }

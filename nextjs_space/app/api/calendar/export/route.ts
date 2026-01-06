@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       if (
         ticket.createdById !== session.user.id &&
         ticket.assignedToId !== session.user.id &&
-        session.user.role !== 'admin'
+        !['admin', 'Administrator', 'ADMIN'].includes(session.user.role || '')
       ) {
         return NextResponse.json({ error: 'Zugriff verweigert' }, { status: 403 });
       }

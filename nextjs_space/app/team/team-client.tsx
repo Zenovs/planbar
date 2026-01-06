@@ -364,11 +364,11 @@ export default function TeamClient() {
   };
 
   const getRoleBadgeColor = (role: string) => {
-    return role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800';
+    return ['admin', 'Administrator', 'ADMIN'].includes(role) ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800';
   };
 
   const getRoleLabel = (role: string) => {
-    return role === 'admin' ? 'Administrator' : 'Mitglied';
+    return ['admin', 'Administrator', 'ADMIN'].includes(role) ? 'Administrator' : 'Mitglied';
   };
 
   const getUnassignedUsers = () => {
@@ -396,7 +396,7 @@ export default function TeamClient() {
               </div>
             </div>
             {/* Admin buttons - show for authenticated admins */}
-            {status === 'authenticated' && session?.user?.role === 'admin' && (
+            {isAdmin && (
               <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   onClick={() => setShowAddTeamModal(true)}
@@ -413,12 +413,6 @@ export default function TeamClient() {
                   <Plus className="w-4 h-4 mr-2" />
                   <span>Benutzer</span>
                 </Button>
-              </div>
-            )}
-            {/* Debug: Show button state */}
-            {status === 'authenticated' && session?.user?.role !== 'admin' && (
-              <div className="text-xs text-gray-400">
-                Role: {session?.user?.role || 'undefined'}
               </div>
             )}
           </div>

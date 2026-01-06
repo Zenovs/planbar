@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       where: { id: session.user.id },
     });
 
-    if (user?.role !== 'admin') {
+    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
       return NextResponse.json(
         { error: 'Nur Administratoren können Teams erstellen' },
         { status: 403 }
