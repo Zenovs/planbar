@@ -29,7 +29,6 @@ export function Header() {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/tickets', label: 'Tickets', icon: Ticket },
     { href: '/team', label: 'Team', icon: Users },
-    { href: '/design', label: 'Design', icon: Sparkles },
   ];
 
   return (
