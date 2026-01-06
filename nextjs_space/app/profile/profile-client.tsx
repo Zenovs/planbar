@@ -469,7 +469,7 @@ export default function ProfileClient() {
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={loading || uploadingImage || !hasChanges}
+                disabled={loading || uploadingImage}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
               >
                 {loading ? (
