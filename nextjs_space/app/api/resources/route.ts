@@ -29,12 +29,19 @@ export async function GET(request: NextRequest) {
         assignedSubTasks: {
           where: {
             completed: false,
-            dueDate: deadline ? { lte: new Date(deadline) } : undefined
+            // Berücksichtige Sub-Tasks die:
+            // - keine Deadline haben ODER
+            // - eine Deadline bis zur angegebenen Deadline haben
+            OR: deadline ? [
+              { dueDate: null },
+              { dueDate: { lte: new Date(deadline) } }
+            ] : undefined
           },
           select: {
             id: true,
             estimatedHours: true,
-            dueDate: true
+            dueDate: true,
+            completed: true
           }
         },
         assignedTickets: {

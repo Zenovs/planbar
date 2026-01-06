@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Zugriffskontrolle
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
     const isCreator = ticket.createdById === user?.id;
     const isAssigned = ticket.assignedToId === user?.id;
     const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Zugriffskontrolle (nur Creator, Assigned oder Admin)
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
     const isCreator = ticket.createdById === user?.id;
     const isAssigned = ticket.assignedToId === user?.id;
     const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
@@ -159,7 +159,7 @@ export async function PATCH(request: NextRequest) {
     });
 
     // Zugriffskontrolle
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
     const isCreator = subTask.ticket.createdById === user?.id;
     const isAssigned = subTask.ticket.assignedToId === user?.id;
     const isTeamMember = subTask.ticket.teamId && subTask.ticket.teamId === user?.teamId;
@@ -226,7 +226,7 @@ export async function DELETE(request: NextRequest) {
     });
 
     // Zugriffskontrolle
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
     const isCreator = subTask.ticket.createdById === user?.id;
     const isAssigned = subTask.ticket.assignedToId === user?.id;
     const isTeamMember = subTask.ticket.teamId && subTask.ticket.teamId === user?.teamId;

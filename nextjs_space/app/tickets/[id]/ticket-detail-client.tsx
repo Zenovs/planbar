@@ -281,7 +281,8 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
         setNewSubTaskAssignee('');
         setNewSubTaskHours('');
         toast.success('Sub-Task hinzugefügt');
-        loadResources();
+        // Ressourcen neu laden, da eine neue Aufgabe zugewiesen wurde
+        await loadResources();
         router.refresh();
       }
     } catch (error) {
@@ -305,7 +306,8 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
             st.id === subTaskId ? { ...st, ...updatedSubTask } : st
           ),
         });
-        loadResources();
+        // Ressourcen neu laden, da sich Zuweisung/Stunden geändert haben
+        await loadResources();
         toast.success('Sub-Task aktualisiert');
       }
     } catch (error) {
@@ -329,6 +331,8 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
             st.id === subTaskId ? updatedSubTask : st
           ),
         });
+        // Ressourcen neu laden, da die Deadline die Verfügbarkeit beeinflusst
+        await loadResources();
         toast.success('Deadline aktualisiert');
       }
     } catch (error) {
@@ -352,6 +356,8 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
             st.id === subTaskId ? updatedSubTask : st
           ),
         });
+        // Ressourcen neu laden, da sich die Verfügbarkeit geändert hat
+        await loadResources();
         router.refresh();
       }
     } catch (error) {
@@ -372,6 +378,8 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
           ...ticket,
           subTasks: (ticket.subTasks || []).filter((st) => st.id !== subTaskId),
         });
+        // Ressourcen neu laden, da sich die Verfügbarkeit geändert hat
+        await loadResources();
         toast.success('Sub-Task gelöscht');
         router.refresh();
       }
