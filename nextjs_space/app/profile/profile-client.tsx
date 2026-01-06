@@ -368,6 +368,7 @@ export default function ProfileClient() {
                     }}
                     placeholder="••••••••"
                     disabled={loading}
+                    autoComplete="off"
                   />
                 </div>
                 <div className="space-y-2">
@@ -382,6 +383,7 @@ export default function ProfileClient() {
                     }}
                     placeholder="••••••••"
                     disabled={loading}
+                    autoComplete="new-password"
                   />
                 </div>
                 <div className="space-y-2">
@@ -396,6 +398,7 @@ export default function ProfileClient() {
                     }}
                     placeholder="••••••••"
                     disabled={loading}
+                    autoComplete="new-password"
                   />
                 </div>
               </div>
