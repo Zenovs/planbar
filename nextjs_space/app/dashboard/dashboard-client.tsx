@@ -42,15 +42,7 @@ export function DashboardClient({ session, stats, recentTickets, users }: Dashbo
               Übersicht deiner Tickets und Team.
             </p>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleExportAllToCalendar}
-            className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all flex items-center justify-center gap-2 shadow-md min-h-[48px] sm:min-h-0"
-          >
-            <CalendarDays className="w-5 h-5" />
-            <span>Projekte exportieren</span>
-          </motion.button>
+
         </div>
 
         {/* Stats Grid - 2x2 on mobile, 4 cols on desktop */}
