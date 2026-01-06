@@ -69,7 +69,6 @@ async function main() {
       priority: 'high',
       assignedToId: member2.id,
       createdById: admin.id,
-      deadline: new Date('2025-01-15'),
     },
     {
       title: 'Fehler in der Login-Funktion beheben',
@@ -78,7 +77,6 @@ async function main() {
       priority: 'critical',
       assignedToId: member1.id,
       createdById: admin.id,
-      deadline: new Date('2025-01-08'),
     },
     {
       title: 'Datenbank-Backup einrichten',
@@ -87,7 +85,6 @@ async function main() {
       priority: 'high',
       assignedToId: member3.id,
       createdById: member2.id,
-      deadline: new Date('2025-01-20'),
     },
     {
       title: 'Newsletter-Feature entwickeln',
@@ -96,16 +93,14 @@ async function main() {
       priority: 'medium',
       assignedToId: member1.id,
       createdById: admin.id,
-      deadline: new Date('2025-02-01'),
     },
     {
       title: 'Performance-Optimierung durchführen',
-      description: 'Die Ladezeiten der Hauptseite verbessern. Ziel: unter 2 Sekunden.',
+      description: 'Ladezeiten der Hauptseite verbessern. Ziel: unter 2 Sekunden.',
       status: 'in_progress',
       priority: 'medium',
       assignedToId: member3.id,
       createdById: member2.id,
-      deadline: new Date('2025-01-25'),
     },
     {
       title: 'API-Dokumentation aktualisieren',
@@ -114,7 +109,6 @@ async function main() {
       priority: 'low',
       assignedToId: member2.id,
       createdById: admin.id,
-      deadline: new Date('2025-01-05'),
     },
     {
       title: 'User-Testing durchführen',
@@ -123,7 +117,6 @@ async function main() {
       priority: 'medium',
       assignedToId: null,
       createdById: member1.id,
-      deadline: new Date('2025-01-30'),
     },
     {
       title: 'SEO-Optimierung implementieren',
@@ -132,7 +125,6 @@ async function main() {
       priority: 'low',
       assignedToId: member1.id,
       createdById: admin.id,
-      deadline: new Date('2025-01-03'),
     },
   ];
 
