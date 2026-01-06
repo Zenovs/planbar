@@ -52,6 +52,7 @@ interface SubTask {
   title: string;
   completed: boolean;
   position: number;
+  dueDate?: Date | null;
 }
 
 interface Ticket {
@@ -86,6 +87,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
+  const [newSubTaskDueDate, setNewSubTaskDueDate] = useState('');
 
   const [formData, setFormData] = useState({
     title: ticket.title,
@@ -219,6 +221,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
           ticketId: ticket.id,
           title: newSubTaskTitle,
           position: (ticket.subTasks || []).length,
+          dueDate: newSubTaskDueDate || null,
         }),
       });
 
@@ -229,11 +232,35 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
           subTasks: [...(ticket.subTasks || []), newSubTask],
         });
         setNewSubTaskTitle('');
+        setNewSubTaskDueDate('');
         toast.success('Sub-Task hinzugefügt');
         router.refresh();
       }
     } catch (error) {
       toast.error('Fehler beim Hinzufügen');
+    }
+  };
+
+  const handleUpdateSubTaskDueDate = async (subTaskId: string, dueDate: string | null) => {
+    try {
+      const res = await fetch(`/api/subtasks?id=${subTaskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dueDate }),
+      });
+
+      if (res.ok) {
+        const updatedSubTask = await res.json();
+        setTicket({
+          ...ticket,
+          subTasks: (ticket.subTasks || []).map((st) =>
+            st.id === subTaskId ? updatedSubTask : st
+          ),
+        });
+        toast.success('Deadline aktualisiert');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Aktualisieren');
     }
   };
 
@@ -486,41 +513,66 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                 )}
               </CardHeader>
               <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-2 sm:space-y-3">
-                {(ticket.subTasks || []).map((subTask) => (
-                  <motion.div
-                    key={subTask.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex items-center gap-2 sm:gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <button
-                      onClick={() => handleToggleSubTask(subTask.id, subTask.completed)}
-                      className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -m-2"
-                    >
-                      {subTask.completed ? (
-                        <CheckCircle2 className="h-6 w-6 text-green-600" />
-                      ) : (
-                        <Circle className="h-6 w-6 text-gray-400" />
-                      )}
-                    </button>
-                    <span
-                      className={`flex-1 text-sm sm:text-base ${
-                        subTask.completed ? 'line-through text-gray-500' : ''
+                {(ticket.subTasks || []).map((subTask) => {
+                  const isOverdue = subTask.dueDate && new Date(subTask.dueDate) < new Date() && !subTask.completed;
+                  const isUpcoming = subTask.dueDate && !isOverdue && 
+                    new Date(subTask.dueDate) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) && !subTask.completed;
+                  
+                  return (
+                    <motion.div
+                      key={subTask.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg ${
+                        isOverdue ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' :
+                        isUpcoming ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800' :
+                        'bg-gray-50 dark:bg-gray-800'
                       }`}
                     >
-                      {subTask.title}
-                    </span>
-                    <Button
-                      onClick={() => handleDeleteSubTask(subTask.id)}
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-600 min-w-[44px] min-h-[44px]"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  </motion.div>
-                ))}
-                <div className="flex gap-2 mt-4">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1">
+                        <button
+                          onClick={() => handleToggleSubTask(subTask.id, subTask.completed)}
+                          className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -m-2"
+                        >
+                          {subTask.completed ? (
+                            <CheckCircle2 className="h-6 w-6 text-green-600" />
+                          ) : (
+                            <Circle className={`h-6 w-6 ${isOverdue ? 'text-red-500' : isUpcoming ? 'text-orange-500' : 'text-gray-400'}`} />
+                          )}
+                        </button>
+                        <span
+                          className={`flex-1 text-sm sm:text-base ${
+                            subTask.completed ? 'line-through text-gray-500' : 
+                            isOverdue ? 'text-red-700 dark:text-red-300 font-medium' : ''
+                          }`}
+                        >
+                          {subTask.title}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 ml-10 sm:ml-0">
+                        <input
+                          type="date"
+                          value={subTask.dueDate ? new Date(subTask.dueDate).toISOString().split('T')[0] : ''}
+                          onChange={(e) => handleUpdateSubTaskDueDate(subTask.id, e.target.value || null)}
+                          className={`text-xs px-2 py-1 border rounded min-h-[36px] ${
+                            isOverdue ? 'border-red-300 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                            isUpcoming ? 'border-orange-300 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
+                            'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
+                          }`}
+                        />
+                        <Button
+                          onClick={() => handleDeleteSubTask(subTask.id)}
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 min-w-[44px] min-h-[44px]"
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+                <div className="flex flex-col sm:flex-row gap-2 mt-4">
                   <Input
                     value={newSubTaskTitle}
                     onChange={(e) => setNewSubTaskTitle(e.target.value)}
@@ -533,9 +585,18 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                       }
                     }}
                   />
-                  <Button onClick={handleAddSubTask} size="sm" className="min-w-[44px] min-h-[44px]">
-                    <Plus size={18} />
-                  </Button>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={newSubTaskDueDate}
+                      onChange={(e) => setNewSubTaskDueDate(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[44px] bg-white dark:bg-gray-700"
+                      title="Deadline für Sub-Task"
+                    />
+                    <Button onClick={handleAddSubTask} size="sm" className="min-w-[44px] min-h-[44px]">
+                      <Plus size={18} />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
