@@ -44,7 +44,12 @@ export async function GET(request: NextRequest) {
 
     const subTasks = await prisma.subTask.findMany({
       where: { ticketId },
-      orderBy: { position: 'asc' }
+      orderBy: { position: 'asc' },
+      include: {
+        assignee: {
+          select: { id: true, name: true, email: true, weeklyHours: true, workloadPercent: true }
+        }
+      }
     });
 
     return NextResponse.json(subTasks);
@@ -63,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { ticketId, title, position = 0, dueDate } = body;
+    const { ticketId, title, position = 0, dueDate, assigneeId, estimatedHours } = body;
 
     if (!ticketId || !title) {
       return NextResponse.json({ error: 'ticketId and title are required' }, { status: 400 });
@@ -99,7 +104,14 @@ export async function POST(request: NextRequest) {
         title,
         position,
         completed: false,
-        dueDate: dueDate ? new Date(dueDate) : null
+        dueDate: dueDate ? new Date(dueDate) : null,
+        assigneeId: assigneeId || null,
+        estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null
+      },
+      include: {
+        assignee: {
+          select: { id: true, name: true, email: true }
+        }
       }
     });
 
@@ -126,7 +138,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, completed, position, dueDate } = body;
+    const { title, completed, position, dueDate, assigneeId, estimatedHours } = body;
 
     // Hole SubTask mit Ticket
     const subTask = await prisma.subTask.findUnique({
@@ -162,7 +174,14 @@ export async function PATCH(request: NextRequest) {
         ...(title !== undefined && { title }),
         ...(completed !== undefined && { completed }),
         ...(position !== undefined && { position }),
-        ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null })
+        ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+        ...(assigneeId !== undefined && { assigneeId: assigneeId || null }),
+        ...(estimatedHours !== undefined && { estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null })
+      },
+      include: {
+        assignee: {
+          select: { id: true, name: true, email: true }
+        }
       }
     });
 

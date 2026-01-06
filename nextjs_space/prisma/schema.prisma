@@ -37,6 +37,7 @@ model User {
   sessions         Session[]
   createdTickets   Ticket[]  @relation("CreatedTickets")
   assignedTickets  Ticket[]  @relation("AssignedTickets")
+  assignedSubTasks SubTask[] @relation("AssignedSubTasks")
   teamId           String?
   team             Team?     @relation(fields: [teamId], references: [id])
 
@@ -131,16 +132,19 @@ model Ticket {
 // Neue Models für Features
 
 model SubTask {
-  id        String   @id @default(cuid())
-  title     String
-  completed Boolean  @default(false)
-  position  Int      @default(0)
-  dueDate   DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  title          String
+  completed      Boolean  @default(false)
+  position       Int      @default(0)
+  dueDate        DateTime?
+  estimatedHours Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  ticketId String
-  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId   String
+  ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assigneeId String?
+  assignee   User?  @relation("AssignedSubTasks", fields: [assigneeId], references: [id], onDelete: SetNull)
 
   @@map("sub_tasks")
 }

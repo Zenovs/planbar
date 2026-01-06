@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
@@ -15,7 +15,10 @@ import {
   Copy,
   CheckCircle2,
   Circle,
-  MoreVertical
+  MoreVertical,
+  Clock,
+  User as UserIcon,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +41,8 @@ interface User {
   id: string;
   name: string | null;
   email: string;
+  weeklyHours?: number;
+  workloadPercent?: number;
 }
 
 interface Category {
@@ -53,6 +58,19 @@ interface SubTask {
   completed: boolean;
   position: number;
   dueDate?: Date | null;
+  estimatedHours?: number | null;
+  assigneeId?: string | null;
+  assignee?: User | null;
+}
+
+interface ResourceInfo {
+  id: string;
+  name: string | null;
+  email: string;
+  freeHours: number;
+  assignedHours: number;
+  utilizationPercent: number;
+  openSubTasks: number;
 }
 
 interface Ticket {
@@ -88,6 +106,10 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
   const [shareUrl, setShareUrl] = useState('');
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
   const [newSubTaskDueDate, setNewSubTaskDueDate] = useState('');
+  const [newSubTaskAssignee, setNewSubTaskAssignee] = useState('');
+  const [newSubTaskHours, setNewSubTaskHours] = useState('');
+  const [resources, setResources] = useState<ResourceInfo[]>([]);
+  const [showResourcePanel, setShowResourcePanel] = useState(false);
 
   const [formData, setFormData] = useState({
     title: ticket.title,
@@ -98,6 +120,27 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
     assignedToId: ticket.assignedToId || 'none',
     categoryId: ticket.categoryId || 'none',
   });
+
+  // Ressourcen laden
+  const loadResources = useCallback(async () => {
+    try {
+      const deadline = formData.deadline || ticket.deadline;
+      const url = deadline 
+        ? `/api/resources?deadline=${deadline}`
+        : '/api/resources';
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setResources(data.resources);
+      }
+    } catch (error) {
+      console.error('Error loading resources:', error);
+    }
+  }, [formData.deadline, ticket.deadline]);
+
+  useEffect(() => {
+    loadResources();
+  }, [loadResources]);
 
   const handleSave = async () => {
     if (!formData.title.trim()) {
@@ -222,6 +265,8 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
           title: newSubTaskTitle,
           position: (ticket.subTasks || []).length,
           dueDate: newSubTaskDueDate || null,
+          assigneeId: newSubTaskAssignee || null,
+          estimatedHours: newSubTaskHours || null,
         }),
       });
 
@@ -233,11 +278,38 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
         });
         setNewSubTaskTitle('');
         setNewSubTaskDueDate('');
+        setNewSubTaskAssignee('');
+        setNewSubTaskHours('');
         toast.success('Sub-Task hinzugefügt');
+        loadResources();
         router.refresh();
       }
     } catch (error) {
       toast.error('Fehler beim Hinzufügen');
+    }
+  };
+
+  const handleUpdateSubTask = async (subTaskId: string, data: { assigneeId?: string | null; estimatedHours?: number | null }) => {
+    try {
+      const res = await fetch(`/api/subtasks?id=${subTaskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (res.ok) {
+        const updatedSubTask = await res.json();
+        setTicket({
+          ...ticket,
+          subTasks: (ticket.subTasks || []).map(st =>
+            st.id === subTaskId ? { ...st, ...updatedSubTask } : st
+          ),
+        });
+        loadResources();
+        toast.success('Sub-Task aktualisiert');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Aktualisieren');
     }
   };
 
@@ -496,7 +568,18 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
             {/* Sub-Tasks */}
             <Card>
               <CardHeader className="p-4 sm:p-6">
-                <CardTitle className="text-base sm:text-lg">Sub-Tasks ({(ticket.subTasks || []).length})</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base sm:text-lg">Sub-Tasks ({(ticket.subTasks || []).length})</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowResourcePanel(!showResourcePanel)}
+                    className="gap-1"
+                  >
+                    <Users size={16} />
+                    <span className="hidden sm:inline">Ressourcen</span>
+                  </Button>
+                </div>
                 {ticket.subTasks && ticket.subTasks.length > 0 && (
                   <div className="mt-2">
                     <div className="flex items-center justify-between text-sm">
@@ -513,6 +596,35 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                 )}
               </CardHeader>
               <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-2 sm:space-y-3">
+                {/* Ressourcen-Panel */}
+                {showResourcePanel && resources.length > 0 && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
+                    <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Verfügbare Kapazität bis Deadline
+                    </h4>
+                    <div className="space-y-2">
+                      {resources.map((r) => (
+                        <div key={r.id} className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded">
+                          <span className="font-medium truncate">{r.name || r.email}</span>
+                          <div className="flex items-center gap-3">
+                            <span className={`${r.utilizationPercent > 80 ? 'text-red-600' : r.utilizationPercent > 50 ? 'text-orange-600' : 'text-green-600'}`}>
+                              {r.freeHours}h frei
+                            </span>
+                            <div className="w-20 bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${r.utilizationPercent > 80 ? 'bg-red-500' : r.utilizationPercent > 50 ? 'bg-orange-500' : 'bg-green-500'}`}
+                                style={{ width: `${Math.min(100, r.utilizationPercent)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500 w-12">{r.utilizationPercent}%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {(ticket.subTasks || []).map((subTask) => {
                   const isOverdue = subTask.dueDate && new Date(subTask.dueDate) < new Date() && !subTask.completed;
                   const isUpcoming = subTask.dueDate && !isOverdue && 
@@ -523,13 +635,13 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                       key={subTask.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg ${
+                      className={`flex flex-col gap-2 p-3 rounded-lg ${
                         isOverdue ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' :
                         isUpcoming ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800' :
                         'bg-gray-50 dark:bg-gray-800'
                       }`}
                     >
-                      <div className="flex items-center gap-2 sm:gap-3 flex-1">
+                      <div className="flex items-center gap-2 sm:gap-3">
                         <button
                           onClick={() => handleToggleSubTask(subTask.id, subTask.completed)}
                           className="flex-shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center -m-2"
@@ -548,18 +660,6 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                         >
                           {subTask.title}
                         </span>
-                      </div>
-                      <div className="flex items-center gap-2 ml-10 sm:ml-0">
-                        <input
-                          type="date"
-                          value={subTask.dueDate ? new Date(subTask.dueDate).toISOString().split('T')[0] : ''}
-                          onChange={(e) => handleUpdateSubTaskDueDate(subTask.id, e.target.value || null)}
-                          className={`text-xs px-2 py-1 border rounded min-h-[36px] ${
-                            isOverdue ? 'border-red-300 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-                            isUpcoming ? 'border-orange-300 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
-                            'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
-                          }`}
-                        />
                         <Button
                           onClick={() => handleDeleteSubTask(subTask.id)}
                           size="sm"
@@ -569,15 +669,64 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                           <Trash2 size={16} />
                         </Button>
                       </div>
+                      {/* SubTask Details */}
+                      <div className="flex flex-wrap items-center gap-2 ml-10 text-xs">
+                        <div className="flex items-center gap-1">
+                          <UserIcon className="w-3 h-3 text-gray-500" />
+                          <select
+                            value={subTask.assigneeId || ''}
+                            onChange={(e) => handleUpdateSubTask(subTask.id, { assigneeId: e.target.value || null })}
+                            className="border rounded px-2 py-1 min-h-[32px] bg-white dark:bg-gray-700 text-xs"
+                          >
+                            <option value="">Niemand</option>
+                            {users.map((u) => (
+                              <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-gray-500" />
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0"
+                            value={subTask.estimatedHours || ''}
+                            onChange={(e) => handleUpdateSubTask(subTask.id, { estimatedHours: e.target.value ? parseFloat(e.target.value) : null })}
+                            placeholder="h"
+                            className="w-16 border rounded px-2 py-1 min-h-[32px] bg-white dark:bg-gray-700 text-xs"
+                          />
+                          <span className="text-gray-500">Std</span>
+                        </div>
+                        <input
+                          type="date"
+                          value={subTask.dueDate ? new Date(subTask.dueDate).toISOString().split('T')[0] : ''}
+                          onChange={(e) => handleUpdateSubTaskDueDate(subTask.id, e.target.value || null)}
+                          className={`text-xs px-2 py-1 border rounded min-h-[32px] ${
+                            isOverdue ? 'border-red-300 bg-red-100 dark:bg-red-900/30' :
+                            isUpcoming ? 'border-orange-300 bg-orange-100 dark:bg-orange-900/30' :
+                            'bg-white dark:bg-gray-700'
+                          }`}
+                        />
+                      </div>
+                      {subTask.assignee && (
+                        <div className="ml-10 text-xs text-gray-500">
+                          <Badge variant="secondary" className="text-xs">
+                            {subTask.assignee.name || subTask.assignee.email}
+                            {subTask.estimatedHours && ` • ${subTask.estimatedHours}h`}
+                          </Badge>
+                        </div>
+                      )}
                     </motion.div>
                   );
                 })}
-                <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                
+                {/* Neue Sub-Task hinzufügen */}
+                <div className="border-t pt-4 mt-4 space-y-3">
                   <Input
                     value={newSubTaskTitle}
                     onChange={(e) => setNewSubTaskTitle(e.target.value)}
                     placeholder="Neue Sub-Task..."
-                    className="flex-1 min-h-[44px] text-base"
+                    className="min-h-[44px] text-base"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -585,16 +734,40 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                       }
                     }}
                   />
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <select
+                      value={newSubTaskAssignee}
+                      onChange={(e) => setNewSubTaskAssignee(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[44px] bg-white dark:bg-gray-700 text-sm"
+                    >
+                      <option value="">Zuweisen...</option>
+                      {users.map((u) => {
+                        const resource = resources.find(r => r.id === u.id);
+                        return (
+                          <option key={u.id} value={u.id}>
+                            {u.name || u.email} {resource ? `(${resource.freeHours}h frei)` : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      value={newSubTaskHours}
+                      onChange={(e) => setNewSubTaskHours(e.target.value)}
+                      placeholder="Stunden"
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[44px] bg-white dark:bg-gray-700"
+                    />
                     <input
                       type="date"
                       value={newSubTaskDueDate}
                       onChange={(e) => setNewSubTaskDueDate(e.target.value)}
                       className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[44px] bg-white dark:bg-gray-700"
-                      title="Deadline für Sub-Task"
                     />
-                    <Button onClick={handleAddSubTask} size="sm" className="min-w-[44px] min-h-[44px]">
-                      <Plus size={18} />
+                    <Button onClick={handleAddSubTask} className="min-h-[44px]">
+                      <Plus size={18} className="mr-1" />
+                      Hinzufügen
                     </Button>
                   </div>
                 </div>
