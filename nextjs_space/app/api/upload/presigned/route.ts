@@ -30,13 +30,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { uploadUrl, cloud_storage_path } = await generatePresignedUploadUrl(
+    const { uploadUrl, cloud_storage_path, publicUrl } = await generatePresignedUploadUrl(
       fileName,
       contentType,
       isPublic
     );
 
-    return NextResponse.json({ uploadUrl, cloud_storage_path }, { status: 200 });
+    return NextResponse.json({ uploadUrl, cloud_storage_path, publicUrl }, { status: 200 });
   } catch (error) {
     console.error('Presigned URL error:', error);
     return NextResponse.json(

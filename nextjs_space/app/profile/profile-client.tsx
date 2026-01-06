@@ -114,7 +114,7 @@ export default function ProfileClient() {
         throw new Error('Fehler beim Erstellen der Upload-URL');
       }
 
-      const { uploadUrl, cloud_storage_path } = await presignedRes.json();
+      const { uploadUrl, publicUrl } = await presignedRes.json();
 
       // Upload file to S3
       const uploadRes = await fetch(uploadUrl, {
@@ -129,7 +129,8 @@ export default function ProfileClient() {
         throw new Error('Fehler beim Hochladen der Datei');
       }
 
-      return cloud_storage_path;
+      // Return the public URL directly (not cloud_storage_path)
+      return publicUrl;
     } catch (error) {
       console.error('Image upload error:', error);
       toast.error('Fehler beim Hochladen des Bildes');

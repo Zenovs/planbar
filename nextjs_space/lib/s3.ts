@@ -10,7 +10,7 @@ export async function generatePresignedUploadUrl(
   fileName: string,
   contentType: string,
   isPublic: boolean = false
-): Promise<{ uploadUrl: string; cloud_storage_path: string }> {
+): Promise<{ uploadUrl: string; cloud_storage_path: string; publicUrl?: string }> {
   const timestamp = Date.now();
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
   
@@ -27,7 +27,13 @@ export async function generatePresignedUploadUrl(
 
   const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 }); // 1 hour
 
-  return { uploadUrl, cloud_storage_path };
+  // Generate public URL for public files
+  const region = process.env.AWS_REGION || 'us-west-2';
+  const publicUrl = isPublic 
+    ? `https://${bucketName}.s3.${region}.amazonaws.com/${cloud_storage_path}`
+    : undefined;
+
+  return { uploadUrl, cloud_storage_path, publicUrl };
 }
 
 // Get file URL (public or signed)

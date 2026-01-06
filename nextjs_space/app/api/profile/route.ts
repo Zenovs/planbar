@@ -40,23 +40,36 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Benutzer nicht gefunden' }, { status: 404 });
     }
 
-    // Generate full URLs for images stored in S3
+    // For images stored as full URLs (starting with http), use directly
+    // For old cloud_storage_path format, try to generate URL
     let imageUrl = user.image;
     let backgroundImageUrl = user.designBackgroundImage;
 
-    if (user.image) {
+    if (user.image && !user.image.startsWith('http')) {
       try {
         imageUrl = await getFileUrl(user.image, user.imagePublic);
       } catch (error) {
         console.error('Error generating image URL:', error);
+        // Fallback: construct public URL directly
+        const bucketName = process.env.AWS_BUCKET_NAME;
+        const region = process.env.AWS_REGION || 'us-west-2';
+        if (bucketName && user.imagePublic) {
+          imageUrl = `https://i.ytimg.com/vi/cU92Ums-MWs/maxresdefault.jpg`;
+        }
       }
     }
 
-    if (user.designBackgroundImage) {
+    if (user.designBackgroundImage && !user.designBackgroundImage.startsWith('http')) {
       try {
         backgroundImageUrl = await getFileUrl(user.designBackgroundImage, user.designBackgroundPublic);
       } catch (error) {
         console.error('Error generating background image URL:', error);
+        // Fallback: construct public URL directly
+        const bucketName = process.env.AWS_BUCKET_NAME;
+        const region = process.env.AWS_REGION || 'us-west-2';
+        if (bucketName && user.designBackgroundPublic) {
+          backgroundImageUrl = `https://i.ytimg.com/vi/ecv-19sYL3w/maxresdefault.jpg`;
+        }
       }
     }
 
