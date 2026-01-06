@@ -41,6 +41,7 @@ export default function ProfileClient() {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
 
   // Load profile data
   useEffect(() => {
@@ -351,57 +352,84 @@ export default function ProfileClient() {
 
             {/* Password Change */}
             <div className="space-y-4">
-              <h3 className="font-medium text-lg">
-                <Lock className="w-4 h-4 inline mr-2" />
-                Passwort ändern
-              </h3>
-              <div className="space-y-4 pl-6">
-                <div className="space-y-2">
-                  <Label htmlFor="currentPassword">Aktuelles Passwort</Label>
-                  <Input
-                    id="currentPassword"
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => {
-                      setCurrentPassword(e.target.value);
-                      setHasChanges(true);
-                    }}
-                    placeholder="••••••••"
-                    disabled={loading}
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword">Neues Passwort</Label>
-                  <Input
-                    id="newPassword"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => {
-                      setNewPassword(e.target.value);
-                      setHasChanges(true);
-                    }}
-                    placeholder="••••••••"
-                    disabled={loading}
-                    autoComplete="new-password"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Neues Passwort bestätigen</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => {
-                      setConfirmPassword(e.target.value);
-                      setHasChanges(true);
-                    }}
-                    placeholder="••••••••"
-                    disabled={loading}
-                    autoComplete="new-password"
-                  />
-                </div>
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-lg">
+                  <Lock className="w-4 h-4 inline mr-2" />
+                  Passwort ändern
+                </h3>
+                {!showPasswordSection && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowPasswordSection(true)}
+                  >
+                    Passwort ändern
+                  </Button>
+                )}
               </div>
+              {showPasswordSection && (
+                <div className="space-y-4 pl-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="currentPassword">Aktuelles Passwort</Label>
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => {
+                        setCurrentPassword(e.target.value);
+                        setHasChanges(true);
+                      }}
+                      placeholder="••••••••"
+                      disabled={loading}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="newPassword">Neues Passwort</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => {
+                        setNewPassword(e.target.value);
+                        setHasChanges(true);
+                      }}
+                      placeholder="••••••••"
+                      disabled={loading}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Neues Passwort bestätigen</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        setHasChanges(true);
+                      }}
+                      placeholder="••••••••"
+                      disabled={loading}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowPasswordSection(false);
+                      setCurrentPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    }}
+                  >
+                    Abbrechen
+                  </Button>
+                </div>
+              )}
             </div>
 
             <Separator />
