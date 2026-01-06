@@ -51,9 +51,10 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     assignedToId: '',
     deadline: '',
     categoryId: '',
-    subTasks: [] as { title: string }[],
+    subTasks: [] as { title: string; dueDate?: string }[],
   });
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
+  const [newSubTaskDueDate, setNewSubTaskDueDate] = useState('');
 
   useEffect(() => {
     loadCategories();
@@ -105,9 +106,13 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     if (!newSubTaskTitle.trim()) return;
     setFormData({
       ...formData,
-      subTasks: [...formData.subTasks, { title: newSubTaskTitle.trim() }]
+      subTasks: [...formData.subTasks, { 
+        title: newSubTaskTitle.trim(),
+        dueDate: newSubTaskDueDate || undefined
+      }]
     });
     setNewSubTaskTitle('');
+    setNewSubTaskDueDate('');
   }
 
   function removeSubTask(index: number) {
@@ -315,14 +320,21 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                 Sub-Tasks
               </label>
               <div className="space-y-2">
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                   <input
                     type="text"
                     value={newSubTaskTitle}
                     onChange={(e) => setNewSubTaskTitle(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSubTask())}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Sub-Task hinzufügen..."
+                  />
+                  <input
+                    type="date"
+                    value={newSubTaskDueDate}
+                    onChange={(e) => setNewSubTaskDueDate(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    title="Deadline für Sub-Task"
                   />
                   <button
                     type="button"
@@ -339,7 +351,14 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                         key={index}
                         className="flex items-center justify-between bg-gray-50 p-2 rounded"
                       >
-                        <span className="text-sm">{subTask.title}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm">{subTask.title}</span>
+                          {subTask.dueDate && (
+                            <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">
+                              📅 {new Date(subTask.dueDate).toLocaleDateString('de-CH')}
+                            </span>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => removeSubTask(index)}

@@ -18,6 +18,7 @@ export default async function DashboardPage() {
       include: {
         assignedTo: true,
         createdBy: true,
+        category: true,
       },
       orderBy: {
         createdAt: 'desc',

@@ -1,6 +1,6 @@
-import type { User, Ticket } from '@prisma/client';
+import type { User, Ticket, Category } from '@prisma/client';
 
-export type { User, Ticket };
+export type { User, Ticket, Category };
 
 // Simple user type with basic info
 export type SimpleUser = Pick<User, 'id' | 'name' | 'email'>;
@@ -11,6 +11,7 @@ export type UserInfo = Pick<User, 'id' | 'name' | 'email' | 'role' | 'createdAt'
 export type TicketWithRelations = Ticket & {
   assignedTo: SimpleUser | null;
   createdBy: SimpleUser;
+  category: Category | null;
 };
 
 export type UserWithStats = UserInfo & {

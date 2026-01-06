@@ -376,7 +376,13 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-            <Card>
+            <Card 
+              className="relative overflow-hidden"
+              style={{
+                borderTopWidth: ticket.category?.color ? '4px' : undefined,
+                borderTopColor: ticket.category?.color || undefined,
+              }}
+            >
               <CardHeader className="p-4 sm:p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

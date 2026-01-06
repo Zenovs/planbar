@@ -188,6 +188,7 @@ export async function POST(req: NextRequest) {
           title: st.title,
           position: index,
           completed: false,
+          dueDate: st.dueDate ? new Date(st.dueDate) : null,
         })),
       };
     }

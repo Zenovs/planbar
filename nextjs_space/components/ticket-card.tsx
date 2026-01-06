@@ -16,6 +16,7 @@ interface TicketCardProps {
 
 export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
   const isOverdue = ticket?.deadline && new Date(ticket.deadline) < new Date() && ticket.status !== 'done' && ticket.status !== 'closed';
+  const categoryColor = ticket?.category?.color;
 
   return (
     <Link href={`/tickets/${ticket?.id || ''}`}>
@@ -24,7 +25,11 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: index * 0.05 }}
         whileHover={{ y: -4, shadow: '0 10px 30px rgba(0,0,0,0.15)' }}
-        className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-4 sm:p-6 border border-gray-100 active:scale-[0.98]"
+        className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all p-4 sm:p-6 border border-gray-100 active:scale-[0.98] relative overflow-hidden"
+        style={{
+          borderLeftWidth: categoryColor ? '4px' : undefined,
+          borderLeftColor: categoryColor || undefined,
+        }}
       >
         <div className="flex items-start justify-between gap-3 sm:gap-4">
           <div className="flex-1 min-w-0">
@@ -32,6 +37,19 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
               <StatusBadge status={ticket?.status || 'open'} />
               <PriorityBadge priority={ticket?.priority || 'medium'} />
+              {ticket?.category && (
+                <span 
+                  className="px-2 py-0.5 rounded-full text-xs font-medium"
+                  style={{ 
+                    backgroundColor: `${ticket.category.color}20`,
+                    color: ticket.category.color,
+                    borderColor: ticket.category.color,
+                    borderWidth: '1px',
+                  }}
+                >
+                  {ticket.category.name}
+                </span>
+              )}
               {isOverdue && (
                 <span className="flex items-center gap-1 text-xs text-red-600 font-medium">
                   <AlertCircle className="w-3 h-3" />
