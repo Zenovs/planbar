@@ -38,6 +38,8 @@ model User {
   createdTickets   Ticket[]  @relation("CreatedTickets")
   assignedTickets  Ticket[]  @relation("AssignedTickets")
   assignedSubTasks SubTask[] @relation("AssignedSubTasks")
+  ticketAssignees  TicketAssignee[]
+  subTaskAssignees SubTaskAssignee[]
   teamId           String?
   team             Team?     @relation(fields: [teamId], references: [id])
 
@@ -125,6 +127,7 @@ model Ticket {
   shareEnabled Boolean   @default(false)
   
   subTasks     SubTask[]
+  assignees    TicketAssignee[]
 
   @@map("tickets")
 }
@@ -145,6 +148,7 @@ model SubTask {
   ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   assigneeId String?
   assignee   User?  @relation("AssignedSubTasks", fields: [assigneeId], references: [id], onDelete: SetNull)
+  assignees  SubTaskAssignee[]
 
   @@map("sub_tasks")
 }
@@ -188,4 +192,32 @@ model TemplateSubTicket {
   template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   @@map("template_sub_tickets")
+}
+
+model TicketAssignee {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, userId])
+  @@map("ticket_assignees")
+}
+
+model SubTaskAssignee {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  subTaskId String
+  subTask   SubTask @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([subTaskId, userId])
+  @@map("subtask_assignees")
 }

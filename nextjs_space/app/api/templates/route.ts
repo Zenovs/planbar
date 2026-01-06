@@ -33,12 +33,22 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true
           }
+        },
+        _count: {
+          select: { subTickets: true }
         }
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json(templates);
+    // Map subTickets to subTasks for frontend compatibility
+    const templatesWithSubTasks = templates.map(template => ({
+      ...template,
+      subTasks: template.subTickets,
+      _count: { subTasks: template._count.subTickets }
+    }));
+
+    return NextResponse.json(templatesWithSubTasks);
   } catch (error) {
     console.error('GET /api/templates error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

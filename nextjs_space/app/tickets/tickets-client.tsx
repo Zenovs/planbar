@@ -2,19 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/header';
-import { TicketCard } from '@/components/ticket-card';
+import { ProjektCard } from '@/components/ticket-card';
 import { TemplatesDialog } from '@/components/templates-dialog';
 import { Search, Filter, Plus, SortAsc, ChevronDown, ChevronUp, FolderKanban } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { TicketWithRelations, STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser } from '@/lib/types';
+import { ProjektWithRelations, STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser } from '@/lib/types';
 
-interface TicketsClientProps {
+interface ProjektsClientProps {
   users: SimpleUser[];
 }
 
-export function TicketsClient({ users }: TicketsClientProps) {
-  const [tickets, setTickets] = useState<TicketWithRelations[]>([]);
+export function ProjektsClient({ users }: ProjektsClientProps) {
+  const [tickets, setTickets] = useState<ProjektWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -61,9 +61,9 @@ export function TicketsClient({ users }: TicketsClientProps) {
         {/* Header - Stack on mobile */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">Alle Tickets</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">Alle Projekte</h1>
             <p className="text-sm sm:text-base text-gray-600">
-              Verwalte deine Tickets effizient.
+              Verwalte deine Projekts effizient.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -83,7 +83,7 @@ export function TicketsClient({ users }: TicketsClientProps) {
                 className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all min-h-[48px]"
               >
                 <Plus className="w-5 h-5" />
-                <span>Neues Ticket</span>
+                <span>Neues Projekt</span>
               </motion.button>
             </Link>
           </div>
@@ -213,28 +213,28 @@ export function TicketsClient({ users }: TicketsClientProps) {
           </AnimatePresence>
         </div>
 
-        {/* Tickets Grid */}
+        {/* Projekts Grid */}
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-blue-500"></div>
-            <p className="mt-4 text-gray-600 text-sm sm:text-base">Lade Tickets...</p>
+            <p className="mt-4 text-gray-600 text-sm sm:text-base">Lade Projekts...</p>
           </div>
         ) : tickets && tickets.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {tickets.map((ticket, index) => (
-              <TicketCard key={ticket?.id} ticket={ticket} index={index} />
+              <ProjektCard key={ticket?.id} ticket={ticket} index={index} />
             ))}
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-md p-8 sm:p-12 text-center">
-            <p className="text-gray-500 mb-4 text-sm sm:text-base">Keine Tickets gefunden</p>
+            <p className="text-gray-500 mb-4 text-sm sm:text-base">Keine Projekts gefunden</p>
             <Link href="/tickets/new">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all min-h-[48px]"
               >
-                Neues Ticket erstellen
+                Neues Projekt erstellen
               </motion.button>
             </Link>
           </div>

@@ -27,7 +27,7 @@ export function Header() {
 
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/tickets', label: 'Tickets', icon: Ticket },
+    { href: '/tickets', label: 'Projekte', icon: Ticket },
     { href: '/team', label: 'Team', icon: Users },
   ];
 
@@ -102,7 +102,7 @@ export function Header() {
                     Profil bearbeiten
                   </Link>
                 </DropdownMenuItem>
-                {session?.user?.role === 'admin' && (
+                {['admin', 'Administrator', 'ADMIN'].includes(session?.user?.role || '') && (
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="cursor-pointer">
                       <Settings className="w-4 h-4 mr-2" />
@@ -181,7 +181,7 @@ export function Header() {
                     <span className="text-base">Profil bearbeiten</span>
                   </div>
                 </Link>
-                {session?.user?.role === 'admin' && (
+                {['admin', 'Administrator', 'ADMIN'].includes(session?.user?.role || '') && (
                   <Link href="/settings" onClick={() => setMobileMenuOpen(false)}>
                     <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 min-h-[48px]">
                       <Settings className="w-5 h-5" />

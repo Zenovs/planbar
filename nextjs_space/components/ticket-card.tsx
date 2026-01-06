@@ -96,3 +96,6 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
     </Link>
   );
 }
+
+// Alias für Projekt-Terminologie
+export { TicketCard as ProjektCard };

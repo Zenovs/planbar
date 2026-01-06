@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { TicketDetailClient } from './ticket-detail-client';
+import { ProjektDetailClient } from './ticket-detail-client';
 import prisma from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -46,5 +46,5 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
     redirect('/tickets');
   }
 
-  return <TicketDetailClient ticket={ticket} users={users || []} categories={categories || []} />;
+  return <ProjektDetailClient ticket={ticket} users={users || []} categories={categories || []} />;
 }

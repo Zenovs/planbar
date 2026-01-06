@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Ticket, Mail, Lock, User } from 'lucide-react';
 
@@ -150,9 +151,19 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Passwort
-              </label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Passwort
+                </label>
+                {isLogin && (
+                  <Link 
+                    href="/auth/forgot-password" 
+                    className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                  >
+                    Passwort vergessen?
+                  </Link>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input

@@ -14,6 +14,9 @@ export type TicketWithRelations = Ticket & {
   category: Category | null;
 };
 
+// Alias für Projekt-Terminologie
+export type ProjektWithRelations = TicketWithRelations;
+
 export type UserWithStats = UserInfo & {
   _count?: {
     assignedTickets: number;

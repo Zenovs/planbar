@@ -73,7 +73,7 @@ interface ResourceInfo {
   openSubTasks: number;
 }
 
-interface Ticket {
+interface Projekt {
   id: string;
   title: string;
   description: string | null;
@@ -90,15 +90,15 @@ interface Ticket {
   subTasks?: SubTask[];
 }
 
-interface TicketDetailClientProps {
-  ticket: Ticket;
+interface ProjektDetailClientProps {
+  ticket: Projekt;
   users: User[];
   categories: Category[];
 }
 
-export function TicketDetailClient({ ticket: initialTicket, users, categories }: TicketDetailClientProps) {
+export function ProjektDetailClient({ ticket: initialTicket, users, categories }: ProjektDetailClientProps) {
   const router = useRouter();
-  const [ticket, setTicket] = useState<Ticket>(initialTicket);
+  const [ticket, setTicket] = useState<Projekt>(initialTicket);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -168,7 +168,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
         const data = await res.json();
         setTicket(data.ticket);
         setIsEditing(false);
-        toast.success('Ticket aktualisiert');
+        toast.success('Projekt aktualisiert');
         router.refresh();
       } else {
         const error = await res.json();
@@ -182,7 +182,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
   };
 
   const handleDelete = async () => {
-    if (!confirm('Ticket wirklich löschen?')) return;
+    if (!confirm('Projekt wirklich löschen?')) return;
 
     setIsDeleting(true);
     try {
@@ -191,7 +191,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
       });
 
       if (res.ok) {
-        toast.success('Ticket gelöscht');
+        toast.success('Projekt gelöscht');
         router.push('/tickets');
       } else {
         toast.error('Fehler beim Löschen');
@@ -302,7 +302,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
         const updatedSubTask = await res.json();
         setTicket({
           ...ticket,
-          subTasks: (ticket.subTasks || []).map(st =>
+          subTasks: (ticket.subTasks || []).map((st: SubTask) =>
             st.id === subTaskId ? { ...st, ...updatedSubTask } : st
           ),
         });
@@ -327,7 +327,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
         const updatedSubTask = await res.json();
         setTicket({
           ...ticket,
-          subTasks: (ticket.subTasks || []).map((st) =>
+          subTasks: (ticket.subTasks || []).map((st: SubTask) =>
             st.id === subTaskId ? updatedSubTask : st
           ),
         });
@@ -352,7 +352,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
         const updatedSubTask = await res.json();
         setTicket({
           ...ticket,
-          subTasks: (ticket.subTasks || []).map((st) =>
+          subTasks: (ticket.subTasks || []).map((st: SubTask) =>
             st.id === subTaskId ? updatedSubTask : st
           ),
         });
@@ -376,7 +376,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
       if (res.ok) {
         setTicket({
           ...ticket,
-          subTasks: (ticket.subTasks || []).filter((st) => st.id !== subTaskId),
+          subTasks: (ticket.subTasks || []).filter((st: SubTask) => st.id !== subTaskId),
         });
         // Ressourcen neu laden, da sich die Verfügbarkeit geändert hat
         await loadResources();
@@ -389,7 +389,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
   };
 
   const progress = ticket.subTasks && ticket.subTasks.length > 0
-    ? Math.round((ticket.subTasks.filter(st => st.completed).length / ticket.subTasks.length) * 100)
+    ? Math.round((ticket.subTasks.filter((st: SubTask) => st.completed).length / ticket.subTasks.length) * 100)
     : 0;
 
   return (
@@ -406,7 +406,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
               <ArrowLeft size={18} />
               <span className="hidden sm:inline ml-2">Zurück</span>
             </Button>
-            <h1 className="text-xl sm:text-3xl font-bold">Ticket Details</h1>
+            <h1 className="text-xl sm:text-3xl font-bold">Projekt Details</h1>
           </div>
           
           {/* Desktop actions */}
@@ -633,7 +633,7 @@ export function TicketDetailClient({ ticket: initialTicket, users, categories }:
                   </div>
                 )}
 
-                {(ticket.subTasks || []).map((subTask) => {
+                {(ticket.subTasks || []).map((subTask: SubTask) => {
                   const isOverdue = subTask.dueDate && new Date(subTask.dueDate) < new Date() && !subTask.completed;
                   const isUpcoming = subTask.dueDate && !isOverdue && 
                     new Date(subTask.dueDate) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) && !subTask.completed;

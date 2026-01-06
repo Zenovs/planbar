@@ -302,7 +302,7 @@ export default function SettingsClient() {
         transition={{ duration: 0.5 }}
       >
         <h1 className="text-3xl font-bold mb-2">Einstellungen</h1>
-        <p className="text-muted-foreground mb-8">Verwalte Kategorien und Vorlagen für deine Tickets</p>
+        <p className="text-muted-foreground mb-8">Verwalte Kategorien und Vorlagen für deine Projekte</p>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -316,7 +316,7 @@ export default function SettingsClient() {
             <Card>
               <CardHeader>
                 <CardTitle>Neue Kategorie</CardTitle>
-                <CardDescription>Erstelle eine neue Kategorie für deine Tickets</CardDescription>
+                <CardDescription>Erstelle eine neue Kategorie für deine Projekte</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4">
@@ -711,7 +711,7 @@ export default function SettingsClient() {
                                 status: template.status,
                                 priority: template.priority,
                                 categoryId: template.categoryId || '',
-                                subTasks: template.subTasks
+                                subTasks: template.subTasks || []
                               });
                             }}
                           >

@@ -84,7 +84,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   }, []);
 
   useEffect(() => {
-    // Lade Ressourcen wenn Sub-Task Deadline oder Ticket Deadline vorhanden
+    // Lade Ressourcen wenn Sub-Task Deadline oder Projekt Deadline vorhanden
     const deadline = newSubTaskDueDate || formData.deadline;
     if (deadline) {
       loadResources(deadline);
@@ -227,11 +227,11 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data?.error || 'Fehler beim Erstellen des Tickets');
+        setError(data?.error || 'Fehler beim Erstellen des Projekts');
         return;
       }
 
-      toast.success('Ticket erfolgreich erstellt!');
+      toast.success('Projekt erfolgreich erstellt!');
       router.push(`/tickets/${data?.ticket?.id || ''}`);
     } catch (err) {
       setError('Ein Fehler ist aufgetreten');
@@ -252,12 +252,12 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
-            Zurück zu Tickets
+            Zurück zu Projekts
           </motion.button>
         </Link>
 
         <div className="bg-white rounded-xl shadow-md p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Neues Ticket erstellen</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">Neues Projekt erstellen</h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Template-Auswahl */}
@@ -307,7 +307,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={6}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Detaillierte Beschreibung des Tickets..."
+                placeholder="Detaillierte Beschreibung des Projekts..."
               />
             </div>
 
@@ -656,7 +656,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                 className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-5 h-5" />
-                {loading ? 'Erstelle...' : 'Ticket erstellen'}
+                {loading ? 'Erstelle...' : 'Projekt erstellen'}
               </motion.button>
               <Link href="/tickets">
                 <motion.button

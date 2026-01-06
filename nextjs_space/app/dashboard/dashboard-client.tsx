@@ -49,7 +49,7 @@ export function DashboardClient({ session, stats, recentTickets, users }: Dashbo
             className="w-full sm:w-auto px-4 py-3 sm:py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all flex items-center justify-center gap-2 shadow-md min-h-[48px] sm:min-h-0"
           >
             <CalendarDays className="w-5 h-5" />
-            <span>Tickets exportieren</span>
+            <span>Projekte exportieren</span>
           </motion.button>
         </div>
 
@@ -88,7 +88,7 @@ export function DashboardClient({ session, stats, recentTickets, users }: Dashbo
         {/* Recent Tickets Section */}
         <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Neueste Tickets</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Neueste Projekte</h2>
             <div className="flex gap-2">
               <Link href="/tickets/new" className="flex-1 sm:flex-none">
                 <motion.button
@@ -97,7 +97,7 @@ export function DashboardClient({ session, stats, recentTickets, users }: Dashbo
                   className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2.5 rounded-lg font-medium hover:shadow-lg transition-all min-h-[44px]"
                 >
                   <Plus className="w-4 h-4" />
-                  <span className="text-sm sm:text-base">Neues Ticket</span>
+                  <span className="text-sm sm:text-base">Neues Projekt</span>
                 </motion.button>
               </Link>
               <Link href="/tickets" className="flex-1 sm:flex-none">
