@@ -25,6 +25,7 @@ export async function GET(
         category: true,
         subTasks: {
           orderBy: { position: 'asc' },
+          include: { assignee: true },
         },
       },
     });
@@ -69,6 +70,7 @@ export async function PATCH(
         category: true,
         subTasks: {
           orderBy: { position: 'asc' },
+          include: { assignee: true },
         },
       },
     });
@@ -119,6 +121,7 @@ export async function PATCH(
         category: true,
         subTasks: {
           orderBy: { position: 'asc' },
+          include: { assignee: true },
         },
       },
     });

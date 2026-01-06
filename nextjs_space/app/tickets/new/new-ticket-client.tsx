@@ -84,10 +84,12 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   }, []);
 
   useEffect(() => {
-    if (formData.deadline) {
-      loadResources(formData.deadline);
+    // Lade Ressourcen wenn Sub-Task Deadline oder Ticket Deadline vorhanden
+    const deadline = newSubTaskDueDate || formData.deadline;
+    if (deadline) {
+      loadResources(deadline);
     }
-  }, [formData.deadline]);
+  }, [formData.deadline, newSubTaskDueDate]);
 
   async function loadResources(deadline: string) {
     try {
@@ -99,6 +101,10 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     } catch (error) {
       console.error('Failed to load resources:', error);
     }
+  }
+
+  function getDeadlineForResource(): string {
+    return newSubTaskDueDate || formData.deadline || '';
   }
 
   async function loadCategories() {
@@ -398,7 +404,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                 <label className="block text-sm font-medium text-gray-700">
                   Sub-Tasks
                 </label>
-                {formData.deadline && resources.length > 0 && (
+                {(formData.deadline || newSubTaskDueDate) && resources.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setShowResourcePanel(!showResourcePanel)}
@@ -414,7 +420,10 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
               {showResourcePanel && resources.length > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
                   <h4 className="text-sm font-medium text-blue-800 mb-2">
-                    Verfügbare Kapazität bis {new Date(formData.deadline).toLocaleDateString('de-CH')}
+                    Verfügbare Kapazität bis {new Date(getDeadlineForResource()).toLocaleDateString('de-CH')}
+                    {newSubTaskDueDate && newSubTaskDueDate !== formData.deadline && (
+                      <span className="text-xs text-blue-600 ml-2">(Sub-Task Deadline)</span>
+                    )}
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {resources.map(r => {

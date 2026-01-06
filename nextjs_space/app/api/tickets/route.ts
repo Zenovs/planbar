@@ -189,6 +189,8 @@ export async function POST(req: NextRequest) {
           position: index,
           completed: false,
           dueDate: st.dueDate ? new Date(st.dueDate) : null,
+          assigneeId: st.assigneeId || null,
+          estimatedHours: st.estimatedHours || null,
         })),
       };
     }
@@ -202,6 +204,7 @@ export async function POST(req: NextRequest) {
         category: true,
         subTasks: {
           orderBy: { position: 'asc' },
+          include: { assignee: true },
         },
       },
     });
