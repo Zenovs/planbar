@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { Header } from '@/components/header';
 import { ProjektCard } from '@/components/ticket-card';
 import { TemplatesDialog } from '@/components/templates-dialog';
-import { Search, Filter, Plus, SortAsc, ChevronDown, ChevronUp, FolderKanban } from 'lucide-react';
+import { CategoriesDialog } from '@/components/categories-dialog';
+import { Search, Filter, Plus, SortAsc, ChevronDown, ChevronUp, FolderKanban, Tags } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { ProjektWithRelations, STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser } from '@/lib/types';
@@ -24,6 +25,7 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
   const [sortOrder, setSortOrder] = useState('desc');
   const [showFilters, setShowFilters] = useState(false);
   const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false);
+  const [categoriesDialogOpen, setCategoriesDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchTickets();
@@ -67,6 +69,15 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setCategoriesDialogOpen(true)}
+              className="flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-300 px-6 py-3 rounded-lg font-medium hover:shadow-md transition-all min-h-[48px]"
+            >
+              <Tags className="w-5 h-5" />
+              <span>Kategorien verwalten</span>
+            </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -245,6 +256,12 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
       <TemplatesDialog
         open={templatesDialogOpen}
         onOpenChange={setTemplatesDialogOpen}
+      />
+
+      {/* Categories Dialog */}
+      <CategoriesDialog
+        open={categoriesDialogOpen}
+        onOpenChange={setCategoriesDialogOpen}
       />
     </div>
   );

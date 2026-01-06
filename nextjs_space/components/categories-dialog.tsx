@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const COLORS = [
@@ -28,17 +28,22 @@ interface Category {
   _count: { tickets: number };
 }
 
-export default function SettingsClient() {
-  // Categories State
+interface CategoriesDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState({ name: '', color: COLORS[0].value, description: '' });
   const [editCategoryData, setEditCategoryData] = useState({ name: '', color: '', description: '' });
 
-  // Load data
   useEffect(() => {
-    loadCategories();
-  }, []);
+    if (open) {
+      loadCategories();
+    }
+  }, [open]);
 
   async function loadCategories() {
     try {
@@ -52,7 +57,6 @@ export default function SettingsClient() {
     }
   }
 
-  // Category functions
   async function createCategory() {
     if (!newCategory.name.trim()) {
       toast.error('Name ist erforderlich');
@@ -126,23 +130,20 @@ export default function SettingsClient() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <h1 className="text-3xl font-bold mb-2">Einstellungen</h1>
-        <p className="text-muted-foreground mb-8">Verwalte Kategorien für deine Projekte</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Kategorien verwalten</DialogTitle>
+          <DialogDescription>
+            Erstelle und verwalte Kategorien für deine Projekte
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 mt-4">
           {/* Neue Kategorie erstellen */}
           <Card>
-            <CardHeader>
-              <CardTitle>Neue Kategorie</CardTitle>
-              <CardDescription>Erstelle eine neue Kategorie für deine Projekte</CardDescription>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
+              <h3 className="font-semibold mb-4">Neue Kategorie erstellen</h3>
               <div className="grid gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Input
@@ -186,18 +187,14 @@ export default function SettingsClient() {
           </Card>
 
           {/* Bestehende Kategorien */}
-          <div className="grid gap-4">
-            <h2 className="text-xl font-semibold">Bestehende Kategorien</h2>
+          <div className="space-y-3">
+            <h3 className="font-semibold">Vorhandene Kategorien</h3>
             {categories.length === 0 ? (
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-center text-muted-foreground">Noch keine Kategorien vorhanden</p>
-                </CardContent>
-              </Card>
+              <p className="text-sm text-muted-foreground">Noch keine Kategorien vorhanden</p>
             ) : (
               categories.map((category) => (
                 <Card key={category.id}>
-                  <CardContent className="pt-6">
+                  <CardContent className="pt-4">
                     {editingCategory === category.id ? (
                       <div className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -232,11 +229,11 @@ export default function SettingsClient() {
                           />
                         </div>
                         <div className="flex gap-2">
-                          <Button onClick={() => updateCategory(category.id)}>
+                          <Button onClick={() => updateCategory(category.id)} size="sm">
                             <Save className="w-4 h-4 mr-2" />
                             Speichern
                           </Button>
-                          <Button variant="outline" onClick={() => setEditingCategory(null)}>
+                          <Button variant="outline" size="sm" onClick={() => setEditingCategory(null)}>
                             <X className="w-4 h-4 mr-2" />
                             Abbrechen
                           </Button>
@@ -290,7 +287,7 @@ export default function SettingsClient() {
             )}
           </div>
         </div>
-      </motion.div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
