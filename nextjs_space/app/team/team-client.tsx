@@ -15,6 +15,8 @@ import {
   X,
   UserPlus,
   UserMinus,
+  Clock,
+  Percent,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -34,6 +36,8 @@ interface User {
   email: string;
   role: string;
   teamId: string | null;
+  weeklyHours: number;
+  workloadPercent: number;
   createdAt: string;
   _count?: {
     assignedTickets: number;
@@ -62,9 +66,11 @@ export default function TeamClient() {
   // User management modals
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [showPensumModal, setShowPensumModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [tempRole, setTempRole] = useState<string>('');
+  const [pensumForm, setPensumForm] = useState({ weeklyHours: 42, workloadPercent: 100 });
 
   // Team management modals
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
@@ -180,6 +186,57 @@ export default function TeamClient() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUpdatePensum = async () => {
+    if (!editingUser) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          weeklyHours: pensumForm.weeklyHours,
+          workloadPercent: pensumForm.workloadPercent,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success('Pensum aktualisiert');
+        setShowPensumModal(false);
+        setEditingUser(null);
+        loadUsers();
+      } else {
+        toast.error('Fehler beim Aktualisieren');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Aktualisieren des Pensums');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openPensumModal = (user: User) => {
+    setEditingUser(user);
+    setPensumForm({
+      weeklyHours: user.weeklyHours || 42,
+      workloadPercent: user.workloadPercent || 100,
+    });
+    setShowPensumModal(true);
+  };
+
+  // Berechne verfügbare Stunden
+  const calculateAvailableHours = (user: User) => {
+    return (user.weeklyHours * user.workloadPercent / 100).toFixed(1);
+  };
+
+  // Berechne Team-Ressourcen
+  const calculateTeamResources = () => {
+    const totalHours = users.reduce((sum, user) => {
+      return sum + (user.weeklyHours * user.workloadPercent / 100);
+    }, 0);
+    return totalHours.toFixed(1);
   };
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
@@ -456,6 +513,42 @@ export default function TeamClient() {
             </div>
           )}
 
+          {/* Ressourcen-Übersicht */}
+          {users.length > 0 && (
+            <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                  Ressourcen-Übersicht
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{users.length}</div>
+                    <div className="text-xs text-gray-500">Mitarbeiter</div>
+                  </div>
+                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{calculateTeamResources()}h</div>
+                    <div className="text-xs text-gray-500">Stunden/Woche</div>
+                  </div>
+                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {(parseFloat(calculateTeamResources()) * 4.33).toFixed(0)}h
+                    </div>
+                    <div className="text-xs text-gray-500">Stunden/Monat</div>
+                  </div>
+                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {users.filter(u => u.workloadPercent < 100).length}
+                    </div>
+                    <div className="text-xs text-gray-500">Teilzeit</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Users Section */}
           <div>
             <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Alle Benutzer</h2>
@@ -575,6 +668,39 @@ export default function TeamClient() {
                             ) : (
                               <Badge variant="outline" className="text-xs">Kein Team</Badge>
                             )}
+                          </div>
+
+                          {/* Pensum Anzeige */}
+                          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-blue-600" />
+                                <span className="text-xs sm:text-sm font-medium">Pensum</span>
+                              </div>
+                              {isAdmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => openPensumModal(user)}
+                                >
+                                  <Edit className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="flex items-center gap-1">
+                                <Percent className="w-3 h-3 text-gray-500" />
+                                <span>{user.workloadPercent || 100}%</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-gray-500" />
+                                <span>{calculateAvailableHours(user)}h/Wo</span>
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Basis: {user.weeklyHours || 42}h/Woche
+                            </div>
                           </div>
 
                           <Separator />
@@ -779,6 +905,67 @@ export default function TeamClient() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAssignMemberModal(false)} className="w-full min-h-[44px]">
               Schließen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pensum Modal */}
+      <Dialog open={showPensumModal} onOpenChange={setShowPensumModal}>
+        <DialogContent className="max-w-[95vw] sm:max-w-md mx-auto rounded-t-2xl sm:rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-5 h-5" />
+              Pensum bearbeiten
+            </DialogTitle>
+            <DialogDescription>
+              {editingUser?.name || editingUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="weeklyHours">Soll-Stunden pro Woche (100%)</Label>
+              <Input
+                id="weeklyHours"
+                type="number"
+                min="0"
+                max="60"
+                step="0.5"
+                value={pensumForm.weeklyHours}
+                onChange={(e) => setPensumForm({ ...pensumForm, weeklyHours: parseFloat(e.target.value) || 0 })}
+                className="min-h-[44px]"
+              />
+              <p className="text-xs text-gray-500">Standard: 42 Stunden</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="workloadPercent">Pensum in Prozent</Label>
+              <Input
+                id="workloadPercent"
+                type="number"
+                min="0"
+                max="100"
+                step="5"
+                value={pensumForm.workloadPercent}
+                onChange={(e) => setPensumForm({ ...pensumForm, workloadPercent: parseInt(e.target.value) || 0 })}
+                className="min-h-[44px]"
+              />
+              <p className="text-xs text-gray-500">z.B. 80% = Teilzeit</p>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Verfügbare Stunden/Woche:</span>
+                <span className="text-lg font-bold text-blue-600">
+                  {(pensumForm.weeklyHours * pensumForm.workloadPercent / 100).toFixed(1)}h
+                </span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowPensumModal(false)} className="w-full sm:w-auto min-h-[44px]">
+              Abbrechen
+            </Button>
+            <Button onClick={handleUpdatePensum} disabled={loading} className="w-full sm:w-auto min-h-[44px]">
+              {loading ? 'Speichern...' : 'Speichern'}
             </Button>
           </DialogFooter>
         </DialogContent>

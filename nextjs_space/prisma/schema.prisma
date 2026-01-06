@@ -20,6 +20,10 @@ model User {
   imagePublic        Boolean   @default(false)
   emailNotifications Boolean   @default(true)
   
+  // Pensum / Arbeitszeit
+  weeklyHours        Float     @default(42)    // Soll-Stunden pro Woche
+  workloadPercent    Int       @default(100)   // Pensum in Prozent (z.B. 80% = 33.6h)
+  
   // Design-Einstellungen
   designPrimaryColor   String?   @default("#3b82f6")
   designSecondaryColor String?   @default("#8b5cf6")

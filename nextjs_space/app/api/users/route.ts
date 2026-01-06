@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
         role: true,
         createdAt: true,
         teamId: true,
+        weeklyHours: true,
+        workloadPercent: true,
         team: {
           select: {
             id: true,

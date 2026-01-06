@@ -20,13 +20,15 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { name, email, role, password } = body;
+    const { name, email, role, password, weeklyHours, workloadPercent } = body;
 
     const updateData: any = {};
 
     if (name !== undefined) updateData.name = name;
     if (email !== undefined) updateData.email = email;
     if (role !== undefined) updateData.role = role;
+    if (weeklyHours !== undefined) updateData.weeklyHours = weeklyHours;
+    if (workloadPercent !== undefined) updateData.workloadPercent = workloadPercent;
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
     }
@@ -40,6 +42,9 @@ export async function PATCH(
         email: true,
         role: true,
         createdAt: true,
+        weeklyHours: true,
+        workloadPercent: true,
+        teamId: true,
       },
     });
 
