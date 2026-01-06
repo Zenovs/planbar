@@ -1,0 +1,8 @@
+# Ignore yarn files
+yarn.lock
+.yarn/
+.yarnrc.yml
+.pnp.*
+
+# Ignore other lock files
+pnpm-lock.yaml
