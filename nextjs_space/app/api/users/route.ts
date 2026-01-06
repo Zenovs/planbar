@@ -20,6 +20,14 @@ export async function GET(req: NextRequest) {
         email: true,
         role: true,
         createdAt: true,
+        teamId: true,
+        team: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+          },
+        },
         _count: {
           select: {
             assignedTickets: {
