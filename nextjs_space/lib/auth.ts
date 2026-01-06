@@ -48,10 +48,15 @@ export const authOptions: NextAuthOptions = {
     signIn: '/',
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session: updateSession }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+      }
+      // Update token when session is updated
+      if (trigger === 'update' && updateSession) {
+        token.name = updateSession.user?.name;
+        token.picture = updateSession.user?.image;
       }
       return token;
     },
@@ -59,6 +64,16 @@ export const authOptions: NextAuthOptions = {
       if (session?.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        
+        // Fetch fresh user data from database
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { name: true, image: true }
+        });
+        if (dbUser) {
+          session.user.name = dbUser.name;
+          session.user.image = dbUser.image;
+        }
       }
       return session;
     },
