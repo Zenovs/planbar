@@ -52,8 +52,10 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.name = user.name;
+        token.picture = user.image;
       }
-      // Update token when session is updated
+      // Update token when session is updated (e.g., after profile change)
       if (trigger === 'update' && updateSession) {
         token.name = updateSession.user?.name;
         token.picture = updateSession.user?.image;
@@ -64,16 +66,9 @@ export const authOptions: NextAuthOptions = {
       if (session?.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
-        
-        // Fetch fresh user data from database
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { name: true, image: true }
-        });
-        if (dbUser) {
-          session.user.name = dbUser.name;
-          session.user.image = dbUser.image;
-        }
+        // Use token data directly - updated via JWT callback
+        session.user.name = token.name as string;
+        session.user.image = token.picture as string | null;
       }
       return session;
     },

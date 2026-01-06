@@ -469,7 +469,8 @@ export default function ProfileClient() {
                 Abbrechen
               </Button>
               <Button
-                onClick={handleSave}
+                type="button"
+                onClick={() => handleSave()}
                 disabled={loading || uploadingImage}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
               >
