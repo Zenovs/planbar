@@ -149,15 +149,6 @@ export default function SharePage() {
           <CardContent className="space-y-6">
             {/* Meta Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ticket.deadline && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Fälligkeitsdatum:</span>
-                  <span className="font-medium">
-                    {new Date(ticket.deadline).toLocaleDateString('de-DE')}
-                  </span>
-                </div>
-              )}
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="w-4 h-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Erstellt am:</span>
