@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Plus, X } from 'lucide-react';
+import { ArrowLeft, Save, Plus, X, Users, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser } from '@/lib/types';
 import { toast } from 'sonner';
@@ -31,6 +31,24 @@ interface Template {
   };
 }
 
+interface ResourceInfo {
+  id: string;
+  name: string;
+  dailyHours: number;
+  workDays: number;
+  totalAvailableHours: number;
+  assignedHours: number;
+  freeHours: number;
+  utilizationPercent: number;
+}
+
+interface SubTaskForm {
+  title: string;
+  dueDate?: string;
+  assigneeId?: string;
+  estimatedHours?: number;
+}
+
 interface NewTicketClientProps {
   users: SimpleUser[];
 }
@@ -42,6 +60,8 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [resources, setResources] = useState<ResourceInfo[]>([]);
+  const [showResourcePanel, setShowResourcePanel] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -51,15 +71,35 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     assignedToId: '',
     deadline: '',
     categoryId: '',
-    subTasks: [] as { title: string; dueDate?: string }[],
+    subTasks: [] as SubTaskForm[],
   });
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
   const [newSubTaskDueDate, setNewSubTaskDueDate] = useState('');
+  const [newSubTaskAssignee, setNewSubTaskAssignee] = useState('');
+  const [newSubTaskHours, setNewSubTaskHours] = useState('');
 
   useEffect(() => {
     loadCategories();
     loadTemplates();
   }, []);
+
+  useEffect(() => {
+    if (formData.deadline) {
+      loadResources(formData.deadline);
+    }
+  }, [formData.deadline]);
+
+  async function loadResources(deadline: string) {
+    try {
+      const res = await fetch(`/api/resources?deadline=${deadline}`);
+      if (res.ok) {
+        const data = await res.json();
+        setResources(data.resources || []);
+      }
+    } catch (error) {
+      console.error('Failed to load resources:', error);
+    }
+  }
 
   async function loadCategories() {
     try {
@@ -104,15 +144,53 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
 
   function addSubTask() {
     if (!newSubTaskTitle.trim()) return;
+    const hours = parseFloat(newSubTaskHours);
     setFormData({
       ...formData,
       subTasks: [...formData.subTasks, { 
         title: newSubTaskTitle.trim(),
-        dueDate: newSubTaskDueDate || undefined
+        dueDate: newSubTaskDueDate || undefined,
+        assigneeId: newSubTaskAssignee || undefined,
+        estimatedHours: !isNaN(hours) ? hours : undefined
       }]
     });
     setNewSubTaskTitle('');
     setNewSubTaskDueDate('');
+    setNewSubTaskAssignee('');
+    setNewSubTaskHours('');
+  }
+
+  function getResourceForUser(userId: string): ResourceInfo | undefined {
+    return resources.find(r => r.id === userId);
+  }
+
+  function calculatePlannedHoursForUser(userId: string): number {
+    return formData.subTasks
+      .filter(st => st.assigneeId === userId)
+      .reduce((sum, st) => sum + (st.estimatedHours || 0), 0);
+  }
+
+  function getTotalPlannedHours(): number {
+    return formData.subTasks.reduce((sum, st) => sum + (st.estimatedHours || 0), 0);
+  }
+
+  function checkFeasibility(): { feasible: boolean; warnings: string[] } {
+    const warnings: string[] = [];
+    
+    for (const subTask of formData.subTasks) {
+      if (subTask.assigneeId && subTask.estimatedHours) {
+        const resource = getResourceForUser(subTask.assigneeId);
+        if (resource) {
+          const plannedHours = calculatePlannedHoursForUser(subTask.assigneeId);
+          if (plannedHours > resource.freeHours) {
+            const user = users.find(u => u.id === subTask.assigneeId);
+            warnings.push(`${user?.name || 'Benutzer'}: ${plannedHours}h geplant, nur ${resource.freeHours}h verfügbar`);
+          }
+        }
+      }
+    }
+    
+    return { feasible: warnings.length === 0, warnings: [...new Set(warnings)] };
   }
 
   function removeSubTask(index: number) {
@@ -314,60 +392,161 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
               </div>
             </div>
 
-            {/* Sub-Tasks */}
+            {/* Sub-Tasks mit Ressourcenplanung */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sub-Tasks
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Sub-Tasks
+                </label>
+                {formData.deadline && resources.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowResourcePanel(!showResourcePanel)}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    <Users className="w-4 h-4" />
+                    Ressourcen anzeigen
+                  </button>
+                )}
+              </div>
+
+              {/* Ressourcen-Panel */}
+              {showResourcePanel && resources.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                  <h4 className="text-sm font-medium text-blue-800 mb-2">
+                    Verfügbare Kapazität bis {new Date(formData.deadline).toLocaleDateString('de-CH')}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {resources.map(r => {
+                      const plannedHours = calculatePlannedHoursForUser(r.id);
+                      const effectiveFree = r.freeHours - plannedHours;
+                      const overbooked = effectiveFree < 0;
+                      return (
+                        <div key={r.id} className={`text-xs p-2 rounded ${overbooked ? 'bg-red-100' : 'bg-white'}`}>
+                          <div className="font-medium">{r.name}</div>
+                          <div className="text-gray-600">
+                            {r.dailyHours}h/Tag × {r.workDays} Tage = {r.totalAvailableHours}h
+                          </div>
+                          <div className={overbooked ? 'text-red-600 font-bold' : 'text-green-600'}>
+                            Frei: {effectiveFree.toFixed(1)}h {overbooked && '⚠️'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Machbarkeits-Warnung */}
+              {formData.deadline && formData.subTasks.length > 0 && (() => {
+                const { feasible, warnings } = checkFeasibility();
+                if (!feasible) {
+                  return (
+                    <div className="bg-orange-50 border border-orange-300 rounded-lg p-3 mb-3">
+                      <div className="flex items-center gap-2 text-orange-700 font-medium text-sm mb-1">
+                        <AlertTriangle className="w-4 h-4" />
+                        Kapazitätswarnung
+                      </div>
+                      {warnings.map((w, i) => (
+                        <div key={i} className="text-xs text-orange-600">• {w}</div>
+                      ))}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               <div className="space-y-2">
-                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                {/* Neue Sub-Task Eingabe */}
+                <div className="grid grid-cols-12 gap-2">
                   <input
                     type="text"
                     value={newSubTaskTitle}
                     onChange={(e) => setNewSubTaskTitle(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSubTask())}
-                    className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Sub-Task hinzufügen..."
+                    className="col-span-12 sm:col-span-4 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    placeholder="Sub-Task..."
+                  />
+                  <select
+                    value={newSubTaskAssignee}
+                    onChange={(e) => setNewSubTaskAssignee(e.target.value)}
+                    className="col-span-6 sm:col-span-3 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                  >
+                    <option value="">Zuweisen...</option>
+                    {users.map(u => {
+                      const res = getResourceForUser(u.id);
+                      return (
+                        <option key={u.id} value={u.id}>
+                          {u.name} {res ? `(${res.freeHours}h frei)` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <input
+                    type="number"
+                    value={newSubTaskHours}
+                    onChange={(e) => setNewSubTaskHours(e.target.value)}
+                    className="col-span-3 sm:col-span-2 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                    placeholder="Std."
+                    min="0"
+                    step="0.5"
                   />
                   <input
                     type="date"
                     value={newSubTaskDueDate}
                     onChange={(e) => setNewSubTaskDueDate(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    title="Deadline für Sub-Task"
+                    className="col-span-3 sm:col-span-2 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                   <button
                     type="button"
                     onClick={addSubTask}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    className="col-span-12 sm:col-span-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
                 </div>
+
+                {/* Sub-Tasks Liste */}
                 {formData.subTasks.length > 0 && (
                   <div className="space-y-1 mt-3">
-                    {formData.subTasks.map((subTask, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between bg-gray-50 p-2 rounded"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm">{subTask.title}</span>
-                          {subTask.dueDate && (
-                            <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">
-                              📅 {new Date(subTask.dueDate).toLocaleDateString('de-CH')}
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeSubTask(index)}
-                          className="text-red-500 hover:text-red-700"
+                    <div className="text-xs text-gray-500 mb-1">
+                      {formData.subTasks.length} Sub-Tasks • {getTotalPlannedHours()}h gesamt geplant
+                    </div>
+                    {formData.subTasks.map((subTask, index) => {
+                      const assignee = users.find(u => u.id === subTask.assigneeId);
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between bg-gray-50 p-2 rounded"
                         >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">{subTask.title}</span>
+                            {assignee && (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                👤 {assignee.name}
+                              </span>
+                            )}
+                            {subTask.estimatedHours && (
+                              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                                ⏱ {subTask.estimatedHours}h
+                              </span>
+                            )}
+                            {subTask.dueDate && (
+                              <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
+                                📅 {new Date(subTask.dueDate).toLocaleDateString('de-CH')}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeSubTask(index)}
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
