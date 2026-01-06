@@ -13,7 +13,7 @@ export default async function SettingsPage() {
   }
 
   // Nur Admins haben Zugriff auf Settings
-  if (session.user.role !== 'admin') {
+  if (!['admin', 'Administrator', 'ADMIN'].includes(session.user.role || '')) {
     redirect('/dashboard');
   }
 
