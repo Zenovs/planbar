@@ -49,8 +49,7 @@ export async function GET(request: NextRequest) {
             status: { in: ['open', 'in_progress'] }
           },
           select: {
-            id: true,
-            deadline: true
+            id: true
           }
         }
       }

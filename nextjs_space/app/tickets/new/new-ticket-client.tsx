@@ -69,7 +69,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     status: 'open',
     priority: 'medium',
     assignedToId: '',
-    deadline: '',
     categoryId: '',
     subTasks: [] as SubTaskForm[],
   });
@@ -84,12 +83,11 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   }, []);
 
   useEffect(() => {
-    // Lade Ressourcen wenn Sub-Task Deadline oder Projekt Deadline vorhanden
-    const deadline = newSubTaskDueDate || formData.deadline;
-    if (deadline) {
-      loadResources(deadline);
+    // Lade Ressourcen wenn Sub-Task Deadline vorhanden
+    if (newSubTaskDueDate) {
+      loadResources(newSubTaskDueDate);
     }
-  }, [formData.deadline, newSubTaskDueDate, formData.subTasks.length]);
+  }, [newSubTaskDueDate, formData.subTasks.length]);
 
   async function loadResources(deadline: string) {
     try {
@@ -104,7 +102,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   }
 
   function getDeadlineForResource(): string {
-    return newSubTaskDueDate || formData.deadline || '';
+    return newSubTaskDueDate || '';
   }
 
   async function loadCategories() {
@@ -218,7 +216,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
         body: JSON.stringify({
           ...formData,
           assignedToId: formData.assignedToId || null,
-          deadline: formData.deadline || null,
           categoryId: formData.categoryId || null,
           templateId: selectedTemplateId || null,
         }),
@@ -384,18 +381,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                   ))}
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Deadline
-                </label>
-                <input
-                  type="date"
-                  value={formData.deadline}
-                  onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
             </div>
 
             {/* Sub-Tasks mit Ressourcenplanung */}
@@ -404,7 +389,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                 <label className="block text-sm font-medium text-gray-700">
                   Sub-Tasks
                 </label>
-                {(formData.deadline || newSubTaskDueDate) && resources.length > 0 && (
+                {newSubTaskDueDate && resources.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setShowResourcePanel(!showResourcePanel)}
@@ -428,9 +413,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                       <Clock className="w-4 h-4 text-blue-500" />
                       Kapazität bis {new Date(getDeadlineForResource()).toLocaleDateString('de-CH')}
                     </h4>
-                    {newSubTaskDueDate && newSubTaskDueDate !== formData.deadline && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Sub-Task</span>
-                    )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {resources.map(r => {
@@ -480,7 +462,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
               )}
 
               {/* Machbarkeits-Warnung */}
-              {formData.deadline && formData.subTasks.length > 0 && (() => {
+              {formData.subTasks.length > 0 && (() => {
                 const { feasible, warnings } = checkFeasibility();
                 if (!feasible) {
                   return (

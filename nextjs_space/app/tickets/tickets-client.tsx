@@ -213,8 +213,6 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
                   >
                     <option value="createdAt-desc">Neueste zuerst</option>
                     <option value="createdAt-asc">Älteste zuerst</option>
-                    <option value="deadline-asc">Deadline (früh)</option>
-                    <option value="deadline-desc">Deadline (spät)</option>
                     <option value="priority-desc">Priorität (hoch)</option>
                     <option value="priority-asc">Priorität (niedrig)</option>
                   </select>

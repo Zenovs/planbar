@@ -106,7 +106,6 @@ model Ticket {
   description String?
   status      String    @default("open")
   priority    String    @default("medium")
-  deadline    DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

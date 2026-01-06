@@ -15,7 +15,6 @@ interface TicketCardProps {
 }
 
 export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
-  const isOverdue = ticket?.deadline && new Date(ticket.deadline) < new Date() && ticket.status !== 'done' && ticket.status !== 'closed';
   const categoryColor = ticket?.category?.color;
 
   return (
@@ -50,13 +49,6 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
                   {ticket.category.name}
                 </span>
               )}
-              {isOverdue && (
-                <span className="flex items-center gap-1 text-xs text-red-600 font-medium">
-                  <AlertCircle className="w-3 h-3" />
-                  <span className="hidden xs:inline">Überfällig</span>
-                  <span className="xs:hidden">!</span>
-                </span>
-              )}
             </div>
             
             {/* Title */}
@@ -78,14 +70,6 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
                   <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                   <span className="truncate max-w-[120px] sm:max-w-none">
                     {ticket.assignedTo.name || ticket.assignedTo.email}
-                  </span>
-                </div>
-              )}
-              {ticket?.deadline && (
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-                  <span>
-                    {format(new Date(ticket.deadline), 'dd. MMM yyyy', { locale: de })}
                   </span>
                 </div>
               )}

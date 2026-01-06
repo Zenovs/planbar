@@ -79,7 +79,6 @@ interface Projekt {
   description: string | null;
   status: string;
   priority: string;
-  deadline: Date | null;
   assignedToId: string | null;
   categoryId: string | null;
   shareToken: string | null;
@@ -116,15 +115,13 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories }
     description: ticket.description || '',
     status: ticket.status,
     priority: ticket.priority,
-    deadline: ticket.deadline ? new Date(ticket.deadline).toISOString().split('T')[0] : '',
     assignedToId: ticket.assignedToId || 'none',
     categoryId: ticket.categoryId || 'none',
   });
 
-  // Ressourcen laden
-  const loadResources = useCallback(async () => {
+  // Ressourcen laden (basierend auf SubTask-Deadlines)
+  const loadResources = useCallback(async (deadline?: string) => {
     try {
-      const deadline = formData.deadline || ticket.deadline;
       const url = deadline 
         ? `/api/resources?deadline=${deadline}`
         : '/api/resources';
@@ -136,7 +133,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories }
     } catch (error) {
       console.error('Error loading resources:', error);
     }
-  }, [formData.deadline, ticket.deadline]);
+  }, []);
 
   useEffect(() => {
     loadResources();
@@ -158,7 +155,6 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories }
           description: formData.description,
           status: formData.status,
           priority: formData.priority,
-          deadline: formData.deadline || null,
           assignedToId: formData.assignedToId === 'none' ? null : formData.assignedToId,
           categoryId: formData.categoryId === 'none' ? null : formData.categoryId,
         }),
@@ -842,23 +838,6 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories }
                     </Select>
                   ) : (
                     <p className="mt-1 text-sm">{ticket.category?.name || 'Keine Kategorie'}</p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-sm">Fälligkeitsdatum</Label>
-                  {isEditing ? (
-                    <Input
-                      type="date"
-                      value={formData.deadline}
-                      onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                      className="mt-1 min-h-[44px]"
-                    />
-                  ) : (
-                    <p className="mt-1 text-sm">
-                      {ticket.deadline
-                        ? new Date(ticket.deadline).toLocaleDateString('de-DE')
-                        : 'Kein Datum'}
-                    </p>
                   )}
                 </div>
                 <div>

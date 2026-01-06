@@ -28,7 +28,6 @@ interface Ticket {
   description: string | null;
   status: string;
   priority: string;
-  deadline: string | null;
   createdAt: string;
   category: Category | null;
   subTasks: SubTask[];

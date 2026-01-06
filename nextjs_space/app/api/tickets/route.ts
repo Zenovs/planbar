@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, status, priority, assignedToId, deadline, teamId, categoryId, templateId, subTasks } = body;
+    const { title, description, status, priority, assignedToId, teamId, categoryId, templateId, subTasks } = body;
     
     if (!title) {
       return NextResponse.json(
@@ -168,7 +168,6 @@ export async function POST(req: NextRequest) {
       status: status || 'open',
       priority: priority || 'medium',
       assignedToId: assignedToId || null,
-      deadline: deadline ? new Date(deadline) : null,
       teamId: finalTeamId || null,
       categoryId: categoryId || null,
       createdById: session.user.id,

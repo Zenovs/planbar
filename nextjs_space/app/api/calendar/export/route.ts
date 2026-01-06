@@ -36,6 +36,16 @@ export async function GET(req: NextRequest) {
           createdBy: {
             select: { name: true, email: true },
           },
+          subTasks: {
+            where: {
+              dueDate: { not: null },
+            },
+            include: {
+              assignee: {
+                select: { name: true, email: true },
+              },
+            },
+          },
         },
       });
 
@@ -52,70 +62,79 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Zugriff verweigert' }, { status: 403 });
       }
 
-      // Add ticket as event
-      const event = calendar.createEvent({
-        start: ticket.deadline || new Date(),
-        end: ticket.deadline || new Date(),
-        summary: `[${ticket.priority.toUpperCase()}] ${ticket.title}`,
-        description: `Status: ${ticket.status}\nPriorität: ${ticket.priority}\n\n${ticket.description || ''}`,
-        location: 'planbar',
-        url: `${process.env.NEXTAUTH_URL}/tickets/${ticket.id}`,
-        id: `ticket-${ticket.id}@planbar`,
-        organizer: {
-          name: ticket.createdBy.name || 'planbar',
-          email: ticket.createdBy.email,
-        },
-      });
+      // Add sub-tasks with due dates as events
+      ticket.subTasks?.forEach((subTask: any) => {
+        if (subTask.dueDate) {
+          const event = calendar.createEvent({
+            start: new Date(subTask.dueDate),
+            end: new Date(subTask.dueDate),
+            summary: `${ticket.title} - ${subTask.title}`,
+            description: `Projekt: ${ticket.title}\nStatus: ${ticket.status}\nPriorität: ${ticket.priority}\n\n${ticket.description || ''}`,
+            location: 'planbar',
+            url: `${process.env.NEXTAUTH_URL}/tickets/${ticket.id}`,
+            id: `subtask-${subTask.id}@planbar`,
+            organizer: {
+              name: ticket.createdBy.name || 'planbar',
+              email: ticket.createdBy.email,
+            },
+          });
 
-      if (ticket.assignedTo?.email) {
-        event.createAttendee({
-          name: ticket.assignedTo.name || 'Unbekannt',
-          email: ticket.assignedTo.email,
-        });
-      }
+          if (subTask.assignee?.email) {
+            event.createAttendee({
+              name: subTask.assignee.name || 'Unbekannt',
+              email: subTask.assignee.email,
+            });
+          }
+        }
+      });
     } else {
-      // Export all user's tickets
-      const tickets = await prisma.ticket.findMany({
+      // Export all user's sub-tasks with due dates
+      const subTasks = await prisma.subTask.findMany({
         where: {
           OR: [
-            { assignedToId: session.user.id },
-            { createdById: session.user.id },
+            { assigneeId: session.user.id },
+            { ticket: { createdById: session.user.id } },
+            { ticket: { assignedToId: session.user.id } },
           ],
-          deadline: {
+          dueDate: {
             not: null,
           },
         },
         include: {
-          assignedTo: {
+          assignee: {
             select: { name: true, email: true },
           },
-          createdBy: {
-            select: { name: true, email: true },
+          ticket: {
+            include: {
+              createdBy: {
+                select: { name: true, email: true },
+              },
+            },
           },
         },
-        orderBy: { deadline: 'asc' },
+        orderBy: { dueDate: 'asc' },
       });
 
-      // Add each ticket as event
-      tickets.forEach((ticket: any) => {
+      // Add each sub-task as event
+      subTasks.forEach((subTask: any) => {
         const event = calendar.createEvent({
-          start: ticket.deadline!,
-          end: ticket.deadline!,
-          summary: `[${ticket.priority.toUpperCase()}] ${ticket.title}`,
-          description: `Status: ${ticket.status}\nPriorität: ${ticket.priority}\n\n${ticket.description || ''}`,
+          start: new Date(subTask.dueDate!),
+          end: new Date(subTask.dueDate!),
+          summary: `${subTask.ticket.title} - ${subTask.title}`,
+          description: `Projekt: ${subTask.ticket.title}\nStatus: ${subTask.ticket.status}\nPriorität: ${subTask.ticket.priority}`,
           location: 'planbar',
-          url: `${process.env.NEXTAUTH_URL}/tickets/${ticket.id}`,
-          id: `ticket-${ticket.id}@planbar`,
+          url: `${process.env.NEXTAUTH_URL}/tickets/${subTask.ticket.id}`,
+          id: `subtask-${subTask.id}@planbar`,
           organizer: {
-            name: ticket.createdBy.name || 'planbar',
-            email: ticket.createdBy.email,
+            name: subTask.ticket.createdBy.name || 'planbar',
+            email: subTask.ticket.createdBy.email,
           },
         });
 
-        if (ticket.assignedTo?.email) {
+        if (subTask.assignee?.email) {
           event.createAttendee({
-            name: ticket.assignedTo.name || 'Unbekannt',
-            email: ticket.assignedTo.email,
+            name: subTask.assignee.name || 'Unbekannt',
+            email: subTask.assignee.email,
           });
         }
       });

@@ -58,7 +58,7 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { title, description, status, priority, assignedToId, deadline, teamId, categoryId } = body;
+    const { title, description, status, priority, assignedToId, teamId, categoryId } = body;
 
     // Get old ticket data for comparison
     const oldTicket = await prisma.ticket.findUnique({
@@ -105,10 +105,6 @@ export async function PATCH(
     // Allow manual team override
     if (teamId !== undefined) {
       updateData.teamId = teamId;
-    }
-    
-    if (deadline !== undefined) {
-      updateData.deadline = deadline ? new Date(deadline) : null;
     }
 
     const ticket = await prisma.ticket.update({
