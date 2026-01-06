@@ -151,8 +151,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // If a user is assigned, automatically set the ticket's team to that user's team
+    // Determine team: 1) explicit teamId, 2) category's team, 3) assigned user's team
     let finalTeamId = teamId;
+    
+    // If category is set and has a team, use that team
+    if (categoryId && !finalTeamId) {
+      const category = await prisma.category.findUnique({
+        where: { id: categoryId },
+        select: { teamId: true },
+      });
+      finalTeamId = category?.teamId || null;
+    }
+    
+    // If still no team and user is assigned, use their team
     if (assignedToId && !finalTeamId) {
       const assignedUser = await prisma.user.findUnique({
         where: { id: assignedToId },

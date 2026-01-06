@@ -42,6 +42,7 @@ model User {
   subTaskAssignees SubTaskAssignee[]
   teamId           String?
   team             Team?     @relation(fields: [teamId], references: [id])
+  teamMemberships  TeamMember[]
 
   @@map("users")
 }
@@ -93,11 +94,32 @@ model Team {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members   User[]
-  tickets   Ticket[]
-  templates Template[]
+  members     User[]
+  teamMembers TeamMember[]
+  tickets     Ticket[]
+  templates   Template[]
+  categories  Category[]
 
   @@map("teams")
+}
+
+model TeamMember {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Pensum für dieses Team
+  weeklyHours     Float    @default(42)
+  workloadPercent Int      @default(100)
+  
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  teamId          String
+  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@map("team_members")
 }
 
 model Ticket {
@@ -159,6 +181,10 @@ model Category {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+  // Team-Zuordnung für Kategorien
+  teamId      String?
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   tickets Ticket[]
 

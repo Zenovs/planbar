@@ -15,6 +15,9 @@ export async function GET(request: NextRequest) {
       include: {
         _count: {
           select: { tickets: true }
+        },
+        team: {
+          select: { id: true, name: true, color: true }
         }
       },
       orderBy: { name: 'asc' }
@@ -44,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, color, description } = body;
+    const { name, color, description, teamId } = body;
 
     if (!name || !color) {
       return NextResponse.json({ error: 'name and color are required' }, { status: 400 });
@@ -63,7 +66,13 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         color,
-        description
+        description,
+        teamId: teamId || null
+      },
+      include: {
+        team: {
+          select: { id: true, name: true, color: true }
+        }
       }
     });
 
@@ -98,7 +107,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, color, description } = body;
+    const { name, color, description, teamId } = body;
 
     // Prüfe ob Kategorie existiert
     const existing = await prisma.category.findUnique({
@@ -124,7 +133,13 @@ export async function PATCH(request: NextRequest) {
       data: {
         ...(name !== undefined && { name }),
         ...(color !== undefined && { color }),
-        ...(description !== undefined && { description })
+        ...(description !== undefined && { description }),
+        ...(teamId !== undefined && { teamId: teamId || null })
+      },
+      include: {
+        team: {
+          select: { id: true, name: true, color: true }
+        }
       }
     });
 

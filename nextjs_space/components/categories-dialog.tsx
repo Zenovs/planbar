@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 
 const COLORS = [
   { name: 'Blau', value: '#3b82f6' },
@@ -20,11 +21,19 @@ const COLORS = [
   { name: 'Orange', value: '#f97316' },
 ];
 
+interface Team {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface Category {
   id: string;
   name: string;
   color: string;
   description: string | null;
+  teamId: string | null;
+  team: Team | null;
   _count: { tickets: number };
 }
 
@@ -35,15 +44,29 @@ interface CategoriesDialogProps {
 
 export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
-  const [newCategory, setNewCategory] = useState({ name: '', color: COLORS[0].value, description: '' });
-  const [editCategoryData, setEditCategoryData] = useState({ name: '', color: '', description: '' });
+  const [newCategory, setNewCategory] = useState({ name: '', color: COLORS[0].value, description: '', teamId: '' });
+  const [editCategoryData, setEditCategoryData] = useState({ name: '', color: '', description: '', teamId: '' });
 
   useEffect(() => {
     if (open) {
       loadCategories();
+      loadTeams();
     }
   }, [open]);
+
+  async function loadTeams() {
+    try {
+      const res = await fetch('/api/teams');
+      if (res.ok) {
+        const data = await res.json();
+        setTeams(data.teams || []);
+      }
+    } catch (error) {
+      console.error('Failed to load teams:', error);
+    }
+  }
 
   async function loadCategories() {
     try {
@@ -67,12 +90,15 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
       const res = await fetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newCategory)
+        body: JSON.stringify({
+          ...newCategory,
+          teamId: newCategory.teamId || null
+        })
       });
 
       if (res.ok) {
         toast.success('Kategorie erstellt');
-        setNewCategory({ name: '', color: COLORS[0].value, description: '' });
+        setNewCategory({ name: '', color: COLORS[0].value, description: '', teamId: '' });
         loadCategories();
       } else {
         const error = await res.json();
@@ -88,7 +114,10 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
       const res = await fetch(`/api/categories?id=${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editCategoryData)
+        body: JSON.stringify({
+          ...editCategoryData,
+          teamId: editCategoryData.teamId || null
+        })
       });
 
       if (res.ok) {
@@ -145,7 +174,7 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
             <CardContent className="pt-6">
               <h3 className="font-semibold mb-4">Neue Kategorie erstellen</h3>
               <div className="grid gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     placeholder="Name"
                     value={newCategory.name}
@@ -167,6 +196,30 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
                               style={{ backgroundColor: c.value }}
                             />
                             {c.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Select
+                    value={newCategory.teamId}
+                    onValueChange={(value) => setNewCategory({ ...newCategory, teamId: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Team zuordnen (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Kein Team</SelectItem>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: team.color }}
+                            />
+                            {team.name}
                           </div>
                         </SelectItem>
                       ))}
@@ -197,7 +250,7 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
                   <CardContent className="pt-4">
                     {editingCategory === category.id ? (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <Input
                             value={editCategoryData.name}
                             onChange={(e) => setEditCategoryData({ ...editCategoryData, name: e.target.value })}
@@ -223,7 +276,32 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
                               ))}
                             </SelectContent>
                           </Select>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Select
+                            value={editCategoryData.teamId || 'none'}
+                            onValueChange={(value) => setEditCategoryData({ ...editCategoryData, teamId: value === 'none' ? '' : value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Team zuordnen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Kein Team</SelectItem>
+                              {teams.map((team) => (
+                                <SelectItem key={team.id} value={team.id}>
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="w-3 h-3 rounded-full"
+                                      style={{ backgroundColor: team.color }}
+                                    />
+                                    {team.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <Input
+                            placeholder="Beschreibung"
                             value={editCategoryData.description || ''}
                             onChange={(e) => setEditCategoryData({ ...editCategoryData, description: e.target.value })}
                           />
@@ -251,9 +329,17 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
                             {category.description && (
                               <p className="text-sm text-muted-foreground">{category.description}</p>
                             )}
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {category._count.tickets} Projekt(e)
-                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-muted-foreground">
+                                {category._count.tickets} Projekt(e)
+                              </span>
+                              {category.team && (
+                                <Badge variant="outline" className="text-xs flex items-center gap-1">
+                                  <Users className="w-3 h-3" />
+                                  {category.team.name}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -265,7 +351,8 @@ export function CategoriesDialog({ open, onOpenChange }: CategoriesDialogProps) 
                               setEditCategoryData({
                                 name: category.name,
                                 color: category.color,
-                                description: category.description || ''
+                                description: category.description || '',
+                                teamId: category.teamId || ''
                               });
                             }}
                           >

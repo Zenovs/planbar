@@ -22,6 +22,18 @@ export async function GET(req: NextRequest) {
             role: true,
           },
         },
+        teamMembers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             tickets: true,

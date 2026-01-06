@@ -17,6 +17,7 @@ import {
   UserMinus,
   Clock,
   Percent,
+  Building2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -30,6 +31,19 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Header } from '@/components/header';
 
+interface TeamMembership {
+  id: string;
+  teamId: string;
+  userId: string;
+  weeklyHours: number;
+  workloadPercent: number;
+  team: {
+    id: string;
+    name: string;
+    color: string;
+  };
+}
+
 interface User {
   id: string;
   name: string | null;
@@ -39,6 +53,7 @@ interface User {
   weeklyHours: number;
   workloadPercent: number;
   createdAt: string;
+  teamMemberships?: TeamMembership[];
   _count?: {
     assignedTickets: number;
   };
@@ -51,6 +66,18 @@ interface Team {
   color: string;
   createdAt: string;
   members: User[];
+  teamMembers?: {
+    id: string;
+    userId: string;
+    weeklyHours: number;
+    workloadPercent: number;
+    user: {
+      id: string;
+      name: string | null;
+      email: string;
+      image: string | null;
+    };
+  }[];
   _count?: {
     tickets: number;
   };
@@ -61,23 +88,25 @@ export default function TeamClient() {
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  // User management modals
+  // Modals
   const [showAddUserModal, setShowAddUserModal] = useState(false);
-  const [showEditUserModal, setShowEditUserModal] = useState(false);
-  const [showPensumModal, setShowPensumModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showAddTeamModal, setShowAddTeamModal] = useState(false);
+  const [showAssignMemberModal, setShowAssignMemberModal] = useState(false);
+  const [showTeamPensumModal, setShowTeamPensumModal] = useState(false);
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [tempRole, setTempRole] = useState<string>('');
-  const [pensumForm, setPensumForm] = useState({ weeklyHours: 42, workloadPercent: 100 });
 
-  // Team management modals
-  const [showAddTeamModal, setShowAddTeamModal] = useState(false);
-  const [showEditTeamModal, setShowEditTeamModal] = useState(false);
-  const [showAssignMemberModal, setShowAssignMemberModal] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  // Selected items
   const [selectedTeamForAssign, setSelectedTeamForAssign] = useState<Team | null>(null);
+  const [editingMembership, setEditingMembership] = useState<{
+    userId: string;
+    teamId: string;
+    userName: string;
+    teamName: string;
+    weeklyHours: number;
+    workloadPercent: number;
+  } | null>(null);
 
   // Form states
   const [newUserForm, setNewUserForm] = useState({
@@ -91,6 +120,12 @@ export default function TeamClient() {
     name: '',
     description: '',
     color: '#3b82f6',
+  });
+
+  const [assignForm, setAssignForm] = useState({
+    userId: '',
+    weeklyHours: 42,
+    workloadPercent: 100,
   });
 
   const isAdmin = status === 'authenticated' && ['admin', 'Administrator', 'ADMIN'].includes(session?.user?.role || '');
@@ -129,7 +164,6 @@ export default function TeamClient() {
       toast.error('Bitte alle Felder ausfüllen');
       return;
     }
-
     if (newUserForm.password.length < 6) {
       toast.error('Passwort muss mindestens 6 Zeichen haben');
       return;
@@ -164,20 +198,15 @@ export default function TeamClient() {
       toast.error('Sie können sich nicht selbst löschen');
       return;
     }
-
-    if (!confirm('Möchten Sie diesen Benutzer wirklich löschen?')) {
-      return;
-    }
+    if (!confirm('Möchten Sie diesen Benutzer wirklich löschen?')) return;
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
-      });
-
+      const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Benutzer gelöscht');
         loadUsers();
+        loadTeams();
       } else {
         toast.error('Fehler beim Löschen');
       }
@@ -188,57 +217,6 @@ export default function TeamClient() {
     }
   };
 
-  const handleUpdatePensum = async () => {
-    if (!editingUser) return;
-    
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/users/${editingUser.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          weeklyHours: pensumForm.weeklyHours,
-          workloadPercent: pensumForm.workloadPercent,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success('Pensum aktualisiert');
-        setShowPensumModal(false);
-        setEditingUser(null);
-        loadUsers();
-      } else {
-        toast.error('Fehler beim Aktualisieren');
-      }
-    } catch (error) {
-      toast.error('Fehler beim Aktualisieren des Pensums');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openPensumModal = (user: User) => {
-    setEditingUser(user);
-    setPensumForm({
-      weeklyHours: user.weeklyHours || 42,
-      workloadPercent: user.workloadPercent || 100,
-    });
-    setShowPensumModal(true);
-  };
-
-  // Berechne verfügbare Stunden
-  const calculateAvailableHours = (user: User) => {
-    return (user.weeklyHours * user.workloadPercent / 100).toFixed(1);
-  };
-
-  // Berechne Team-Ressourcen
-  const calculateTeamResources = () => {
-    const totalHours = users.reduce((sum, user) => {
-      return sum + (user.weeklyHours * user.workloadPercent / 100);
-    }, 0);
-    return totalHours.toFixed(1);
-  };
-
   const handleUpdateRole = async (userId: string, newRole: string) => {
     setLoading(true);
     try {
@@ -247,7 +225,6 @@ export default function TeamClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole }),
       });
-
       if (res.ok) {
         toast.success('Rolle aktualisiert');
         setEditingRoleId(null);
@@ -293,16 +270,11 @@ export default function TeamClient() {
   };
 
   const handleDeleteTeam = async (teamId: string) => {
-    if (!confirm('Möchten Sie dieses Team wirklich löschen?')) {
-      return;
-    }
+    if (!confirm('Möchten Sie dieses Team wirklich löschen?')) return;
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/teams/${teamId}`, {
-        method: 'DELETE',
-      });
-
+      const res = await fetch(`/api/teams/${teamId}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Team gelöscht');
         loadTeams();
@@ -317,50 +289,102 @@ export default function TeamClient() {
     }
   };
 
-  const handleAssignUserToTeam = async (userId: string, teamId: string) => {
+  // Multi-Team Membership Functions
+  const handleAddMemberToTeam = async () => {
+    if (!selectedTeamForAssign || !assignForm.userId) {
+      toast.error('Bitte einen Benutzer auswählen');
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await fetch(`/api/teams/${teamId}/members`, {
+      const res = await fetch('/api/team-members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, action: 'add' }),
+        body: JSON.stringify({
+          userId: assignForm.userId,
+          teamId: selectedTeamForAssign.id,
+          weeklyHours: assignForm.weeklyHours,
+          workloadPercent: assignForm.workloadPercent,
+        }),
       });
 
       if (res.ok) {
-        toast.success('Benutzer dem Team hinzugefügt');
-        loadUsers();
+        toast.success('Mitglied hinzugefügt');
+        setShowAssignMemberModal(false);
+        setAssignForm({ userId: '', weeklyHours: 42, workloadPercent: 100 });
         loadTeams();
       } else {
-        toast.error('Fehler beim Hinzufügen');
+        const data = await res.json();
+        toast.error(data.error || 'Fehler beim Hinzufügen');
       }
     } catch (error) {
-      toast.error('Fehler beim Hinzufügen des Benutzers');
+      toast.error('Fehler beim Hinzufügen des Mitglieds');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRemoveUserFromTeam = async (userId: string, teamId: string) => {
+  const handleRemoveMemberFromTeam = async (userId: string, teamId: string) => {
+    if (!confirm('Mitglied aus dem Team entfernen?')) return;
+
     setLoading(true);
     try {
-      const res = await fetch(`/api/teams/${teamId}/members`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, action: 'remove' }),
+      const res = await fetch(`/api/team-members?userId=${userId}&teamId=${teamId}`, {
+        method: 'DELETE',
       });
 
       if (res.ok) {
-        toast.success('Benutzer aus dem Team entfernt');
-        loadUsers();
+        toast.success('Mitglied entfernt');
         loadTeams();
       } else {
         toast.error('Fehler beim Entfernen');
       }
     } catch (error) {
-      toast.error('Fehler beim Entfernen des Benutzers');
+      toast.error('Fehler beim Entfernen');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUpdateTeamPensum = async () => {
+    if (!editingMembership) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/team-members', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: editingMembership.userId,
+          teamId: editingMembership.teamId,
+          weeklyHours: editingMembership.weeklyHours,
+          workloadPercent: editingMembership.workloadPercent,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success('Pensum aktualisiert');
+        setShowTeamPensumModal(false);
+        setEditingMembership(null);
+        loadTeams();
+      } else {
+        toast.error('Fehler beim Aktualisieren');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Aktualisieren');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate team resources based on teamMembers
+  const calculateTeamResources = (team: Team) => {
+    if (!team.teamMembers || team.teamMembers.length === 0) return { hours: 0, members: 0 };
+    const totalHours = team.teamMembers.reduce((sum, m) => {
+      return sum + (m.weeklyHours * m.workloadPercent / 100);
+    }, 0);
+    return { hours: totalHours, members: team.teamMembers.length };
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -369,10 +393,6 @@ export default function TeamClient() {
 
   const getRoleLabel = (role: string) => {
     return ['admin', 'Administrator', 'ADMIN'].includes(role) ? 'Administrator' : 'Mitglied';
-  };
-
-  const getUnassignedUsers = () => {
-    return users.filter(u => !u.teamId);
   };
 
   return (
@@ -384,7 +404,7 @@ export default function TeamClient() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {/* Header - Stack on mobile */}
+          {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
             <div className="flex items-center gap-3">
               <div className="p-2.5 sm:p-3 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
@@ -392,10 +412,9 @@ export default function TeamClient() {
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold">Team-Verwaltung</h1>
-                <p className="text-sm sm:text-base text-gray-600">Verwalten Sie Teams und Mitglieder</p>
+                <p className="text-sm sm:text-base text-gray-600">Teams und Mitglieder mit individuellem Pensum verwalten</p>
               </div>
             </div>
-            {/* Admin buttons - show for authenticated admins */}
             {isAdmin && (
               <div className="flex gap-2 w-full sm:w-auto">
                 <Button
@@ -418,129 +437,142 @@ export default function TeamClient() {
           </div>
 
           {/* Teams Section */}
-          {isAdmin && teams.length > 0 && (
+          {teams.length > 0 && (
             <div className="mb-6 sm:mb-8">
-              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Teams</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {teams.map((team) => (
-                  <Card key={team.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader className="p-4 sm:p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: team.color }}
-                          />
-                          <CardTitle className="text-base sm:text-lg truncate">{team.name}</CardTitle>
-                        </div>
-                        {isAdmin && (
-                          <div className="flex gap-1 flex-shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="min-w-[40px] min-h-[40px]"
-                              onClick={() => {
-                                setSelectedTeamForAssign(team);
-                                setShowAssignMemberModal(true);
-                              }}
-                            >
-                              <UserPlus className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="min-w-[40px] min-h-[40px]"
-                              onClick={() => handleDeleteTeam(team.id)}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                      {team.description && (
-                        <CardDescription className="text-sm">{team.description}</CardDescription>
-                      )}
-                    </CardHeader>
-                    <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Mitglieder:</span>
-                          <Badge variant="secondary">{team.members.length}</Badge>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Tickets:</span>
-                          <Badge variant="secondary">{team._count?.tickets || 0}</Badge>
-                        </div>
-                      </div>
-                      {team.members.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                          <p className="text-sm font-medium text-gray-700">Teammitglieder:</p>
-                          {team.members.map((member) => (
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 flex items-center gap-2">
+                <Building2 className="w-5 h-5" />
+                Teams
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {teams.map((team) => {
+                  const resources = calculateTeamResources(team);
+                  return (
+                    <Card key={team.id} className="hover:shadow-lg transition-shadow">
+                      <CardHeader className="p-4 sm:p-6">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
                             <div
-                              key={member.id}
-                              className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <div className="text-sm min-w-0">
-                                  <p className="font-medium truncate">{member.name}</p>
-                                  <p className="text-xs text-gray-500 truncate">{member.email}</p>
-                                </div>
-                              </div>
-                              {isAdmin && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="min-w-[40px] min-h-[40px] flex-shrink-0"
-                                  onClick={() => handleRemoveUserFromTeam(member.id, team.id)}
-                                >
-                                  <UserMinus className="w-4 h-4 text-red-600" />
-                                </Button>
-                              )}
+                              className="w-4 h-4 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: team.color }}
+                            />
+                            <CardTitle className="text-lg truncate">{team.name}</CardTitle>
+                          </div>
+                          {isAdmin && (
+                            <div className="flex gap-1 flex-shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="min-w-[40px] min-h-[40px]"
+                                onClick={() => {
+                                  setSelectedTeamForAssign(team);
+                                  setShowAssignMemberModal(true);
+                                }}
+                              >
+                                <UserPlus className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="min-w-[40px] min-h-[40px]"
+                                onClick={() => handleDeleteTeam(team.id)}
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </Button>
                             </div>
-                          ))}
+                          )}
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                        {team.description && (
+                          <CardDescription className="text-sm mt-1">{team.description}</CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent className="p-4 sm:p-6 pt-0">
+                        {/* Team Ressourcen */}
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 mb-4">
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                              <div className="text-lg font-bold text-blue-600">{resources.members}</div>
+                              <div className="text-xs text-gray-500">Mitglieder</div>
+                            </div>
+                            <div>
+                              <div className="text-lg font-bold text-green-600">{resources.hours.toFixed(1)}h</div>
+                              <div className="text-xs text-gray-500">pro Woche</div>
+                            </div>
+                            <div>
+                              <div className="text-lg font-bold text-purple-600">{(resources.hours * 4.33).toFixed(0)}h</div>
+                              <div className="text-xs text-gray-500">pro Monat</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Team Members mit individuellem Pensum */}
+                        {team.teamMembers && team.teamMembers.length > 0 ? (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-gray-700">Mitglieder & Pensum:</p>
+                            {team.teamMembers.map((member) => (
+                              <div
+                                key={member.id}
+                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                                    {member.user.name?.[0]?.toUpperCase() || member.user.email[0].toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-sm truncate">{member.user.name || member.user.email}</p>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                      <span className="flex items-center gap-1">
+                                        <Percent className="w-3 h-3" />
+                                        {member.workloadPercent}%
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {(member.weeklyHours * member.workloadPercent / 100).toFixed(1)}h/Wo
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                {isAdmin && (
+                                  <div className="flex gap-1 flex-shrink-0">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => {
+                                        setEditingMembership({
+                                          userId: member.userId,
+                                          teamId: team.id,
+                                          userName: member.user.name || member.user.email,
+                                          teamName: team.name,
+                                          weeklyHours: member.weeklyHours,
+                                          workloadPercent: member.workloadPercent,
+                                        });
+                                        setShowTeamPensumModal(true);
+                                      }}
+                                    >
+                                      <Edit className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => handleRemoveMemberFromTeam(member.userId, team.id)}
+                                    >
+                                      <UserMinus className="w-3 h-3 text-red-600" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500 text-center py-4">Noch keine Mitglieder</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
-          )}
-
-          {/* Ressourcen-Übersicht */}
-          {users.length > 0 && (
-            <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                  Ressourcen-Übersicht
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">{users.length}</div>
-                    <div className="text-xs text-gray-500">Mitarbeiter</div>
-                  </div>
-                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{calculateTeamResources()}h</div>
-                    <div className="text-xs text-gray-500">Stunden/Woche</div>
-                  </div>
-                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">
-                      {(parseFloat(calculateTeamResources()) * 4.33).toFixed(0)}h
-                    </div>
-                    <div className="text-xs text-gray-500">Stunden/Monat</div>
-                  </div>
-                  <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
-                    <div className="text-2xl font-bold text-orange-600">
-                      {users.filter(u => u.workloadPercent < 100).length}
-                    </div>
-                    <div className="text-xs text-gray-500">Teilzeit</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           )}
 
           {/* Users Section */}
@@ -550,7 +582,7 @@ export default function TeamClient() {
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12">
                   <Users className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mb-4" />
-                  <p className="text-gray-600 mb-4 text-sm sm:text-base">Noch keine Teammitglieder</p>
+                  <p className="text-gray-600 mb-4 text-sm sm:text-base">Noch keine Benutzer</p>
                   {isAdmin && (
                     <Button
                       onClick={() => setShowAddUserModal(true)}
@@ -563,165 +595,81 @@ export default function TeamClient() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {users.map((user) => (
-                  <motion.div
-                    key={user.id}
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Card className="h-full hover:shadow-lg transition-shadow">
-                      <CardHeader className="p-4 sm:p-6">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-base sm:text-lg flex-shrink-0">
-                              {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <CardTitle className="text-base sm:text-lg truncate">{user.name || 'Unbenannt'}</CardTitle>
-                              <CardDescription className="flex items-center gap-1 sm:gap-2 mt-1 text-xs sm:text-sm">
-                                <Mail className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{user.email}</span>
-                              </CardDescription>
-                            </div>
+                  <Card key={user.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                            {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <CardTitle className="text-base truncate">{user.name || 'Unbenannt'}</CardTitle>
+                            <CardDescription className="flex items-center gap-1 text-xs">
+                              <Mail className="w-3 h-3" />
+                              <span className="truncate">{user.email}</span>
+                            </CardDescription>
                           </div>
                         </div>
-                      </CardHeader>
-                      <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs sm:text-sm text-gray-600">Offene Tickets:</span>
-                            <Badge variant="outline">
-                              {user._count?.assignedTickets || 0}
-                            </Badge>
-                          </div>
-
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <span className="text-xs sm:text-sm text-gray-600">Rolle:</span>
-                            {editingRoleId === user.id ? (
-                              <div className="flex items-center gap-1 sm:gap-2">
-                                <Select
-                                  value={tempRole}
-                                  onValueChange={setTempRole}
-                                >
-                                  <SelectTrigger className="w-24 sm:w-32 min-h-[36px] text-xs sm:text-sm">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="member">Mitglied</SelectItem>
-                                    <SelectItem value="admin">Admin</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="min-w-[36px] min-h-[36px]"
-                                  onClick={() => handleUpdateRole(user.id, tempRole)}
-                                  disabled={loading}
-                                >
-                                  <Check className="w-4 h-4 text-green-600" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="min-w-[36px] min-h-[36px]"
-                                  onClick={() => setEditingRoleId(null)}
-                                >
-                                  <X className="w-4 h-4 text-red-600" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1 sm:gap-2">
-                                <Badge className={`${getRoleBadgeColor(user.role)} text-xs`}>
-                                  {user.role === 'admin' && <Shield className="w-3 h-3 mr-1" />}
-                                  {getRoleLabel(user.role)}
-                                </Badge>
-                                {isAdmin && user.id !== session?.user?.id && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="min-w-[36px] min-h-[36px]"
-                                    onClick={() => {
-                                      setEditingRoleId(user.id);
-                                      setTempRole(user.role);
-                                    }}
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs sm:text-sm text-gray-600">Team:</span>
-                            {user.teamId ? (
-                              <Badge variant="secondary" className="text-xs">
-                                {teams.find(t => t.id === user.teamId)?.name || 'Unbekannt'}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-600">Rolle:</span>
+                          {editingRoleId === user.id ? (
+                            <div className="flex items-center gap-1">
+                              <Select value={tempRole} onValueChange={setTempRole}>
+                                <SelectTrigger className="w-24 h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="member">Mitglied</SelectItem>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleUpdateRole(user.id, tempRole)}>
+                                <Check className="w-4 h-4 text-green-600" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingRoleId(null)}>
+                                <X className="w-4 h-4 text-red-600" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <Badge className={`${getRoleBadgeColor(user.role)} text-xs`}>
+                                {user.role === 'admin' && <Shield className="w-3 h-3 mr-1" />}
+                                {getRoleLabel(user.role)}
                               </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs">Kein Team</Badge>
-                            )}
-                          </div>
-
-                          {/* Pensum Anzeige */}
-                          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-blue-600" />
-                                <span className="text-xs sm:text-sm font-medium">Pensum</span>
-                              </div>
-                              {isAdmin && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => openPensumModal(user)}
-                                >
+                              {isAdmin && user.id !== session?.user?.id && (
+                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => { setEditingRoleId(user.id); setTempRole(user.role); }}>
                                   <Edit className="w-3 h-3" />
                                 </Button>
                               )}
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              <div className="flex items-center gap-1">
-                                <Percent className="w-3 h-3 text-gray-500" />
-                                <span>{user.workloadPercent || 100}%</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-gray-500" />
-                                <span>{calculateAvailableHours(user)}h/Wo</span>
-                              </div>
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Basis: {user.weeklyHours || 42}h/Woche
-                            </div>
-                          </div>
-
-                          <Separator />
-
-                          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
-                            <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-                            <span>Seit {format(new Date(user.createdAt), 'dd.MM.yyyy')}</span>
-                          </div>
-
-                          {isAdmin && user.id !== session?.user?.id && (
-                            <div className="flex gap-2 pt-2">
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleDeleteUser(user.id)}
-                                disabled={loading}
-                                className="w-full min-h-[44px]"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Löschen
-                              </Button>
-                            </div>
                           )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
+
+                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          Seit {format(new Date(user.createdAt), 'dd.MM.yyyy')}
+                        </div>
+
+                        {isAdmin && user.id !== session?.user?.id && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="w-full mt-2"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Löschen
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}
@@ -729,55 +677,43 @@ export default function TeamClient() {
         </motion.div>
       </div>
 
-      {/* Add User Modal - Mobile optimized */}
+      {/* Add User Modal */}
       <Dialog open={showAddUserModal} onOpenChange={setShowAddUserModal}>
-        <DialogContent className="max-w-[95vw] sm:max-w-md mx-auto rounded-t-2xl sm:rounded-xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Neuen Benutzer hinzufügen</DialogTitle>
-            <DialogDescription>
-              Erstellen Sie ein neues Benutzerkonto
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="name">Name</Label>
+              <Label>Name</Label>
               <Input
-                id="name"
                 value={newUserForm.name}
                 onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
                 placeholder="Max Mustermann"
-                className="min-h-[44px]"
               />
             </div>
             <div>
-              <Label htmlFor="email">E-Mail</Label>
+              <Label>E-Mail</Label>
               <Input
-                id="email"
                 type="email"
                 value={newUserForm.email}
                 onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
                 placeholder="max@example.com"
-                className="min-h-[44px]"
               />
             </div>
             <div>
-              <Label htmlFor="password">Passwort</Label>
+              <Label>Passwort</Label>
               <Input
-                id="password"
                 type="password"
                 value={newUserForm.password}
                 onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
                 placeholder="Mindestens 6 Zeichen"
-                className="min-h-[44px]"
               />
             </div>
             <div>
-              <Label htmlFor="role">Rolle</Label>
-              <Select
-                value={newUserForm.role}
-                onValueChange={(value) => setNewUserForm({ ...newUserForm, role: value })}
-              >
-                <SelectTrigger className="min-h-[44px]">
+              <Label>Rolle</Label>
+              <Select value={newUserForm.role} onValueChange={(v) => setNewUserForm({ ...newUserForm, role: v })}>
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -787,178 +723,178 @@ export default function TeamClient() {
               </Select>
             </div>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowAddUserModal(false)} className="w-full sm:w-auto min-h-[44px]">
-              Abbrechen
-            </Button>
-            <Button onClick={handleAddUser} disabled={loading} className="w-full sm:w-auto min-h-[44px]">
-              {loading ? 'Erstellen...' : 'Benutzer erstellen'}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddUserModal(false)}>Abbrechen</Button>
+            <Button onClick={handleAddUser} disabled={loading}>
+              {loading ? 'Erstellen...' : 'Erstellen'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Add Team Modal - Mobile optimized */}
+      {/* Add Team Modal */}
       <Dialog open={showAddTeamModal} onOpenChange={setShowAddTeamModal}>
-        <DialogContent className="max-w-[95vw] sm:max-w-md mx-auto rounded-t-2xl sm:rounded-xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Neues Team erstellen</DialogTitle>
-            <DialogDescription>
-              Erstellen Sie ein neues Team für Ihre Organisation
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="teamName">Team-Name</Label>
+              <Label>Team-Name</Label>
               <Input
-                id="teamName"
                 value={newTeamForm.name}
                 onChange={(e) => setNewTeamForm({ ...newTeamForm, name: e.target.value })}
-                placeholder="z.B. Entwicklung, Marketing"
-                className="min-h-[44px]"
+                placeholder="z.B. Entwicklung"
               />
             </div>
             <div>
-              <Label htmlFor="teamDescription">Beschreibung (optional)</Label>
+              <Label>Beschreibung</Label>
               <Input
-                id="teamDescription"
                 value={newTeamForm.description}
                 onChange={(e) => setNewTeamForm({ ...newTeamForm, description: e.target.value })}
-                placeholder="Kurze Beschreibung"
-                className="min-h-[44px]"
+                placeholder="Optional"
               />
             </div>
             <div>
-              <Label htmlFor="teamColor">Team-Farbe</Label>
+              <Label>Farbe</Label>
               <div className="flex gap-2">
                 <Input
-                  id="teamColor"
                   type="color"
                   value={newTeamForm.color}
                   onChange={(e) => setNewTeamForm({ ...newTeamForm, color: e.target.value })}
-                  className="w-16 sm:w-20 h-11 cursor-pointer"
+                  className="w-16 h-10"
                 />
                 <Input
-                  type="text"
                   value={newTeamForm.color}
                   onChange={(e) => setNewTeamForm({ ...newTeamForm, color: e.target.value })}
-                  className="flex-1 min-h-[44px]"
-                  placeholder="#3b82f6"
+                  className="flex-1"
                 />
               </div>
             </div>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowAddTeamModal(false)} className="w-full sm:w-auto min-h-[44px]">
-              Abbrechen
-            </Button>
-            <Button onClick={handleAddTeam} disabled={loading} className="w-full sm:w-auto min-h-[44px]">
-              {loading ? 'Erstellen...' : 'Team erstellen'}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddTeamModal(false)}>Abbrechen</Button>
+            <Button onClick={handleAddTeam} disabled={loading}>
+              {loading ? 'Erstellen...' : 'Erstellen'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Assign Member Modal - Mobile optimized */}
+      {/* Assign Member Modal mit Pensum */}
       <Dialog open={showAssignMemberModal} onOpenChange={setShowAssignMemberModal}>
-        <DialogContent className="max-w-[95vw] sm:max-w-md mx-auto rounded-t-2xl sm:rounded-xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Mitglied zu {selectedTeamForAssign?.name} hinzufügen</DialogTitle>
-            <DialogDescription>
-              Wählen Sie ein Mitglied aus
-            </DialogDescription>
+            <DialogDescription>Wählen Sie einen Benutzer und legen Sie das Pensum für dieses Team fest</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-            {getUnassignedUsers().length === 0 ? (
-              <p className="text-center text-gray-500 py-8 text-sm">
-                Keine verfügbaren Benutzer. Alle sind bereits einem Team zugewiesen.
-              </p>
-            ) : (
-              getUnassignedUsers().map((user) => (
-                <div
-                  key={user.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer active:bg-gray-100 min-h-[56px]"
-                  onClick={() => {
-                    if (selectedTeamForAssign) {
-                      handleAssignUserToTeam(user.id, selectedTeamForAssign.id);
-                      setShowAssignMemberModal(false);
-                    }
-                  }}
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm sm:text-base truncate">{user.name}</p>
-                    <p className="text-xs sm:text-sm text-gray-500 truncate">{user.email}</p>
-                  </div>
-                  <Button size="sm" variant="ghost" className="min-w-[40px] min-h-[40px] flex-shrink-0">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))
-            )}
+          <div className="space-y-4">
+            <div>
+              <Label>Benutzer</Label>
+              <Select value={assignForm.userId} onValueChange={(v) => setAssignForm({ ...assignForm, userId: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Benutzer auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Soll-Stunden pro Woche (100%)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="60"
+                value={assignForm.weeklyHours}
+                onChange={(e) => setAssignForm({ ...assignForm, weeklyHours: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div>
+              <Label>Pensum in % für dieses Team</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={assignForm.workloadPercent}
+                onChange={(e) => setAssignForm({ ...assignForm, workloadPercent: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="bg-blue-50 rounded-lg p-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Verfügbare Stunden/Woche:</span>
+                <span className="font-bold text-blue-600">
+                  {(assignForm.weeklyHours * assignForm.workloadPercent / 100).toFixed(1)}h
+                </span>
+              </div>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignMemberModal(false)} className="w-full min-h-[44px]">
-              Schließen
+            <Button variant="outline" onClick={() => setShowAssignMemberModal(false)}>Abbrechen</Button>
+            <Button onClick={handleAddMemberToTeam} disabled={loading}>
+              {loading ? 'Hinzufügen...' : 'Hinzufügen'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Pensum Modal */}
-      <Dialog open={showPensumModal} onOpenChange={setShowPensumModal}>
-        <DialogContent className="max-w-[95vw] sm:max-w-md mx-auto rounded-t-2xl sm:rounded-xl">
+      {/* Edit Team Pensum Modal */}
+      <Dialog open={showTeamPensumModal} onOpenChange={setShowTeamPensumModal}>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Clock className="w-5 h-5" />
               Pensum bearbeiten
             </DialogTitle>
             <DialogDescription>
-              {editingUser?.name || editingUser?.email}
+              {editingMembership?.userName} in Team "{editingMembership?.teamName}"
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="weeklyHours">Soll-Stunden pro Woche (100%)</Label>
-              <Input
-                id="weeklyHours"
-                type="number"
-                min="0"
-                max="60"
-                step="0.5"
-                value={pensumForm.weeklyHours}
-                onChange={(e) => setPensumForm({ ...pensumForm, weeklyHours: parseFloat(e.target.value) || 0 })}
-                className="min-h-[44px]"
-              />
-              <p className="text-xs text-gray-500">Standard: 42 Stunden</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="workloadPercent">Pensum in Prozent</Label>
-              <Input
-                id="workloadPercent"
-                type="number"
-                min="0"
-                max="100"
-                step="5"
-                value={pensumForm.workloadPercent}
-                onChange={(e) => setPensumForm({ ...pensumForm, workloadPercent: parseInt(e.target.value) || 0 })}
-                className="min-h-[44px]"
-              />
-              <p className="text-xs text-gray-500">z.B. 80% = Teilzeit</p>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Verfügbare Stunden/Woche:</span>
-                <span className="text-lg font-bold text-blue-600">
-                  {(pensumForm.weeklyHours * pensumForm.workloadPercent / 100).toFixed(1)}h
-                </span>
+          {editingMembership && (
+            <div className="space-y-4">
+              <div>
+                <Label>Soll-Stunden pro Woche (100%)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="60"
+                  value={editingMembership.weeklyHours}
+                  onChange={(e) => setEditingMembership({
+                    ...editingMembership,
+                    weeklyHours: parseFloat(e.target.value) || 0
+                  })}
+                />
+              </div>
+              <div>
+                <Label>Pensum in % für dieses Team</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editingMembership.workloadPercent}
+                  onChange={(e) => setEditingMembership({
+                    ...editingMembership,
+                    workloadPercent: parseInt(e.target.value) || 0
+                  })}
+                />
+              </div>
+              <div className="bg-blue-50 rounded-lg p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Verfügbare Stunden/Woche:</span>
+                  <span className="font-bold text-blue-600">
+                    {(editingMembership.weeklyHours * editingMembership.workloadPercent / 100).toFixed(1)}h
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowPensumModal(false)} className="w-full sm:w-auto min-h-[44px]">
-              Abbrechen
-            </Button>
-            <Button onClick={handleUpdatePensum} disabled={loading} className="w-full sm:w-auto min-h-[44px]">
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTeamPensumModal(false)}>Abbrechen</Button>
+            <Button onClick={handleUpdateTeamPensum} disabled={loading}>
               {loading ? 'Speichern...' : 'Speichern'}
             </Button>
           </DialogFooter>
