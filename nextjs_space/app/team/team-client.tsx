@@ -202,7 +202,7 @@ export default function TeamClient() {
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/users?id=${userId}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Benutzer gelöscht');
         loadUsers();

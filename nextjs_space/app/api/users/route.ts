@@ -79,6 +79,54 @@ export async function GET(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || !['admin', 'Administrator', 'ADMIN'].includes(session.user.role || '')) {
+      return NextResponse.json(
+        { error: 'Nur Administratoren können Benutzer löschen' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('id');
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Benutzer-ID ist erforderlich' },
+        { status: 400 }
+      );
+    }
+
+    // Verhindere Selbstlöschung
+    if (userId === session.user.id) {
+      return NextResponse.json(
+        { error: 'Sie können sich nicht selbst löschen' },
+        { status: 400 }
+      );
+    }
+
+    // Lösche TeamMember-Einträge zuerst
+    await prisma.teamMember.deleteMany({
+      where: { userId },
+    });
+
+    // Lösche den Benutzer
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return NextResponse.json(
+      { error: 'Fehler beim Löschen des Benutzers' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
