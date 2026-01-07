@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 
-// GET - Alle Kategorien laden
+// GET - Kategorien laden (nur eigene des Users)
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -11,7 +11,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Nur Kategorien anzeigen, die der User selbst erstellt hat oder die keinem User zugeordnet sind (legacy)
     const categories = await prisma.category.findMany({
+      where: {
+        OR: [
+          { createdById: session.user.id },
+          { createdById: null } // Legacy-Kategorien ohne Zuordnung
+        ]
+      },
       include: {
         _count: {
           select: { tickets: true }
@@ -30,20 +37,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Neue Kategorie erstellen (nur Admin)
+// POST - Neue Kategorie erstellen (jeder User kann eigene erstellen)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email! }
-    });
-
-    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -53,9 +52,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'name and color are required' }, { status: 400 });
     }
 
-    // Prüfe ob Name bereits existiert
-    const existing = await prisma.category.findUnique({
-      where: { name }
+    // Prüfe ob Name für diesen User bereits existiert
+    const existing = await prisma.category.findFirst({
+      where: { 
+        name,
+        createdById: session.user.id
+      }
     });
 
     if (existing) {
@@ -67,6 +69,7 @@ export async function POST(request: NextRequest) {
         name,
         color,
         description,
+        createdById: session.user.id,
         teamId: teamId || null
       },
       include: {
@@ -83,20 +86,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH - Kategorie aktualisieren (nur Admin)
+// PATCH - Kategorie aktualisieren (nur eigene)
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email! }
-    });
-
-    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -109,7 +104,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { name, color, description, teamId } = body;
 
-    // Prüfe ob Kategorie existiert
+    // Prüfe ob Kategorie existiert und dem User gehört
     const existing = await prisma.category.findUnique({
       where: { id }
     });
@@ -118,10 +113,18 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
 
-    // Prüfe ob neuer Name bereits existiert (bei Name-Änderung)
+    // Nur eigene Kategorien bearbeiten (oder legacy ohne createdById)
+    if (existing.createdById && existing.createdById !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden - Not your category' }, { status: 403 });
+    }
+
+    // Prüfe ob neuer Name bereits existiert für diesen User (bei Name-Änderung)
     if (name && name !== existing.name) {
-      const nameExists = await prisma.category.findUnique({
-        where: { name }
+      const nameExists = await prisma.category.findFirst({
+        where: { 
+          name,
+          createdById: session.user.id
+        }
       });
       if (nameExists) {
         return NextResponse.json({ error: 'Category with this name already exists' }, { status: 409 });
@@ -150,20 +153,12 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// DELETE - Kategorie löschen (nur Admin)
+// DELETE - Kategorie löschen (nur eigene)
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email! }
-    });
-
-    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -185,6 +180,11 @@ export async function DELETE(request: NextRequest) {
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+    }
+
+    // Nur eigene Kategorien löschen (oder legacy ohne createdById)
+    if (category.createdById && category.createdById !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden - Not your category' }, { status: 403 });
     }
 
     // Verhindere Löschen wenn Tickets zugeordnet sind

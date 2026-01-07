@@ -35,17 +35,29 @@ export async function GET(req: NextRequest) {
 
     const where: any = {};
 
-    // Team-based filtering: Admins see all tickets, members see only their team's tickets
+    // Get user's team memberships
+    const userTeamMemberships = await prisma.teamMember.findMany({
+      where: { userId: session.user.id },
+      select: { teamId: true },
+    }).catch(() => []);
+    const userTeamIds = userTeamMemberships.map((tm: any) => tm.teamId);
+
+    // Team-based filtering: Show tickets from user's teams OR created by user
     if (currentUser?.role !== 'admin') {
+      const orConditions: any[] = [
+        { createdById: currentUser?.id },
+        { assignedToId: currentUser?.id },
+      ];
+      
+      // Add team filter if user has teams
       if (currentUser?.teamId) {
-        where.teamId = currentUser.teamId;
-      } else {
-        // User has no team - show only tickets assigned to them or created by them
-        where.OR = [
-          { assignedToId: currentUser?.id },
-          { createdById: currentUser?.id },
-        ];
+        orConditions.push({ teamId: currentUser.teamId });
       }
+      if (userTeamIds.length > 0) {
+        orConditions.push({ teamId: { in: userTeamIds } });
+      }
+      
+      where.OR = orConditions;
     } else {
       // Admin can optionally filter by teamId
       if (teamId && teamId !== 'all') {
