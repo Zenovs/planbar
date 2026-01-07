@@ -120,6 +120,15 @@ export async function GET(req: NextRequest) {
         subTasks: {
           orderBy: { position: 'asc' },
         },
+        _count: {
+          select: {
+            subTasks: {
+              where: {
+                completed: false,
+              },
+            },
+          },
+        },
       },
     });
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Calendar, User, AlertCircle } from 'lucide-react';
+import { Calendar, User, AlertCircle, ListTodo } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { PriorityBadge } from './priority-badge';
 import { TicketWithRelations } from '@/lib/types';
@@ -16,6 +16,7 @@ interface TicketCardProps {
 
 export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
   const categoryColor = ticket?.category?.color;
+  const openSubtasksCount = ticket?._count?.subTasks || 0;
 
   return (
     <Link href={`/tickets/${ticket?.id || ''}`}>
@@ -47,6 +48,15 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
                   }}
                 >
                   {ticket.category.name}
+                </span>
+              )}
+              {openSubtasksCount > 0 && (
+                <span 
+                  className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200 flex items-center gap-1"
+                  title={`${openSubtasksCount} offene Subtask${openSubtasksCount > 1 ? 's' : ''}`}
+                >
+                  <ListTodo className="w-3 h-3" />
+                  <span>{openSubtasksCount}</span>
                 </span>
               )}
             </div>

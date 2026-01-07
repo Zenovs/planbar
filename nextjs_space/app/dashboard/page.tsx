@@ -53,6 +53,15 @@ export default async function DashboardPage() {
         assignedTo: true,
         createdBy: true,
         category: true,
+        _count: {
+          select: {
+            subTasks: {
+              where: {
+                completed: false,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',

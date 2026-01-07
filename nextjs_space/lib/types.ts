@@ -12,6 +12,10 @@ export type TicketWithRelations = Ticket & {
   assignedTo: SimpleUser | null;
   createdBy: SimpleUser;
   category: Category | null;
+  _count?: {
+    subTasks?: number;
+  };
+  subTasks?: Array<{ id: string; status: string }>;
 };
 
 // Alias für Projekt-Terminologie
