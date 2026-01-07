@@ -142,7 +142,8 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
       const res = await fetch('/api/teams');
       if (res.ok) {
         const data = await res.json();
-        setTeams(data);
+        const teamsArray = data.teams || data;
+        setTeams(Array.isArray(teamsArray) ? teamsArray : []);
       }
     } catch (error) {
       console.error('Failed to load teams:', error);
