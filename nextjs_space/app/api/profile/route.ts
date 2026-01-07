@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
         imagePublic: true,
         role: true,
         emailNotifications: true,
+        desktopNotifications: true,
+        emailReportFrequency: true,
         designPrimaryColor: true,
         designSecondaryColor: true,
         designAccentColor: true,
@@ -106,6 +108,8 @@ export async function PATCH(req: NextRequest) {
       image,
       imagePublic,
       emailNotifications,
+      desktopNotifications,
+      emailReportFrequency,
       designPrimaryColor,
       designSecondaryColor,
       designAccentColor,
@@ -194,6 +198,8 @@ export async function PATCH(req: NextRequest) {
     if (image !== undefined) updateData.image = image;
     if (imagePublic !== undefined) updateData.imagePublic = imagePublic;
     if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications;
+    if (desktopNotifications !== undefined) updateData.desktopNotifications = desktopNotifications;
+    if (emailReportFrequency !== undefined) updateData.emailReportFrequency = emailReportFrequency;
     if (designPrimaryColor !== undefined) updateData.designPrimaryColor = designPrimaryColor;
     if (designSecondaryColor !== undefined) updateData.designSecondaryColor = designSecondaryColor;
     if (designAccentColor !== undefined) updateData.designAccentColor = designAccentColor;
@@ -214,6 +220,8 @@ export async function PATCH(req: NextRequest) {
         imagePublic: true,
         role: true,
         emailNotifications: true,
+        desktopNotifications: true,
+        emailReportFrequency: true,
         designPrimaryColor: true,
         designSecondaryColor: true,
         designAccentColor: true,

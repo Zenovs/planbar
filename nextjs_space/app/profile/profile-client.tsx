@@ -23,6 +23,8 @@ interface UserProfile {
   imagePublic: boolean;
   role: string;
   emailNotifications: boolean;
+  desktopNotifications: boolean;
+  emailReportFrequency: string;
 }
 
 export default function ProfileClient() {
@@ -39,6 +41,9 @@ export default function ProfileClient() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [emailNotifications, setEmailNotifications] = useState(true);
+  const [desktopNotifications, setDesktopNotifications] = useState(false);
+  const [emailReportFrequency, setEmailReportFrequency] = useState('none');
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showPasswordSection, setShowPasswordSection] = useState(false);
@@ -46,6 +51,10 @@ export default function ProfileClient() {
   // Load profile data
   useEffect(() => {
     loadProfile();
+    // Check notification permission
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
   }, []);
 
   const loadProfile = async () => {
@@ -59,6 +68,8 @@ export default function ProfileClient() {
         setName(data.user.name || '');
         setEmail(data.user.email);
         setEmailNotifications(data.user.emailNotifications);
+        setDesktopNotifications(data.user.desktopNotifications || false);
+        setEmailReportFrequency(data.user.emailReportFrequency || 'none');
         setImagePreview(null);
         setImageFile(null);
       }
@@ -176,6 +187,8 @@ export default function ProfileClient() {
         name,
         email,
         emailNotifications,
+        desktopNotifications,
+        emailReportFrequency,
       };
 
       // Always update image if a new file was uploaded
@@ -435,26 +448,92 @@ export default function ProfileClient() {
 
             <Separator />
 
-            {/* Email Notifications */}
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label htmlFor="notifications" className="cursor-pointer">
-                  <Bell className="w-4 h-4 inline mr-2" />
-                  E-Mail-Benachrichtigungen
-                </Label>
-                <p className="text-sm text-gray-500">
-                  Erhalten Sie E-Mails bei Ticket-Updates
-                </p>
+            {/* Benachrichtigungen Section */}
+            <div className="space-y-6">
+              <h3 className="font-medium text-lg">
+                <Bell className="w-4 h-4 inline mr-2" />
+                Benachrichtigungen
+              </h3>
+              
+              {/* Desktop Live Notifications */}
+              <div className="flex items-center justify-between pl-6">
+                <div className="space-y-1">
+                  <Label htmlFor="desktopNotifications" className="cursor-pointer font-normal">
+                    Desktop Live-Benachrichtigungen
+                  </Label>
+                  <p className="text-sm text-gray-500">
+                    Erhalten Sie sofortige Browser-Benachrichtigungen bei Änderungen an Aufgaben oder Zuteilungen
+                  </p>
+                  {notificationPermission === 'denied' && desktopNotifications && (
+                    <p className="text-sm text-red-500">
+                      ⚠️ Benachrichtigungen sind in Ihrem Browser blockiert. Bitte erlauben Sie diese in den Browser-Einstellungen.
+                    </p>
+                  )}
+                </div>
+                <Switch
+                  id="desktopNotifications"
+                  checked={desktopNotifications}
+                  onCheckedChange={async (checked) => {
+                    if (checked && notificationPermission !== 'granted') {
+                      // Request permission
+                      const permission = await Notification.requestPermission();
+                      setNotificationPermission(permission);
+                      if (permission !== 'granted') {
+                        toast.error('Benachrichtigungen wurden nicht erlaubt');
+                        return;
+                      }
+                    }
+                    setDesktopNotifications(checked);
+                    setHasChanges(true);
+                  }}
+                  disabled={loading}
+                />
               </div>
-              <Switch
-                id="notifications"
-                checked={emailNotifications}
-                onCheckedChange={(checked) => {
-                  setEmailNotifications(checked);
-                  setHasChanges(true);
-                }}
-                disabled={loading}
-              />
+
+              {/* Email Notifications */}
+              <div className="flex items-center justify-between pl-6">
+                <div className="space-y-1">
+                  <Label htmlFor="emailNotifications" className="cursor-pointer font-normal">
+                    E-Mail bei Änderungen
+                  </Label>
+                  <p className="text-sm text-gray-500">
+                    Erhalten Sie E-Mails bei Ticket-Updates und Zuteilungen
+                  </p>
+                </div>
+                <Switch
+                  id="emailNotifications"
+                  checked={emailNotifications}
+                  onCheckedChange={(checked) => {
+                    setEmailNotifications(checked);
+                    setHasChanges(true);
+                  }}
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Email Report Frequency */}
+              <div className="pl-6 space-y-2">
+                <Label htmlFor="emailReportFrequency" className="font-normal">
+                  E-Mail-Bericht Häufigkeit
+                </Label>
+                <p className="text-sm text-gray-500 mb-2">
+                  Erhalten Sie regelmässige Zusammenfassungen Ihrer Aufgaben und Projekte
+                </p>
+                <select
+                  id="emailReportFrequency"
+                  value={emailReportFrequency}
+                  onChange={(e) => {
+                    setEmailReportFrequency(e.target.value);
+                    setHasChanges(true);
+                  }}
+                  className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={loading}
+                >
+                  <option value="none">Keine Berichte</option>
+                  <option value="daily">Täglich</option>
+                  <option value="weekly">Wöchentlich</option>
+                </select>
+              </div>
             </div>
 
             <Separator />
