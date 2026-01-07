@@ -45,24 +45,19 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
   // Kategorien aus Tickets extrahieren nachdem Tickets geladen
   useEffect(() => {
     if (tickets.length > 0) {
-      extractCategoriesFromTickets();
+      const uniqueCategories = new Map<string, Category>();
+      tickets.forEach(ticket => {
+        if (ticket.category) {
+          uniqueCategories.set(ticket.category.id, {
+            id: ticket.category.id,
+            name: ticket.category.name,
+            color: ticket.category.color || '#6B7280'
+          });
+        }
+      });
+      setCategories(Array.from(uniqueCategories.values()));
     }
   }, [tickets]);
-
-  // Kategorien aus den geladenen Tickets extrahieren (statt aus API)
-  const extractCategoriesFromTickets = () => {
-    const uniqueCategories = new Map<string, Category>();
-    tickets.forEach(ticket => {
-      if (ticket.category) {
-        uniqueCategories.set(ticket.category.id, {
-          id: ticket.category.id,
-          name: ticket.category.name,
-          color: ticket.category.color || '#6B7280'
-        });
-      }
-    });
-    setCategories(Array.from(uniqueCategories.values()));
-  };
 
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories(prev => 
