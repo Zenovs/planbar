@@ -37,8 +37,17 @@ export async function GET(request: NextRequest) {
     const isCreator = ticket.createdById === user?.id;
     const isAssigned = ticket.assignedToId === user?.id;
     const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
+    
+    // Prüfe auch TeamMember-Tabelle
+    let isTeamMemberViaTable = false;
+    if (ticket.teamId && user?.id) {
+      const membership = await prisma.teamMember.findFirst({
+        where: { userId: user.id, teamId: ticket.teamId }
+      });
+      isTeamMemberViaTable = !!membership;
+    }
 
-    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember) {
+    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember && !isTeamMemberViaTable) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -88,13 +97,22 @@ export async function POST(request: NextRequest) {
       where: { email: session.user.email! }
     });
 
-    // Zugriffskontrolle (nur Creator, Assigned oder Admin)
+    // Zugriffskontrolle (nur Creator, Assigned, TeamMember oder Admin)
     const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
     const isCreator = ticket.createdById === user?.id;
     const isAssigned = ticket.assignedToId === user?.id;
     const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
+    
+    // Prüfe auch TeamMember-Tabelle
+    let isTeamMemberViaTable = false;
+    if (ticket.teamId && user?.id) {
+      const membership = await prisma.teamMember.findFirst({
+        where: { userId: user.id, teamId: ticket.teamId }
+      });
+      isTeamMemberViaTable = !!membership;
+    }
 
-    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember) {
+    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember && !isTeamMemberViaTable) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -163,8 +181,17 @@ export async function PATCH(request: NextRequest) {
     const isCreator = subTask.ticket.createdById === user?.id;
     const isAssigned = subTask.ticket.assignedToId === user?.id;
     const isTeamMember = subTask.ticket.teamId && subTask.ticket.teamId === user?.teamId;
+    
+    // Prüfe auch TeamMember-Tabelle
+    let isTeamMemberViaTable = false;
+    if (subTask.ticket.teamId && user?.id) {
+      const membership = await prisma.teamMember.findFirst({
+        where: { userId: user.id, teamId: subTask.ticket.teamId }
+      });
+      isTeamMemberViaTable = !!membership;
+    }
 
-    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember) {
+    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember && !isTeamMemberViaTable) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -230,8 +257,17 @@ export async function DELETE(request: NextRequest) {
     const isCreator = subTask.ticket.createdById === user?.id;
     const isAssigned = subTask.ticket.assignedToId === user?.id;
     const isTeamMember = subTask.ticket.teamId && subTask.ticket.teamId === user?.teamId;
+    
+    // Prüfe auch TeamMember-Tabelle
+    let isTeamMemberViaTable = false;
+    if (subTask.ticket.teamId && user?.id) {
+      const membership = await prisma.teamMember.findFirst({
+        where: { userId: user.id, teamId: subTask.ticket.teamId }
+      });
+      isTeamMemberViaTable = !!membership;
+    }
 
-    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember) {
+    if (!isAdmin && !isCreator && !isAssigned && !isTeamMember && !isTeamMemberViaTable) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
