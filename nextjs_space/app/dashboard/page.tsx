@@ -24,7 +24,7 @@ export default async function DashboardPage() {
     where: { userId: session.user.id },
     select: { teamId: true },
   }).catch(() => []);
-  const userTeamIds = userTeamMemberships.map(tm => tm.teamId);
+  const userTeamIds = userTeamMemberships.map((tm: { teamId: string }) => tm.teamId);
 
   // User visibility logic:
   // - Admins see all users
