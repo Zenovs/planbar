@@ -50,7 +50,8 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
     try {
       const response = await fetch('/api/categories');
       const data = await response.json();
-      setCategories(data?.categories || []);
+      // API gibt direkt ein Array zurück
+      setCategories(Array.isArray(data) ? data : (data?.categories || []));
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
