@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Sortiere nach freien Stunden (absteigend)
-    resources.sort((a, b) => b.freeHours - a.freeHours);
+    resources.sort((a: any, b: any) => b.freeHours - a.freeHours);
 
     return NextResponse.json({ 
       resources,

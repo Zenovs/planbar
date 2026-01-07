@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Map subTickets to subTasks for frontend compatibility
-    const templatesWithSubTasks = templates.map(template => ({
+    const templatesWithSubTasks = templates.map((template: any) => ({
       ...template,
       subTasks: template.subTickets,
       _count: { subTasks: template._count.subTickets }
