@@ -13,8 +13,22 @@ export default async function DashboardPage() {
     redirect('/');
   }
 
+  // Get user's team memberships
+  const userTeamMemberships = await prisma.teamMember.findMany({
+    where: { userId: session.user.id },
+    select: { teamId: true },
+  });
+  const userTeamIds = userTeamMemberships.map(tm => tm.teamId);
+
   const [tickets, users] = await Promise.all([
     prisma.ticket.findMany({
+      where: {
+        OR: [
+          { assignedToId: session.user.id },
+          { createdById: session.user.id },
+          { teamId: { in: userTeamIds.length > 0 ? userTeamIds : ['none'] } },
+        ],
+      },
       include: {
         assignedTo: true,
         createdBy: true,

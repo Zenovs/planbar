@@ -12,7 +12,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
+    // Check if user is admin
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(currentUser?.role || '');
+
+    // Non-admins only see teams they are members of
     const teams = await prisma.team.findMany({
+      where: isAdmin ? {} : {
+        teamMembers: {
+          some: {
+            userId: session.user.id,
+          },
+        },
+      },
       include: {
         members: {
           select: {
