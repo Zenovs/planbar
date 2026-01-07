@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     // Arbeitstage bis Deadline berechnen (Mo-Fr)
     const workDays = Math.max(1, differenceInBusinessDays(deadlineDate, today));
 
-    const resources = users.map(user => {
+    const resources = users.map((user: any) => {
       // Verfügbare Stunden pro Tag
       const dailyHours = (user.weeklyHours * user.workloadPercent / 100) / 5;
       
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       const totalAvailableHours = dailyHours * workDays;
       
       // Bereits zugewiesene Stunden (SubTasks)
-      const assignedHours = user.assignedSubTasks.reduce((sum, st) => {
+      const assignedHours = user.assignedSubTasks.reduce((sum: number, st: any) => {
         return sum + (st.estimatedHours || 0);
       }, 0);
       
