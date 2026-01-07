@@ -39,22 +39,29 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  useEffect(() => {
     fetchTickets();
   }, [search, statusFilter, priorityFilter, assigneeFilter, sortBy, sortOrder]);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/categories');
-      const data = await response.json();
-      // API gibt direkt ein Array zurück
-      setCategories(Array.isArray(data) ? data : (data?.categories || []));
-    } catch (error) {
-      console.error('Error fetching categories:', error);
+  // Kategorien aus Tickets extrahieren nachdem Tickets geladen
+  useEffect(() => {
+    if (tickets.length > 0) {
+      extractCategoriesFromTickets();
     }
+  }, [tickets]);
+
+  // Kategorien aus den geladenen Tickets extrahieren (statt aus API)
+  const extractCategoriesFromTickets = () => {
+    const uniqueCategories = new Map<string, Category>();
+    tickets.forEach(ticket => {
+      if (ticket.category) {
+        uniqueCategories.set(ticket.category.id, {
+          id: ticket.category.id,
+          name: ticket.category.name,
+          color: ticket.category.color || '#6B7280'
+        });
+      }
+    });
+    setCategories(Array.from(uniqueCategories.values()));
   };
 
   const toggleCategory = (categoryId: string) => {
