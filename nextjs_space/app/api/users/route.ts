@@ -13,7 +13,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
+    // Hole den aktuellen User mit Team-Info
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, teamId: true },
+    });
+
+    // Admins sehen alle User
+    // User ohne Team sehen nur sich selbst
+    // User mit Team sehen nur Teammitglieder
+    let whereClause = {};
+    
+    if (currentUser?.role !== 'admin') {
+      if (!currentUser?.teamId) {
+        // User ohne Team sieht nur sich selbst
+        whereClause = { id: session.user.id };
+      } else {
+        // User mit Team sieht nur Teammitglieder
+        whereClause = { teamId: currentUser.teamId };
+      }
+    }
+
     const users = await prisma.user.findMany({
+      where: whereClause,
       select: {
         id: true,
         name: true,
