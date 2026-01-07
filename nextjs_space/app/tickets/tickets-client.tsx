@@ -10,6 +10,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { ProjektWithRelations, STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser } from '@/lib/types';
 
+interface Category {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface ProjektsClientProps {
   users: SimpleUser[];
 }
@@ -26,10 +32,37 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false);
   const [categoriesDialogOpen, setCategoriesDialogOpen] = useState(false);
+  
+  // Kategorie-Filter
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     fetchTickets();
   }, [search, statusFilter, priorityFilter, assigneeFilter, sortBy, sortOrder]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories');
+      const data = await response.json();
+      setCategories(data?.categories || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const toggleCategory = (categoryId: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(categoryId) 
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
 
   const fetchTickets = async () => {
     try {
@@ -222,32 +255,109 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
           </AnimatePresence>
         </div>
 
+        {/* Kategorie-Filter mit Checkboxen */}
+        {categories.length > 0 && (
+          <div className="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-6">
+            <button
+              onClick={() => setShowCategoryFilter(!showCategoryFilter)}
+              className="w-full flex items-center justify-between text-left"
+            >
+              <span className="flex items-center gap-2 font-medium text-gray-700">
+                <Tags className="w-4 h-4" />
+                Kategorien filtern
+                {selectedCategories.length > 0 && (
+                  <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">
+                    {selectedCategories.length}
+                  </span>
+                )}
+              </span>
+              {showCategoryFilter ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            </button>
+            
+            <AnimatePresence>
+              {showCategoryFilter && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-4"
+                >
+                  <p className="text-sm text-gray-500 mb-3">
+                    Wähle Kategorien aus, um nur Projekte dieser Kategorien anzuzeigen:
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    {categories.map((category) => (
+                      <label
+                        key={category.id}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all ${
+                          selectedCategories.includes(category.id)
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCategories.includes(category.id)}
+                          onChange={() => toggleCategory(category.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <span className="text-sm text-gray-700">{category.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedCategories.length > 0 && (
+                    <button
+                      onClick={() => setSelectedCategories([])}
+                      className="mt-3 text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      Alle Filter zurücksetzen
+                    </button>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
         {/* Projekts Grid */}
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-blue-500"></div>
             <p className="mt-4 text-gray-600 text-sm sm:text-base">Lade Projekts...</p>
           </div>
-        ) : tickets && tickets.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            {tickets.map((ticket, index) => (
-              <ProjektCard key={ticket?.id} ticket={ticket} index={index} />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-md p-8 sm:p-12 text-center">
-            <p className="text-gray-500 mb-4 text-sm sm:text-base">Keine Projekts gefunden</p>
-            <Link href="/tickets/new">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all min-h-[48px]"
-              >
-                Neues Projekt erstellen
-              </motion.button>
-            </Link>
-          </div>
-        )}
+        ) : (() => {
+          // Filter Tickets nach ausgewählten Kategorien (clientseitig)
+          const filteredTickets = selectedCategories.length > 0
+            ? tickets.filter(ticket => ticket.categoryId && selectedCategories.includes(ticket.categoryId))
+            : tickets;
+          
+          return filteredTickets.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              {filteredTickets.map((ticket, index) => (
+                <ProjektCard key={ticket?.id} ticket={ticket} index={index} />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-md p-8 sm:p-12 text-center">
+              <p className="text-gray-500 mb-4 text-sm sm:text-base">
+                {selectedCategories.length > 0 ? 'Keine Projekte für die ausgewählten Kategorien gefunden' : 'Keine Projekte gefunden'}
+              </p>
+              <Link href="/tickets/new">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all min-h-[48px]"
+                >
+                  Neues Projekt erstellen
+                </motion.button>
+              </Link>
+            </div>
+          );
+        })()}
       </main>
 
       {/* Templates Dialog */}
