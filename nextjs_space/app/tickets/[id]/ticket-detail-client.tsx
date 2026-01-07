@@ -52,6 +52,11 @@ interface Category {
   description: string | null;
 }
 
+interface Team {
+  id: string;
+  name: string;
+}
+
 interface SubTask {
   id: string;
   title: string;
@@ -81,11 +86,13 @@ interface Projekt {
   priority: string;
   assignedToId: string | null;
   categoryId: string | null;
+  teamId: string | null;
   shareToken: string | null;
   shareEnabled: boolean;
   assignedTo?: User | null;
   createdBy?: User | null;
   category?: Category | null;
+  team?: Team | null;
   subTasks?: SubTask[];
 }
 
@@ -93,9 +100,10 @@ interface ProjektDetailClientProps {
   ticket: Projekt;
   users: User[];
   categories: Category[];
+  teams: Team[];
 }
 
-export function ProjektDetailClient({ ticket: initialTicket, users, categories }: ProjektDetailClientProps) {
+export function ProjektDetailClient({ ticket: initialTicket, users, categories, teams }: ProjektDetailClientProps) {
   const router = useRouter();
   const [ticket, setTicket] = useState<Projekt>(initialTicket);
   const [isEditing, setIsEditing] = useState(false);
@@ -117,6 +125,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories }
     priority: ticket.priority,
     assignedToId: ticket.assignedToId || 'none',
     categoryId: ticket.categoryId || 'none',
+    teamId: ticket.teamId || 'none',
   });
 
   // Ressourcen laden (basierend auf SubTask-Deadlines)
@@ -157,6 +166,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories }
           priority: formData.priority,
           assignedToId: formData.assignedToId === 'none' ? null : formData.assignedToId,
           categoryId: formData.categoryId === 'none' ? null : formData.categoryId,
+          teamId: formData.teamId === 'none' ? null : formData.teamId,
         }),
       });
 
@@ -838,6 +848,37 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories }
                     </Select>
                   ) : (
                     <p className="mt-1 text-sm">{ticket.category?.name || 'Keine Kategorie'}</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-sm flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" />
+                    Team
+                  </Label>
+                  {isEditing ? (
+                    <Select
+                      value={formData.teamId}
+                      onValueChange={(value) => setFormData({ ...formData, teamId: value })}
+                    >
+                      <SelectTrigger className="mt-1 min-h-[44px]">
+                        <SelectValue placeholder="Kein Team" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Kein Team</SelectItem>
+                        {teams.map((team) => (
+                          <SelectItem key={team.id} value={team.id}>
+                            {team.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="mt-1 text-sm">{ticket.team?.name || 'Kein Team'}</p>
+                  )}
+                  {isEditing && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Teammitglieder können das Projekt sehen
+                    </p>
                   )}
                 </div>
                 <div>

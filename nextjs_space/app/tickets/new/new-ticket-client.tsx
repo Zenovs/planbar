@@ -15,6 +15,11 @@ interface Category {
   color: string;
 }
 
+interface Team {
+  id: string;
+  name: string;
+}
+
 interface Template {
   id: string;
   name: string;
@@ -59,6 +64,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   const [error, setError] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [resources, setResources] = useState<ResourceInfo[]>([]);
   const [showResourcePanel, setShowResourcePanel] = useState(false);
@@ -70,6 +76,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     priority: 'medium',
     assignedToId: '',
     categoryId: '',
+    teamId: '',
     subTasks: [] as SubTaskForm[],
   });
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
@@ -80,6 +87,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   useEffect(() => {
     loadCategories();
     loadTemplates();
+    loadTeams();
   }, []);
 
   useEffect(() => {
@@ -126,6 +134,18 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
       }
     } catch (error) {
       console.error('Failed to load templates:', error);
+    }
+  }
+
+  async function loadTeams() {
+    try {
+      const res = await fetch('/api/teams');
+      if (res.ok) {
+        const data = await res.json();
+        setTeams(data);
+      }
+    } catch (error) {
+      console.error('Failed to load teams:', error);
     }
   }
 
@@ -217,6 +237,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
           ...formData,
           assignedToId: formData.assignedToId || null,
           categoryId: formData.categoryId || null,
+          teamId: formData.teamId || null,
           templateId: selectedTemplateId || null,
         }),
       });
@@ -380,6 +401,28 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Users className="w-4 h-4 inline mr-1" />
+                  Team zuweisen
+                </label>
+                <select
+                  value={formData.teamId}
+                  onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Kein Team</option>
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Alle Teammitglieder können das Projekt sehen und bearbeiten
+                </p>
               </div>
             </div>
 

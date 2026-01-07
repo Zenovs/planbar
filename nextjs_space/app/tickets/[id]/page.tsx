@@ -13,13 +13,14 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
     redirect('/');
   }
 
-  const [ticket, users, categories] = await Promise.all([
+  const [ticket, users, categories, teams] = await Promise.all([
     prisma.ticket.findUnique({
       where: { id: params.id },
       include: {
         assignedTo: true,
         createdBy: true,
         category: true,
+        team: true,
         subTasks: {
           orderBy: { position: 'asc' },
         },
@@ -40,11 +41,20 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
         name: 'asc',
       },
     }),
+    prisma.team.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    }),
   ]);
 
   if (!ticket) {
     redirect('/tickets');
   }
 
-  return <ProjektDetailClient ticket={ticket} users={users || []} categories={categories || []} />;
+  return <ProjektDetailClient ticket={ticket} users={users || []} categories={categories || []} teams={teams || []} />;
 }
