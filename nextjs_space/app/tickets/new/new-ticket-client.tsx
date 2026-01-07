@@ -228,6 +228,14 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Kategorie ist obligatorisch
+    if (!formData.categoryId) {
+      setError('Bitte wählen Sie eine Kategorie aus');
+      toast.error('Kategorie ist erforderlich');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -365,17 +373,20 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                 </select>
               </div>
 
-              {/* Kategorie */}
+              {/* Kategorie (Pflichtfeld) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Kategorie
+                  Kategorie <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.categoryId}
                   onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    !formData.categoryId ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                  required
                 >
-                  <option value="">Keine Kategorie</option>
+                  <option value="">Bitte Kategorie auswählen...</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
