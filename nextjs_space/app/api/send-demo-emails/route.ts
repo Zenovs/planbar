@@ -54,8 +54,7 @@ export async function GET(req: NextRequest) {
         'Demo-Projekt: Website Redesign',
         'demo-ticket-123',
         'Sarah Schmidt',
-        new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // In 3 Tagen
-        8 // 8 Stunden geschätzt
+        new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // In 3 Tagen
       );
       console.log('✅ Subtask-Benachrichtigung:', results.subtaskNotification ? 'Erfolg' : 'Fehlgeschlagen');
     } catch (error: any) {
