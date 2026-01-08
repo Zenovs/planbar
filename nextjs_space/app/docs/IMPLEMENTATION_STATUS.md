@@ -84,7 +84,7 @@
 
 ### Schritt 1: Datenbank Migration
 ```bash
-cd /home/ubuntu/planbar/nextjs_space
+cd /home/ubuntu/github_repos/planbar/nextjs_space
 npx prisma generate
 npx prisma db push
 ```

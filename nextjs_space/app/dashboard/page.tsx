@@ -39,7 +39,13 @@ export default async function DashboardPage() {
     }
   }
 
-  const [tickets, users] = await Promise.all([
+  // Berechne Start und Ende des heutigen Tages
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [tickets, users, todaySubTasks] = await Promise.all([
     prisma.ticket.findMany({
       where: {
         OR: [
@@ -89,6 +95,34 @@ export default async function DashboardPage() {
         },
       },
     }),
+    // Lade alle Subtasks die heute fällig sind und dem User zugewiesen sind
+    prisma.subTask.findMany({
+      where: {
+        assigneeId: session.user.id,
+        completed: false,
+        dueDate: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+      include: {
+        ticket: {
+          include: {
+            category: true,
+          },
+        },
+        assignee: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        dueDate: 'asc',
+      },
+    }),
   ]);
 
   const stats = {
@@ -104,6 +138,7 @@ export default async function DashboardPage() {
       stats={stats}
       recentTickets={tickets || []}
       users={users || []}
+      todaySubTasks={todaySubTasks || []}
     />
   );
 }

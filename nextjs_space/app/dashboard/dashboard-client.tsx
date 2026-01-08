@@ -3,10 +3,11 @@
 import { Header } from '@/components/header';
 import { StatsCard } from '@/components/stats-card';
 import { TicketCard } from '@/components/ticket-card';
+import { TodayTasksCard } from '@/components/today-tasks-card';
 import { Ticket, Clock, CheckCircle, ListTodo, Plus, ArrowRight, CalendarDays } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { TicketWithRelations, UserWithStats, SimpleUser } from '@/lib/types';
+import { TicketWithRelations, UserWithStats, SimpleUser, SubTaskWithTicket } from '@/lib/types';
 import { Session } from 'next-auth';
 
 interface DashboardClientProps {
@@ -19,9 +20,10 @@ interface DashboardClientProps {
   };
   recentTickets: TicketWithRelations[];
   users: UserWithStats[];
+  todaySubTasks: SubTaskWithTicket[];
 }
 
-export function DashboardClient({ session, stats, recentTickets, users }: DashboardClientProps) {
+export function DashboardClient({ session, stats, recentTickets, users, todaySubTasks }: DashboardClientProps) {
   const handleExportAllToCalendar = () => {
     const exportUrl = `/api/calendar/export`;
     window.open(exportUrl, '_blank');
@@ -75,6 +77,11 @@ export function DashboardClient({ session, stats, recentTickets, users }: Dashbo
             color="bg-gradient-to-br from-green-500 to-green-600"
             index={3}
           />
+        </div>
+
+        {/* Tasks heute Section */}
+        <div className="mb-6 sm:mb-8">
+          <TodayTasksCard tasks={todaySubTasks} />
         </div>
 
         {/* Recent Tickets Section */}

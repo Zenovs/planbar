@@ -1,6 +1,6 @@
-import type { User, Ticket, Category } from '@prisma/client';
+import type { User, Ticket, Category, SubTask } from '@prisma/client';
 
-export type { User, Ticket, Category };
+export type { User, Ticket, Category, SubTask };
 
 // Simple user type with basic info
 export type SimpleUser = Pick<User, 'id' | 'name' | 'email'>;
@@ -57,4 +57,12 @@ export const STATUS_COLOR_MAP: Record<TicketStatus, string> = {
   in_progress: 'bg-purple-100 text-purple-800 border-purple-200',
   done: 'bg-green-100 text-green-800 border-green-200',
   closed: 'bg-slate-100 text-slate-800 border-slate-200',
+};
+
+// SubTask mit Ticket-Informationen für "Tasks heute"
+export type SubTaskWithTicket = SubTask & {
+  ticket: Ticket & {
+    category: Category | null;
+  };
+  assignee: SimpleUser | null;
 };
