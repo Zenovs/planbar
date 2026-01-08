@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { sendSubTaskAssignedEmail } from '@/lib/email';
 
 // GET - Alle SubTasks eines Tickets laden
 export async function GET(request: NextRequest) {
@@ -128,10 +129,31 @@ export async function POST(request: NextRequest) {
       },
       include: {
         assignee: {
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true, email: true, emailNotifications: true }
+        },
+        ticket: {
+          select: { id: true, title: true }
         }
       }
     });
+
+    // E-Mail-Benachrichtigung an zugewiesenen User senden
+    if (subTask.assignee && subTask.assignee.emailNotifications && assigneeId) {
+      try {
+        await sendSubTaskAssignedEmail(
+          subTask.assignee.email,
+          subTask.assignee.name || subTask.assignee.email,
+          subTask.title,
+          subTask.ticket.title,
+          subTask.ticket.id,
+          session.user.name || session.user.email || 'Unbekannt',
+          subTask.dueDate || undefined
+        );
+      } catch (error) {
+        console.error('Failed to send subtask assignment email:', error);
+        // Don't fail the request if email fails
+      }
+    }
 
     return NextResponse.json(subTask, { status: 201 });
   } catch (error) {

@@ -222,3 +222,109 @@ export async function sendTicketCreatedEmail(
     html,
   });
 }
+
+// Subtask E-Mail-Benachrichtigungen
+export async function sendSubTaskAssignedEmail(
+  assigneeEmail: string,
+  assigneeName: string,
+  subTaskTitle: string,
+  ticketTitle: string,
+  ticketId: string,
+  assignedBy: string,
+  dueDate?: Date
+) {
+  
+  const companyName = process.env.COMPANY_NAME || 'planbar';
+  const primaryColor = process.env.PRIMARY_COLOR || '#3b82f6';
+
+  const dueDateText = dueDate 
+    ? `<p style="color: #6b7280; margin: 5px 0 0 0;">Fällig: ${new Date(dueDate).toLocaleString('de-DE', { 
+        dateStyle: 'short', 
+        timeStyle: 'short' 
+      })}</p>`
+    : '';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(to right, ${primaryColor}, #8b5cf6); padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">${companyName}</h1>
+      </div>
+      <div style="padding: 30px; background-color: #f9fafb;">
+        <h2 style="color: #1f2937;">Neuer Subtask zugewiesen</h2>
+        <p style="color: #4b5563; font-size: 16px;">
+          Hallo ${assigneeName},
+        </p>
+        <p style="color: #4b5563; font-size: 16px;">
+          Ihnen wurde ein neuer Subtask zugewiesen:
+        </p>
+        <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${primaryColor};">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">${subTaskTitle}</h3>
+          <p style="color: #6b7280; margin: 5px 0 0 0;">Projekt: ${ticketTitle}</p>
+          <p style="color: #6b7280; margin: 5px 0 0 0;">Zugewiesen von: ${assignedBy}</p>
+          ${dueDateText}
+        </div>
+        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+           style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+          Projekt anzeigen
+        </a>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9ca3af; font-size: 14px;">
+        <p>${companyName} - Ticket Management System</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: assigneeEmail,
+    subject: `Neuer Subtask: ${subTaskTitle}`,
+    html,
+  });
+}
+
+export async function sendSubTaskCompletedEmail(
+  userEmail: string,
+  userName: string,
+  subTaskTitle: string,
+  ticketTitle: string,
+  ticketId: string,
+  completedBy: string
+) {
+  
+  const companyName = process.env.COMPANY_NAME || 'planbar';
+  const primaryColor = process.env.PRIMARY_COLOR || '#3b82f6';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(to right, ${primaryColor}, #8b5cf6); padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">${companyName}</h1>
+      </div>
+      <div style="padding: 30px; background-color: #f9fafb;">
+        <h2 style="color: #1f2937;">✅ Subtask erledigt</h2>
+        <p style="color: #4b5563; font-size: 16px;">
+          Hallo ${userName},
+        </p>
+        <p style="color: #4b5563; font-size: 16px;">
+          Ein Subtask wurde als erledigt markiert:
+        </p>
+        <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">${subTaskTitle}</h3>
+          <p style="color: #6b7280; margin: 5px 0 0 0;">Projekt: ${ticketTitle}</p>
+          <p style="color: #6b7280; margin: 5px 0 0 0;">Erledigt von: ${completedBy}</p>
+        </div>
+        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+           style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+          Projekt anzeigen
+        </a>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9ca3af; font-size: 14px;">
+        <p>${companyName} - Ticket Management System</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: userEmail,
+    subject: `Subtask erledigt: ${subTaskTitle}`,
+    html,
+  });
+}

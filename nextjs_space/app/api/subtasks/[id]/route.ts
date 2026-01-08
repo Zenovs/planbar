@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { sendSubTaskCompletedEmail, sendSubTaskAssignedEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,10 +55,58 @@ export async function PATCH(
       where: { id },
       data: updateData,
       include: {
-        ticket: true,
-        assignee: true,
+        ticket: {
+          include: {
+            createdBy: {
+              select: { id: true, name: true, email: true, emailNotifications: true }
+            }
+          }
+        },
+        assignee: {
+          select: { id: true, name: true, email: true, emailNotifications: true }
+        },
       },
     });
+
+    // E-Mail-Benachrichtigungen senden
+    try {
+      // Benachrichtigung wenn Subtask als erledigt markiert wird
+      if (completed !== undefined && completed === true && !existingSubTask.completed) {
+        // Benachrichtige den Ersteller des Tickets
+        if (updatedSubTask.ticket.createdBy && 
+            updatedSubTask.ticket.createdBy.emailNotifications &&
+            updatedSubTask.ticket.createdBy.id !== session.user.id) {
+          await sendSubTaskCompletedEmail(
+            updatedSubTask.ticket.createdBy.email,
+            updatedSubTask.ticket.createdBy.name || updatedSubTask.ticket.createdBy.email,
+            updatedSubTask.title,
+            updatedSubTask.ticket.title,
+            updatedSubTask.ticket.id,
+            session.user.name || session.user.email || 'Unbekannt'
+          );
+        }
+      }
+
+      // Benachrichtigung wenn Subtask neu zugewiesen wird
+      if (assigneeId !== undefined && 
+          assigneeId !== existingSubTask.assigneeId &&
+          assigneeId !== null) {
+        if (updatedSubTask.assignee && updatedSubTask.assignee.emailNotifications) {
+          await sendSubTaskAssignedEmail(
+            updatedSubTask.assignee.email,
+            updatedSubTask.assignee.name || updatedSubTask.assignee.email,
+            updatedSubTask.title,
+            updatedSubTask.ticket.title,
+            updatedSubTask.ticket.id,
+            session.user.name || session.user.email || 'Unbekannt',
+            updatedSubTask.dueDate || undefined
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send subtask notification email:', error);
+      // Don't fail the request if email fails
+    }
 
     return NextResponse.json({ subtask: updatedSubTask });
   } catch (error) {
