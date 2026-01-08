@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { sendLoginNotificationEmail } from '@/lib/email';
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -54,6 +55,18 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.name = user.name;
         token.picture = user.image;
+
+        // Login-Benachrichtigung senden (nur bei neuem Login)
+        try {
+          await sendLoginNotificationEmail(
+            user.email!,
+            user.name || user.email!,
+            new Date()
+          );
+        } catch (error) {
+          console.error('Failed to send login notification email:', error);
+          // Don't fail login if email fails
+        }
       }
       // Update token when session is updated (e.g., after profile change)
       if (trigger === 'update' && updateSession) {
