@@ -15,7 +15,12 @@ export type TicketWithRelations = Ticket & {
   _count?: {
     subTasks?: number;
   };
-  subTasks?: Array<{ id: string; status: string }>;
+  subTasks?: Array<{ 
+    id: string; 
+    status?: string;
+    completed: boolean;
+    estimatedHours: number | null;
+  }>;
 };
 
 // Alias für Projekt-Terminologie

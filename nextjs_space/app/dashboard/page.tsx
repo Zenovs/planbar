@@ -59,6 +59,13 @@ export default async function DashboardPage() {
         assignedTo: true,
         createdBy: true,
         category: true,
+        subTasks: {
+          select: {
+            id: true,
+            completed: true,
+            estimatedHours: true,
+          },
+        },
         _count: {
           select: {
             subTasks: {

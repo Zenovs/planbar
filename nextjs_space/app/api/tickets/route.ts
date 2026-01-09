@@ -133,6 +133,11 @@ export async function GET(req: NextRequest) {
         },
         category: true,
         subTasks: {
+          select: {
+            id: true,
+            completed: true,
+            estimatedHours: true,
+          },
           orderBy: { position: 'asc' },
         },
         _count: {
@@ -249,8 +254,23 @@ export async function POST(req: NextRequest) {
         team: true,
         category: true,
         subTasks: {
+          select: {
+            id: true,
+            completed: true,
+            estimatedHours: true,
+            title: true,
+            dueDate: true,
+            position: true,
+            assigneeId: true,
+            assignee: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
           orderBy: { position: 'asc' },
-          include: { assignee: true },
         },
       },
     });
