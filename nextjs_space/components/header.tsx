@@ -149,7 +149,8 @@ export function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-t border-gray-200 overflow-hidden"
+            transition={{ duration: 0.2 }}
+            className="md:hidden bg-white border-t border-gray-200"
           >
             <nav className="px-4 py-3 space-y-1">
               {navItems.map((item) => {
@@ -160,34 +161,35 @@ export function Header() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all min-h-[48px] ${
+                      isActive
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-100 active:bg-gray-200'
+                    }`}
                   >
-                    <div
-                      className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all min-h-[48px] ${
-                        isActive
-                          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span className="text-base">{item.label}</span>
-                    </div>
+                    <Icon className="w-5 h-5" />
+                    <span className="text-base">{item.label}</span>
                   </Link>
                 );
               })}
               
               <div className="border-t border-gray-200 pt-3 mt-3">
-                <Link href="/profile" onClick={() => setMobileMenuOpen(false)}>
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 min-h-[48px]">
-                    <User className="w-5 h-5" />
-                    <span className="text-base">Profil bearbeiten</span>
-                  </div>
+                <Link 
+                  href="/profile" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 min-h-[48px]"
+                >
+                  <User className="w-5 h-5" />
+                  <span className="text-base">Profil bearbeiten</span>
                 </Link>
                 {['admin', 'Administrator', 'ADMIN'].includes(session?.user?.role || '') && (
-                  <Link href="/settings" onClick={() => setMobileMenuOpen(false)}>
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 min-h-[48px]">
-                      <Settings className="w-5 h-5" />
-                      <span className="text-base">Einstellungen</span>
-                    </div>
+                  <Link 
+                    href="/settings" 
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 min-h-[48px]"
+                  >
+                    <Settings className="w-5 h-5" />
+                    <span className="text-base">Einstellungen</span>
                   </Link>
                 )}
                 <button
@@ -195,7 +197,7 @@ export function Header() {
                     setMobileMenuOpen(false);
                     signOut({ callbackUrl: '/' });
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 min-h-[48px]"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 active:bg-red-100 min-h-[48px] text-left"
                 >
                   <LogOut className="w-5 h-5" />
                   <span className="text-base">Abmelden</span>
