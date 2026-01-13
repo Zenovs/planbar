@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Ticket, LogOut, Users, LayoutDashboard, User, Settings, Sparkles, Menu, X } from 'lucide-react';
+import { Ticket, LogOut, Users, LayoutDashboard, User, Settings, Sparkles, Menu, X, UserCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   DropdownMenu,
@@ -29,6 +29,7 @@ export function Header() {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/tickets', label: 'Projekte', icon: Ticket },
     { href: '/team', label: 'Team', icon: Users },
+    { href: '/ressourcen', label: 'Ressourcen', icon: UserCheck },
   ];
 
   return (
