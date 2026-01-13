@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
@@ -37,6 +38,7 @@ import { toast } from 'sonner';
 import { StatusBadge } from '@/components/status-badge';
 import { PriorityBadge } from '@/components/priority-badge';
 import { ProjectTimeline } from '@/components/project-timeline';
+import { ProjectNotes } from '@/components/project-notes';
 
 interface User {
   id: string;
@@ -108,6 +110,7 @@ interface ProjektDetailClientProps {
 
 export function ProjektDetailClient({ ticket: initialTicket, users, categories, teams }: ProjektDetailClientProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [ticket, setTicket] = useState<Projekt>(initialTicket);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -798,6 +801,12 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
               projectTitle={ticket.title}
               subTasks={ticket.subTasks || []}
               projectCreatedAt={ticket.createdAt}
+            />
+
+            {/* Sitzungsnotizen */}
+            <ProjectNotes
+              ticketId={ticket.id}
+              currentUserId={session?.user?.id || ''}
             />
           </div>
 

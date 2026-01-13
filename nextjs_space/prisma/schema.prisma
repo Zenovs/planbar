@@ -49,6 +49,7 @@ model User {
   teamId           String?
   team             Team?     @relation(fields: [teamId], references: [id])
   teamMemberships  TeamMember[]
+  notes            Note[]    @relation("AuthoredNotes")
 
   @@map("users")
 }
@@ -158,6 +159,7 @@ model Ticket {
   
   subTasks     SubTask[]
   assignees    TicketAssignee[]
+  notes        Note[]
 
   @@map("tickets")
 }
@@ -259,4 +261,21 @@ model SubTaskAssignee {
 
   @@unique([subTaskId, userId])
   @@map("subtask_assignees")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  noteDate  DateTime @default(now())  // Datum der Sitzung/Besprechung
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation("AuthoredNotes", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
 }
