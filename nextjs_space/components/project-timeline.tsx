@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Calendar, Clock, User, CheckCircle2, Circle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { format, differenceInDays, addDays, startOfDay, endOfDay, isAfter, isBefore, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, getWeek, startOfMonth, endOfMonth, eachWeekOfInterval } from 'date-fns';
+import { format, differenceInDays, addDays, startOfDay, endOfDay, isAfter, isBefore, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, getWeek, startOfMonth, endOfMonth, eachWeekOfInterval, addMonths, subMonths, addWeeks, subWeeks } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useState } from 'react';
 
@@ -27,8 +27,11 @@ interface ProjectTimelineProps {
   projectCreatedAt?: Date;
 }
 
+type ViewMode = 'month' | 'week' | 'day';
+
 export function ProjectTimeline({ projectTitle, subTasks, projectCreatedAt }: ProjectTimelineProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<ViewMode>('month');
   
   // Filtere nur SubTasks mit Fälligkeitsdatum
   const tasksWithDates = subTasks.filter(task => task.dueDate);
@@ -124,40 +127,91 @@ export function ProjectTimeline({ projectTitle, subTasks, projectCreatedAt }: Pr
   });
 
   // Navigation
-  const prevMonth = () => {
-    setCurrentDate(addDays(currentDate, -30));
+  const prev = () => {
+    if (viewMode === 'month') {
+      setCurrentDate(subMonths(currentDate, 1));
+    } else if (viewMode === 'week') {
+      setCurrentDate(subWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(addDays(currentDate, -1));
+    }
   };
 
-  const nextMonth = () => {
-    setCurrentDate(addDays(currentDate, 30));
+  const next = () => {
+    if (viewMode === 'month') {
+      setCurrentDate(addMonths(currentDate, 1));
+    } else if (viewMode === 'week') {
+      setCurrentDate(addWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(addDays(currentDate, 1));
+    }
   };
 
   const goToToday = () => {
     setCurrentDate(new Date());
   };
 
+  // Format für Datum-Anzeige je nach View-Mode
+  const getDateLabel = () => {
+    if (viewMode === 'month') {
+      return format(currentDate, 'MMMM yyyy', { locale: de });
+    } else if (viewMode === 'week') {
+      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+      return `${format(weekStart, 'd. MMM', { locale: de })} - ${format(weekEnd, 'd. MMM yyyy', { locale: de })}`;
+    } else {
+      return format(currentDate, 'EEEE, d. MMMM yyyy', { locale: de });
+    }
+  };
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <CardTitle className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-blue-600" />
             Projektzeitplan
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Button onClick={prevMonth} variant="outline" size="sm">
+            <Button onClick={prev} variant="outline" size="sm">
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <Button onClick={goToToday} variant="outline" size="sm">
               Heute
             </Button>
-            <Button onClick={nextMonth} variant="outline" size="sm">
+            <Button onClick={next} variant="outline" size="sm">
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          {format(currentDate, 'MMMM yyyy', { locale: de })}
+        
+        {/* View Mode Selector */}
+        <div className="flex items-center gap-2 mb-2">
+          <Button 
+            onClick={() => setViewMode('month')} 
+            variant={viewMode === 'month' ? 'default' : 'outline'}
+            size="sm"
+          >
+            Monat
+          </Button>
+          <Button 
+            onClick={() => setViewMode('week')} 
+            variant={viewMode === 'week' ? 'default' : 'outline'}
+            size="sm"
+          >
+            Woche
+          </Button>
+          <Button 
+            onClick={() => setViewMode('day')} 
+            variant={viewMode === 'day' ? 'default' : 'outline'}
+            size="sm"
+          >
+            Tag
+          </Button>
+        </div>
+        
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          {getDateLabel()}
         </p>
       </CardHeader>
       <CardContent className="p-6">
@@ -218,105 +272,227 @@ export function ProjectTimeline({ projectTitle, subTasks, projectCreatedAt }: Pr
 
         {/* Kalender-Ansicht */}
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          {/* Wochentage-Header */}
-          <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-800">
-            {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day, i) => (
-              <div
-                key={i}
-                className="p-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 last:border-r-0"
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Kalender-Tage */}
-          <div className="grid grid-cols-7">
-            {allDays.map((day, i) => {
-              const dateKey = format(day, 'yyyy-MM-dd');
-              const dayTasks = tasksByDay.get(dateKey) || [];
-              const isToday = isSameDay(day, today);
-              const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-
-              return (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: i * 0.01 }}
-                  className={`min-h-[100px] p-2 border-r border-b border-gray-200 dark:border-gray-700 last:border-r-0 ${
-                    !isCurrentMonth ? 'bg-gray-50/50 dark:bg-gray-900/50' : 'bg-white dark:bg-gray-800'
-                  } ${
-                    isToday ? 'ring-2 ring-blue-500' : ''
-                  }`}
-                >
-                  {/* Tageszahl */}
-                  <div className={`text-xs font-medium mb-1 ${
-                    isToday 
-                      ? 'flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white' 
-                      : !isCurrentMonth
-                      ? 'text-gray-400'
-                      : 'text-gray-700 dark:text-gray-300'
-                  }`}>
-                    {format(day, 'd')}
+          {viewMode === 'month' && (
+            <>
+              {/* Wochentage-Header */}
+              <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-800">
+                {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day, i) => (
+                  <div
+                    key={i}
+                    className="p-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 last:border-r-0"
+                  >
+                    {day}
                   </div>
+                ))}
+              </div>
 
-                  {/* Tasks für diesen Tag */}
-                  <div className="space-y-1">
-                    {dayTasks.map((task, taskIndex) => {
-                      const statusColor = getStatusColor(task);
-                      const statusText = getStatusText(task);
+              {/* Monatsansicht: Nur Anzahl der Tasks */}
+              <div className="grid grid-cols-7">
+                {allDays.map((day, i) => {
+                  const dateKey = format(day, 'yyyy-MM-dd');
+                  const dayTasks = tasksByDay.get(dateKey) || [];
+                  const isToday = isSameDay(day, today);
+                  const isCurrentMonth = day.getMonth() === currentDate.getMonth();
 
-                      return (
-                        <motion.div
-                          key={task.id}
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ delay: i * 0.01 + taskIndex * 0.05 }}
-                          className={`text-xs p-1.5 rounded ${
-                            task.completed
-                              ? 'bg-green-100 dark:bg-green-900/30'
-                              : isBefore(new Date(task.dueDate!), today)
-                              ? 'bg-red-100 dark:bg-red-900/30'
-                              : differenceInDays(new Date(task.dueDate!), today) <= 3
-                              ? 'bg-orange-100 dark:bg-orange-900/30'
-                              : 'bg-blue-100 dark:bg-blue-900/30'
-                          }`}
-                        >
-                          <div className="flex items-start gap-1">
-                            <div className="flex-shrink-0 mt-0.5">
-                              {task.completed ? (
-                                <CheckCircle2 className="w-3 h-3 text-green-600" />
-                              ) : (
-                                <Circle className="w-3 h-3 text-gray-400" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`truncate font-medium ${
-                                task.completed ? 'line-through text-gray-500' : statusText
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.01 }}
+                      className={`min-h-[80px] p-2 border-r border-b border-gray-200 dark:border-gray-700 last:border-r-0 ${
+                        !isCurrentMonth ? 'bg-gray-50/50 dark:bg-gray-900/50' : 'bg-white dark:bg-gray-800'
+                      } ${
+                        isToday ? 'ring-2 ring-blue-500' : ''
+                      }`}
+                    >
+                      {/* Tageszahl */}
+                      <div className={`text-xs font-medium mb-1 ${
+                        isToday 
+                          ? 'flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white' 
+                          : !isCurrentMonth
+                          ? 'text-gray-400'
+                          : 'text-gray-700 dark:text-gray-300'
+                      }`}>
+                        {format(day, 'd')}
+                      </div>
+
+                      {/* Nur Anzahl der Tasks anzeigen */}
+                      {dayTasks.length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded px-2 py-1 text-center">
+                            {dayTasks.length} {dayTasks.length === 1 ? 'Task' : 'Tasks'}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {viewMode === 'week' && (
+            <>
+              {/* Wochenansicht: Mehr Details */}
+              <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-800">
+                {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day, i) => (
+                  <div
+                    key={i}
+                    className="p-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 last:border-r-0"
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7">
+                {eachDayOfInterval({
+                  start: startOfWeek(currentDate, { weekStartsOn: 1 }),
+                  end: endOfWeek(currentDate, { weekStartsOn: 1 })
+                }).map((day, i) => {
+                  const dateKey = format(day, 'yyyy-MM-dd');
+                  const dayTasks = tasksByDay.get(dateKey) || [];
+                  const isToday = isSameDay(day, today);
+
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.05 }}
+                      className={`min-h-[150px] p-3 border-r border-b border-gray-200 dark:border-gray-700 last:border-r-0 bg-white dark:bg-gray-800 ${
+                        isToday ? 'ring-2 ring-blue-500' : ''
+                      }`}
+                    >
+                      {/* Tageszahl */}
+                      <div className={`text-sm font-semibold mb-2 ${
+                        isToday 
+                          ? 'flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white' 
+                          : 'text-gray-700 dark:text-gray-300'
+                      }`}>
+                        {format(day, 'd')}
+                      </div>
+
+                      {/* Tasks mit Titel und Assignee */}
+                      <div className="space-y-2">
+                        {dayTasks.map((task) => (
+                          <motion.div
+                            key={task.id}
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className={`text-xs p-2 rounded ${
+                              task.completed
+                                ? 'bg-green-100 dark:bg-green-900/30'
+                                : isBefore(new Date(task.dueDate!), today)
+                                ? 'bg-red-100 dark:bg-red-900/30'
+                                : differenceInDays(new Date(task.dueDate!), today) <= 3
+                                ? 'bg-orange-100 dark:bg-orange-900/30'
+                                : 'bg-blue-100 dark:bg-blue-900/30'
+                            }`}
+                          >
+                            <div className="flex items-start gap-1 mb-1">
+                              <div className="flex-shrink-0 mt-0.5">
+                                {getStatusIcon(task)}
+                              </div>
+                              <p className={`flex-1 font-medium text-[11px] line-clamp-2 ${
+                                task.completed ? 'line-through text-gray-500' : getStatusText(task)
                               }`}>
                                 {task.title}
                               </p>
-                              {task.assignee && (
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                                  {task.assignee.name || task.assignee.email}
-                                </p>
-                              )}
-                              {task.estimatedHours !== null && task.estimatedHours !== undefined && task.estimatedHours > 0 && (
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                                  {task.estimatedHours}h
-                                </p>
-                              )}
                             </div>
-                          </div>
-                        </motion.div>
+                            {task.assignee && (
+                              <div className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                                <User className="w-3 h-3" />
+                                <span className="truncate">{task.assignee.name || task.assignee.email}</span>
+                              </div>
+                            )}
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {viewMode === 'day' && (
+            <>
+              {/* Tagesansicht: Alle Details */}
+              <div className="p-6">
+                <div className="space-y-3">
+                  {(() => {
+                    const dateKey = format(currentDate, 'yyyy-MM-dd');
+                    const dayTasks = tasksByDay.get(dateKey) || [];
+
+                    if (dayTasks.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <Calendar className="w-12 h-12 text-gray-300 mb-3" />
+                          <p className="text-sm text-gray-500">
+                            Keine Aufgaben für diesen Tag
+                          </p>
+                        </div>
                       );
-                    })}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+                    }
+
+                    return dayTasks.map((task, index) => (
+                      <motion.div
+                        key={task.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className={`p-4 rounded-lg border-l-4 ${
+                          task.completed
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-600'
+                            : isBefore(new Date(task.dueDate!), today)
+                            ? 'bg-red-50 dark:bg-red-900/20 border-red-600'
+                            : differenceInDays(new Date(task.dueDate!), today) <= 3
+                            ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-600'
+                            : 'bg-blue-50 dark:bg-blue-900/20 border-blue-600'
+                        }`}
+                      >
+                        {/* Status und Titel */}
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="flex-shrink-0 mt-1">
+                            {getStatusIcon(task)}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className={`font-semibold text-sm ${
+                              task.completed ? 'line-through text-gray-500' : getStatusText(task)
+                            }`}>
+                              {task.title}
+                            </h4>
+                          </div>
+                        </div>
+
+                        {/* Details Grid */}
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          {task.assignee && (
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 text-gray-400" />
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {task.assignee.name || task.assignee.email}
+                              </span>
+                            </div>
+                          )}
+                          {task.estimatedHours !== null && task.estimatedHours !== undefined && task.estimatedHours > 0 && (
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4 text-gray-400" />
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {task.estimatedHours}h geplant
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Legende */}
