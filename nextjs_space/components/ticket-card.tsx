@@ -28,6 +28,12 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
     return sum + (st.estimatedHours || 0);
   }, 0) || 0;
 
+  // Budget-Berechnung
+  const totalBudgetHours = ticket?.totalBudgetHours || 0;
+  const budgetUsedPercentage = totalBudgetHours > 0 
+    ? Math.min(Math.round((totalEstimatedHours / totalBudgetHours) * 100), 100) 
+    : 0;
+
   return (
     <Link href={`/tickets/${ticket?.id || ''}`}>
       <motion.div
@@ -142,6 +148,55 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-gray-500">
                     Keine Subtasks • Projekt bereit
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Budget-Anzeige */}
+            {totalBudgetHours > 0 && (
+              <div className="mb-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-medium text-purple-700 dark:text-purple-400">
+                    Projekt-Budget
+                  </span>
+                  <span className={`text-xs font-semibold ${
+                    budgetUsedPercentage > 90 
+                      ? 'text-red-600' 
+                      : budgetUsedPercentage > 75 
+                      ? 'text-orange-600' 
+                      : 'text-purple-600'
+                  }`}>
+                    {budgetUsedPercentage}%
+                  </span>
+                </div>
+                <div className="w-full bg-purple-200 dark:bg-purple-900/30 rounded-full h-2 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${budgetUsedPercentage}%` }}
+                    transition={{ duration: 0.8, delay: index * 0.05 + 0.2 }}
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      background: budgetUsedPercentage > 90
+                        ? 'linear-gradient(to right, #dc2626, #991b1b)'
+                        : budgetUsedPercentage > 75
+                        ? 'linear-gradient(to right, #ea580c, #c2410c)'
+                        : 'linear-gradient(to right, #9333ea, #7e22ce)',
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1.5">
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    {totalEstimatedHours}h von {totalBudgetHours}h verwendet
+                  </span>
+                  <span className={`text-xs font-medium ${
+                    totalEstimatedHours > totalBudgetHours 
+                      ? 'text-red-600' 
+                      : 'text-purple-600'
+                  }`}>
+                    {totalEstimatedHours > totalBudgetHours 
+                      ? `+${(totalEstimatedHours - totalBudgetHours).toFixed(1)}h über Budget` 
+                      : `${(totalBudgetHours - totalEstimatedHours).toFixed(1)}h verfügbar`}
                   </span>
                 </div>
               </div>

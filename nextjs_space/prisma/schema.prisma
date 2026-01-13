@@ -153,6 +153,9 @@ model Ticket {
   shareToken   String?   @unique
   shareEnabled Boolean   @default(false)
   
+  // Projekt-Budget (Vorgabezeit)
+  totalBudgetHours Float?
+  
   subTasks     SubTask[]
   assignees    TicketAssignee[]
 

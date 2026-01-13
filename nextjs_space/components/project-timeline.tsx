@@ -1,10 +1,12 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Calendar, Clock, User, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle2, Circle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { format, differenceInDays, addDays, startOfDay, endOfDay, isAfter, isBefore } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { format, differenceInDays, addDays, startOfDay, endOfDay, isAfter, isBefore, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, getWeek, startOfMonth, endOfMonth, eachWeekOfInterval } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useState } from 'react';
 
 interface SubTask {
   id: string;
@@ -26,6 +28,8 @@ interface ProjectTimelineProps {
 }
 
 export function ProjectTimeline({ projectTitle, subTasks, projectCreatedAt }: ProjectTimelineProps) {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  
   // Filtere nur SubTasks mit Fälligkeitsdatum
   const tasksWithDates = subTasks.filter(task => task.dueDate);
 
@@ -60,41 +64,15 @@ export function ProjectTimeline({ projectTitle, subTasks, projectCreatedAt }: Pr
     return dateA.getTime() - dateB.getTime();
   });
 
-  // Berechne Projektstart und -ende
-  const projectStart = projectCreatedAt ? startOfDay(new Date(projectCreatedAt)) : startOfDay(new Date());
-  const firstTaskDate = startOfDay(new Date(sortedTasks[0].dueDate!));
-  const lastTaskDate = endOfDay(new Date(sortedTasks[sortedTasks.length - 1].dueDate!));
-  
-  // Verwende frühestes Datum (Projektstart oder erste Task)
-  const timelineStart = isBefore(projectStart, firstTaskDate) ? projectStart : firstTaskDate;
-  const timelineEnd = lastTaskDate;
-  
-  // Füge 10% Padding hinzu
-  const totalDays = differenceInDays(timelineEnd, timelineStart);
-  const paddingDays = Math.max(2, Math.ceil(totalDays * 0.1));
-  const displayStart = addDays(timelineStart, -paddingDays);
-  const displayEnd = addDays(timelineEnd, paddingDays);
-  const displayDuration = differenceInDays(displayEnd, displayStart);
-
-  // Berechne Position auf Timeline (0-100%)
-  const getTaskPosition = (date: Date) => {
-    const taskDate = startOfDay(new Date(date));
-    const daysSinceStart = differenceInDays(taskDate, displayStart);
-    return (daysSinceStart / displayDuration) * 100;
-  };
-
-  // Heute-Marker Position
   const today = startOfDay(new Date());
-  const todayPosition = getTaskPosition(today);
-  const isTodayInRange = todayPosition >= 0 && todayPosition <= 100;
 
-  // Status-Farbe
+  // Status-Funktionen
   const getStatusColor = (task: SubTask) => {
     if (task.completed) return 'bg-green-500';
     const dueDate = new Date(task.dueDate!);
-    if (isBefore(dueDate, today)) return 'bg-red-500'; // Überfällig
-    if (differenceInDays(dueDate, today) <= 3) return 'bg-orange-500'; // Bald fällig
-    return 'bg-blue-500'; // Normal
+    if (isBefore(dueDate, today)) return 'bg-red-500';
+    if (differenceInDays(dueDate, today) <= 3) return 'bg-orange-500';
+    return 'bg-blue-500';
   };
 
   const getStatusBorder = (task: SubTask) => {
@@ -105,6 +83,14 @@ export function ProjectTimeline({ projectTitle, subTasks, projectCreatedAt }: Pr
     return 'border-blue-600';
   };
 
+  const getStatusText = (task: SubTask) => {
+    if (task.completed) return 'text-green-600';
+    const dueDate = new Date(task.dueDate!);
+    if (isBefore(dueDate, today)) return 'text-red-600';
+    if (differenceInDays(dueDate, today) <= 3) return 'text-orange-600';
+    return 'text-blue-600';
+  };
+
   const getStatusIcon = (task: SubTask) => {
     if (task.completed) return <CheckCircle2 className="w-4 h-4 text-green-600" />;
     const dueDate = new Date(task.dueDate!);
@@ -113,41 +99,65 @@ export function ProjectTimeline({ projectTitle, subTasks, projectCreatedAt }: Pr
     return <Circle className="w-4 h-4 text-blue-600" />;
   };
 
-  // Generiere Zeitachsen-Marker
-  const generateTimeMarkers = () => {
-    const markers = [];
-    const markerCount = Math.min(8, Math.max(4, Math.floor(displayDuration / 7))); // 4-8 Marker
-    
-    for (let i = 0; i <= markerCount; i++) {
-      const markerDate = addDays(displayStart, Math.floor((displayDuration * i) / markerCount));
-      const position = (i / markerCount) * 100;
-      
-      markers.push({
-        date: markerDate,
-        position,
-        label: format(markerDate, 'd. MMM', { locale: de })
-      });
-    }
-    
-    return markers;
-  };
-
-  const timeMarkers = generateTimeMarkers();
-
   // Berechne Projekt-Statistiken
   const completedTasks = sortedTasks.filter(t => t.completed).length;
   const totalHours = sortedTasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
   const overdueTasks = sortedTasks.filter(t => !t.completed && isBefore(new Date(t.dueDate!), today)).length;
 
+  // Berechne Monatsansicht
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); // Woche beginnt Montag
+  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  
+  const allDays = eachDayOfInterval({ start: startDate, end: endDate });
+  const weeks = eachWeekOfInterval({ start: startDate, end: endDate }, { weekStartsOn: 1 });
+
+  // Gruppiere Tasks nach Tag
+  const tasksByDay = new Map<string, SubTask[]>();
+  sortedTasks.forEach(task => {
+    const dateKey = format(new Date(task.dueDate!), 'yyyy-MM-dd');
+    if (!tasksByDay.has(dateKey)) {
+      tasksByDay.set(dateKey, []);
+    }
+    tasksByDay.get(dateKey)!.push(task);
+  });
+
+  // Navigation
+  const prevMonth = () => {
+    setCurrentDate(addDays(currentDate, -30));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(addDays(currentDate, 30));
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-blue-600" />
-          Projektzeitplan
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-600" />
+            Projektzeitplan
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button onClick={prevMonth} variant="outline" size="sm">
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button onClick={goToToday} variant="outline" size="sm">
+              Heute
+            </Button>
+            <Button onClick={nextMonth} variant="outline" size="sm">
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Visualisierung des Projektablaufs und aller Aufgaben
+          {format(currentDate, 'MMMM yyyy', { locale: de })}
         </p>
       </CardHeader>
       <CardContent className="p-6">
@@ -206,114 +216,102 @@ export function ProjectTimeline({ projectTitle, subTasks, projectCreatedAt }: Pr
           </motion.div>
         </div>
 
-        {/* Timeline */}
-        <div className="space-y-4">
-          {/* Zeitachse mit Markern */}
-          <div className="relative h-8 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
-            {/* Zeitmarker */}
-            {timeMarkers.map((marker, i) => (
+        {/* Kalender-Ansicht */}
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          {/* Wochentage-Header */}
+          <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-800">
+            {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day, i) => (
               <div
                 key={i}
-                className="absolute top-0 bottom-0 flex flex-col items-center justify-center"
-                style={{ left: `${marker.position}%` }}
+                className="p-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 last:border-r-0"
               >
-                <div className="w-px h-full bg-gray-300 dark:bg-gray-600" />
-                <span className="absolute -bottom-6 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                  {marker.label}
-                </span>
+                {day}
               </div>
             ))}
-
-            {/* Heute-Marker */}
-            {isTodayInRange && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10"
-                style={{ left: `${todayPosition}%` }}
-              >
-                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-red-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                  Heute
-                </div>
-              </motion.div>
-            )}
           </div>
 
-          <div className="h-4" /> {/* Spacer für Zeitlabels */}
-
-          {/* Tasks */}
-          <div className="space-y-3">
-            {sortedTasks.map((task, index) => {
-              const position = getTaskPosition(new Date(task.dueDate!));
-              const statusColor = getStatusColor(task);
-              const statusBorder = getStatusBorder(task);
-              const statusIcon = getStatusIcon(task);
+          {/* Kalender-Tage */}
+          <div className="grid grid-cols-7">
+            {allDays.map((day, i) => {
+              const dateKey = format(day, 'yyyy-MM-dd');
+              const dayTasks = tasksByDay.get(dateKey) || [];
+              const isToday = isSameDay(day, today);
+              const isCurrentMonth = day.getMonth() === currentDate.getMonth();
 
               return (
                 <motion.div
-                  key={task.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 + 0.3 }}
-                  className="relative"
+                  key={i}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: i * 0.01 }}
+                  className={`min-h-[100px] p-2 border-r border-b border-gray-200 dark:border-gray-700 last:border-r-0 ${
+                    !isCurrentMonth ? 'bg-gray-50/50 dark:bg-gray-900/50' : 'bg-white dark:bg-gray-800'
+                  } ${
+                    isToday ? 'ring-2 ring-blue-500' : ''
+                  }`}
                 >
-                  {/* Task-Info */}
-                  <div className="flex items-start gap-3 mb-2">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {statusIcon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className={`text-sm font-medium truncate ${
-                        task.completed ? 'line-through text-gray-400' : 'text-gray-900 dark:text-gray-100'
-                      }`}>
-                        {task.title}
-                      </h4>
-                      <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500">
-                        {task.assignee && (
-                          <div className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            <span>{task.assignee.name || task.assignee.email}</span>
-                          </div>
-                        )}
-                        {task.estimatedHours !== null && task.estimatedHours !== undefined && task.estimatedHours > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{task.estimatedHours}h</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          <span>{format(new Date(task.dueDate!), 'd. MMMM yyyy', { locale: de })}</span>
-                        </div>
-                      </div>
-                    </div>
+                  {/* Tageszahl */}
+                  <div className={`text-xs font-medium mb-1 ${
+                    isToday 
+                      ? 'flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white' 
+                      : !isCurrentMonth
+                      ? 'text-gray-400'
+                      : 'text-gray-700 dark:text-gray-300'
+                  }`}>
+                    {format(day, 'd')}
                   </div>
 
-                  {/* Timeline-Bar */}
-                  <div className="relative h-8 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
-                    {/* Task-Marker */}
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: index * 0.05 + 0.4 }}
-                      className={`absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 ${statusColor} ${statusBorder}`}
-                      style={{ left: `${position}%` }}
-                    />
-                    
-                    {/* Verbindungslinie zum vorherigen Task */}
-                    {index > 0 && (
-                      <motion.div
-                        initial={{ scaleX: 0 }}
-                        animate={{ scaleX: 1 }}
-                        transition={{ delay: index * 0.05 + 0.5, duration: 0.5 }}
-                        className="absolute top-1/2 transform -translate-y-1/2 h-0.5 bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 origin-left"
-                        style={{
-                          left: `${getTaskPosition(new Date(sortedTasks[index - 1].dueDate!))}%`,
-                          width: `${position - getTaskPosition(new Date(sortedTasks[index - 1].dueDate!))}%`
-                        }}
-                      />
-                    )}
+                  {/* Tasks für diesen Tag */}
+                  <div className="space-y-1">
+                    {dayTasks.map((task, taskIndex) => {
+                      const statusColor = getStatusColor(task);
+                      const statusText = getStatusText(task);
+
+                      return (
+                        <motion.div
+                          key={task.id}
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: i * 0.01 + taskIndex * 0.05 }}
+                          className={`text-xs p-1.5 rounded ${
+                            task.completed
+                              ? 'bg-green-100 dark:bg-green-900/30'
+                              : isBefore(new Date(task.dueDate!), today)
+                              ? 'bg-red-100 dark:bg-red-900/30'
+                              : differenceInDays(new Date(task.dueDate!), today) <= 3
+                              ? 'bg-orange-100 dark:bg-orange-900/30'
+                              : 'bg-blue-100 dark:bg-blue-900/30'
+                          }`}
+                        >
+                          <div className="flex items-start gap-1">
+                            <div className="flex-shrink-0 mt-0.5">
+                              {task.completed ? (
+                                <CheckCircle2 className="w-3 h-3 text-green-600" />
+                              ) : (
+                                <Circle className="w-3 h-3 text-gray-400" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`truncate font-medium ${
+                                task.completed ? 'line-through text-gray-500' : statusText
+                              }`}>
+                                {task.title}
+                              </p>
+                              {task.assignee && (
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                  {task.assignee.name || task.assignee.email}
+                                </p>
+                              )}
+                              {task.estimatedHours !== null && task.estimatedHours !== undefined && task.estimatedHours > 0 && (
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                  {task.estimatedHours}h
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 </motion.div>
               );
@@ -326,27 +324,27 @@ export function ProjectTimeline({ projectTitle, subTasks, projectCreatedAt }: Pr
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Legende</h4>
           <div className="flex flex-wrap gap-4 text-xs">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-blue-600" />
+              <div className="w-3 h-3 rounded-full bg-blue-500" />
               <span className="text-gray-600 dark:text-gray-400">In Planung</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-orange-600" />
+              <div className="w-3 h-3 rounded-full bg-orange-500" />
               <span className="text-gray-600 dark:text-gray-400">Bald fällig (≤3 Tage)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500 border-2 border-red-600" />
+              <div className="w-3 h-3 rounded-full bg-red-500" />
               <span className="text-gray-600 dark:text-gray-400">Überfällig</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-green-600" />
+              <div className="w-3 h-3 rounded-full bg-green-500" />
               <span className="text-gray-600 dark:text-gray-400">Erledigt</span>
             </div>
-            {isTodayInRange && (
-              <div className="flex items-center gap-2">
-                <div className="w-0.5 h-4 bg-red-500" />
-                <span className="text-gray-600 dark:text-gray-400">Heute</span>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px]">
+                {format(today, 'd')}
               </div>
-            )}
+              <span className="text-gray-600 dark:text-gray-400">Heute</span>
+            </div>
           </div>
         </div>
       </CardContent>

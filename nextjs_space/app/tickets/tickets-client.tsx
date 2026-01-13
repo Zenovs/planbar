@@ -23,20 +23,102 @@ interface ProjektsClientProps {
 export function ProjektsClient({ users }: ProjektsClientProps) {
   const [tickets, setTickets] = useState<ProjektWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
-  const [assigneeFilter, setAssigneeFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('createdAt');
-  const [sortOrder, setSortOrder] = useState('desc');
+  
+  // Filter-States mit localStorage-Persistenz
+  const [search, setSearch] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tickets_search') || '';
+    }
+    return '';
+  });
+  const [statusFilter, setStatusFilter] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tickets_statusFilter') || 'all';
+    }
+    return 'all';
+  });
+  const [priorityFilter, setPriorityFilter] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tickets_priorityFilter') || 'all';
+    }
+    return 'all';
+  });
+  const [assigneeFilter, setAssigneeFilter] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tickets_assigneeFilter') || 'all';
+    }
+    return 'all';
+  });
+  const [sortBy, setSortBy] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tickets_sortBy') || 'createdAt';
+    }
+    return 'createdAt';
+  });
+  const [sortOrder, setSortOrder] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tickets_sortOrder') || 'desc';
+    }
+    return 'desc';
+  });
+  
   const [showFilters, setShowFilters] = useState(false);
   const [templatesDialogOpen, setTemplatesDialogOpen] = useState(false);
   const [categoriesDialogOpen, setCategoriesDialogOpen] = useState(false);
   
   // Kategorie-Filter
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('tickets_selectedCategories');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
+
+  // Speichere Filter in localStorage bei Änderung
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tickets_search', search);
+    }
+  }, [search]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tickets_statusFilter', statusFilter);
+    }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tickets_priorityFilter', priorityFilter);
+    }
+  }, [priorityFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tickets_assigneeFilter', assigneeFilter);
+    }
+  }, [assigneeFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tickets_sortBy', sortBy);
+    }
+  }, [sortBy]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tickets_sortOrder', sortOrder);
+    }
+  }, [sortOrder]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tickets_selectedCategories', JSON.stringify(selectedCategories));
+    }
+  }, [selectedCategories]);
 
   useEffect(() => {
     fetchTickets();

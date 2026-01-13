@@ -90,6 +90,7 @@ interface Projekt {
   teamId: string | null;
   shareToken: string | null;
   shareEnabled: boolean;
+  totalBudgetHours: number | null;
   createdAt?: Date;
   assignedTo?: User | null;
   createdBy?: User | null;
@@ -128,6 +129,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
     assignedToId: ticket.assignedToId || 'none',
     categoryId: ticket.categoryId || 'none',
     teamId: ticket.teamId || 'none',
+    totalBudgetHours: ticket.totalBudgetHours || null,
   });
 
   // Ressourcen laden (basierend auf SubTask-Deadlines)
@@ -169,6 +171,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
           assignedToId: formData.assignedToId === 'none' ? null : formData.assignedToId,
           categoryId: formData.categoryId === 'none' ? null : formData.categoryId,
           teamId: formData.teamId === 'none' ? null : formData.teamId,
+          totalBudgetHours: formData.totalBudgetHours,
         }),
       });
 
@@ -887,6 +890,32 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
                   {isEditing && (
                     <p className="text-xs text-muted-foreground mt-1">
                       Teammitglieder können das Projekt sehen
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-sm flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    Projektvorgabe (Stunden)
+                  </Label>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={formData.totalBudgetHours || ''}
+                      onChange={(e) => setFormData({ ...formData, totalBudgetHours: e.target.value ? parseFloat(e.target.value) : null })}
+                      className="mt-1 min-h-[44px]"
+                      placeholder="z.B. 40"
+                    />
+                  ) : (
+                    <p className="mt-1 text-sm">
+                      {ticket.totalBudgetHours ? `${ticket.totalBudgetHours}h` : 'Nicht festgelegt'}
+                    </p>
+                  )}
+                  {isEditing && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Gesamtbudget für dieses Projekt
                     </p>
                   )}
                 </div>
