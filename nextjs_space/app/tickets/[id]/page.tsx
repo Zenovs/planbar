@@ -22,6 +22,15 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
         category: true,
         team: true,
         subTasks: {
+          include: {
+            assignee: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
           orderBy: { position: 'asc' },
         },
       },

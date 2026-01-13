@@ -36,6 +36,7 @@ import {
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/status-badge';
 import { PriorityBadge } from '@/components/priority-badge';
+import { ProjectTimeline } from '@/components/project-timeline';
 
 interface User {
   id: string;
@@ -89,6 +90,7 @@ interface Projekt {
   teamId: string | null;
   shareToken: string | null;
   shareEnabled: boolean;
+  createdAt?: Date;
   assignedTo?: User | null;
   createdBy?: User | null;
   category?: Category | null;
@@ -787,6 +789,13 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
                 </div>
               </CardContent>
             </Card>
+
+            {/* Projektzeitplan / Timeline */}
+            <ProjectTimeline
+              projectTitle={ticket.title}
+              subTasks={ticket.subTasks || []}
+              projectCreatedAt={ticket.createdAt}
+            />
           </div>
 
           {/* Sidebar - Cards */}
