@@ -39,6 +39,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { PriorityBadge } from '@/components/priority-badge';
 import { ProjectTimeline } from '@/components/project-timeline';
 import { ProjectNotes } from '@/components/project-notes';
+import { MilestoneTimeline } from '@/components/milestone-timeline';
 
 interface User {
   id: string;
@@ -828,6 +829,14 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
             <ProjectNotes
               ticketId={ticket.id}
               currentUserId={session?.user?.id || ''}
+            />
+
+            {/* Meilensteine Timeline */}
+            <MilestoneTimeline
+              ticketId={ticket.id}
+              projectTitle={ticket.title}
+              shareToken={ticket.shareToken}
+              shareEnabled={ticket.shareEnabled}
             />
           </div>
 
