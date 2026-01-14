@@ -231,10 +231,7 @@ export function SharedTimelineView({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="text-center mt-8 text-sm text-gray-500">
-          <p>Erstellt mit planbar</p>
-        </div>
+
       </div>
     </div>
   );
