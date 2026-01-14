@@ -4,10 +4,15 @@ import { authOptions } from '@/lib/auth';
 import { LoginPage } from '@/components/login-page';
 
 export default async function Home() {
-  const session = await getServerSession(authOptions);
+  try {
+    const session = await getServerSession(authOptions);
 
-  if (session?.user) {
-    redirect('/dashboard');
+    if (session?.user) {
+      redirect('/dashboard');
+    }
+  } catch (error) {
+    console.error('Session check failed:', error);
+    // Continue to show login page even if session check fails
   }
 
   return <LoginPage />;
