@@ -113,12 +113,12 @@ export function SharedTimelineView({
         {milestones.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-6 mb-8 overflow-x-auto">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Timeline</h2>
-            <div className="relative py-8 min-w-[600px]">
+            <div className="relative py-12 px-4 min-w-[600px]">
               {/* Timeline Bar */}
-              <div className="absolute left-4 right-4 top-1/2 h-4 bg-amber-700 rounded-full transform -translate-y-1/2" />
+              <div className="absolute left-4 right-4 top-1/2 h-2 bg-amber-600/80 rounded-full transform -translate-y-1/2 shadow-sm" />
               
-              {/* Milestone markers */}
-              <div className="relative h-40">
+              {/* Milestone markers - positioned ON the bar */}
+              <div className="relative" style={{ minHeight: '120px' }}>
                 {sortedMilestones.map((milestone, index) => {
                   const position = getTimelinePosition(index);
                   const isAbove = index % 2 === 0;
@@ -126,39 +126,30 @@ export function SharedTimelineView({
                   return (
                     <div
                       key={milestone.id}
-                      className="absolute transform -translate-x-1/2"
+                      className="absolute"
                       style={{
                         left: `${Math.max(8, Math.min(92, position))}%`,
-                        top: isAbove ? '0' : '50%',
+                        top: '50%',
+                        transform: 'translate(-50%, -50%)',
                       }}
                     >
-                      <div className={`flex flex-col items-center ${isAbove ? '' : 'flex-col-reverse'}`}>
-                        {/* Content */}
-                        <div className={`text-center max-w-[150px] ${isAbove ? 'mb-2' : 'mt-2'}`}>
-                          <p className="text-sm font-semibold text-gray-900 line-clamp-2">
-                            {milestone.title}
-                          </p>
-                          <p className={`text-xs font-medium ${milestone.completed ? 'text-green-600' : 'text-gray-500'}`}>
-                            {format(new Date(milestone.dueDate), 'dd. MMM yyyy', { locale: de })}
-                          </p>
-                        </div>
-                        
-                        {/* Connector line */}
-                        <div className={`w-0.5 h-6 ${getColorClass(milestone.color)}`} />
-                        
-                        {/* Triangle marker */}
-                        <div
-                          className={`w-0 h-0
-                            ${isAbove 
-                              ? 'border-l-[12px] border-r-[12px] border-t-[16px] border-l-transparent border-r-transparent' 
-                              : 'border-l-[12px] border-r-[12px] border-b-[16px] border-l-transparent border-r-transparent'
-                            }
-                            ${isAbove 
-                              ? getBorderClass(milestone.color).replace('border-', 'border-t-')
-                              : getBorderClass(milestone.color).replace('border-', 'border-b-')
-                            }
-                          `}
-                        />
+                      {/* Circle marker ON the bar */}
+                      <div
+                        className={`w-4 h-4 rounded-full shadow-md border-2 border-white ${getColorClass(milestone.color)}`}
+                      />
+                      
+                      {/* Label above or below */}
+                      <div 
+                        className={`absolute left-1/2 transform -translate-x-1/2 text-center max-w-[120px] ${
+                          isAbove ? 'bottom-full mb-2' : 'top-full mt-2'
+                        }`}
+                      >
+                        <p className="text-xs sm:text-sm font-medium text-gray-700 line-clamp-2 leading-tight">
+                          {milestone.title}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-gray-500">
+                          {format(new Date(milestone.dueDate), 'dd. MMM', { locale: de })}
+                        </p>
                       </div>
                     </div>
                   );

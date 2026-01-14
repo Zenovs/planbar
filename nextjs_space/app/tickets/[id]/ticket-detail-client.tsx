@@ -121,6 +121,8 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
   const [newSubTaskDueDate, setNewSubTaskDueDate] = useState('');
   const [newSubTaskAssignee, setNewSubTaskAssignee] = useState('');
   const [newSubTaskHours, setNewSubTaskHours] = useState('');
+  const [editingSubTaskId, setEditingSubTaskId] = useState<string | null>(null);
+  const [editingSubTaskTitle, setEditingSubTaskTitle] = useState('');
   const [resources, setResources] = useState<ResourceInfo[]>([]);
   const [showResourcePanel, setShowResourcePanel] = useState(false);
 
@@ -352,6 +354,40 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
     } catch (error) {
       toast.error('Fehler beim Aktualisieren');
     }
+  };
+
+  const handleUpdateSubTaskTitle = async (subTaskId: string) => {
+    if (!editingSubTaskTitle.trim()) {
+      setEditingSubTaskId(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/subtasks?id=${subTaskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: editingSubTaskTitle.trim() }),
+      });
+
+      if (res.ok) {
+        const updatedSubTask = await res.json();
+        setTicket({
+          ...ticket,
+          subTasks: (ticket.subTasks || []).map((st: SubTask) =>
+            st.id === subTaskId ? updatedSubTask : st
+          ),
+        });
+        toast.success('Sub-Task aktualisiert');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Aktualisieren');
+    }
+    setEditingSubTaskId(null);
+    setEditingSubTaskTitle('');
+  };
+
+  const startEditingSubTask = (subTask: SubTask) => {
+    setEditingSubTaskId(subTask.id);
+    setEditingSubTaskTitle(subTask.title);
   };
 
   const handleToggleSubTask = async (subTaskId: string, completed: boolean) => {
@@ -697,14 +733,63 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
                             <Circle className={`h-6 w-6 ${isOverdue ? 'text-red-500' : isUpcoming ? 'text-orange-500' : 'text-gray-400'}`} />
                           )}
                         </button>
-                        <span
-                          className={`flex-1 text-sm sm:text-base ${
-                            subTask.completed ? 'line-through text-gray-500' : 
-                            isOverdue ? 'text-red-700 dark:text-red-300 font-medium' : ''
-                          }`}
+                        {editingSubTaskId === subTask.id ? (
+                          <div className="flex-1 flex items-center gap-2">
+                            <Input
+                              value={editingSubTaskTitle}
+                              onChange={(e) => setEditingSubTaskTitle(e.target.value)}
+                              className="flex-1 min-h-[36px] text-sm"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleUpdateSubTaskTitle(subTask.id);
+                                } else if (e.key === 'Escape') {
+                                  setEditingSubTaskId(null);
+                                  setEditingSubTaskTitle('');
+                                }
+                              }}
+                            />
+                            <Button
+                              onClick={() => handleUpdateSubTaskTitle(subTask.id)}
+                              size="sm"
+                              variant="ghost"
+                              className="text-green-600 min-w-[36px] min-h-[36px]"
+                            >
+                              <Check size={16} />
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setEditingSubTaskId(null);
+                                setEditingSubTaskTitle('');
+                              }}
+                              size="sm"
+                              variant="ghost"
+                              className="text-gray-500 min-w-[36px] min-h-[36px]"
+                            >
+                              <X size={16} />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span
+                            className={`flex-1 text-sm sm:text-base cursor-pointer hover:text-primary ${
+                              subTask.completed ? 'line-through text-gray-500' : 
+                              isOverdue ? 'text-red-700 dark:text-red-300 font-medium' : ''
+                            }`}
+                            onClick={() => startEditingSubTask(subTask)}
+                            title="Klicken zum Bearbeiten"
+                          >
+                            {subTask.title}
+                          </span>
+                        )}
+                        <Button
+                          onClick={() => startEditingSubTask(subTask)}
+                          size="sm"
+                          variant="ghost"
+                          className="text-gray-500 hover:text-primary min-w-[44px] min-h-[44px]"
                         >
-                          {subTask.title}
-                        </span>
+                          <Edit2 size={16} />
+                        </Button>
                         <Button
                           onClick={() => handleDeleteSubTask(subTask.id)}
                           size="sm"
