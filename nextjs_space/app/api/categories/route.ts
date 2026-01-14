@@ -11,14 +11,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Nur Kategorien anzeigen, die der User selbst erstellt hat oder die keinem User zugeordnet sind (legacy)
+    // Alle Kategorien laden
     const categories = await prisma.category.findMany({
-      where: {
-        OR: [
-          { createdById: session.user.id },
-          { createdById: null } // Legacy-Kategorien ohne Zuordnung
-        ]
-      },
       include: {
         _count: {
           select: { tickets: true }
@@ -52,12 +46,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'name and color are required' }, { status: 400 });
     }
 
-    // Prüfe ob Name für diesen User bereits existiert
+    // Prüfe ob Name bereits existiert (Name ist unique)
     const existing = await prisma.category.findFirst({
-      where: { 
-        name,
-        createdById: session.user.id
-      }
+      where: { name }
     });
 
     if (existing) {
@@ -69,7 +60,6 @@ export async function POST(request: NextRequest) {
         name,
         color,
         description,
-        createdById: session.user.id,
         teamId: teamId || null
       },
       include: {
@@ -113,18 +103,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
 
-    // Nur eigene Kategorien bearbeiten (oder legacy ohne createdById)
-    if (existing.createdById && existing.createdById !== session.user.id) {
-      return NextResponse.json({ error: 'Forbidden - Not your category' }, { status: 403 });
-    }
-
-    // Prüfe ob neuer Name bereits existiert für diesen User (bei Name-Änderung)
+    // Prüfe ob neuer Name bereits existiert (bei Name-Änderung)
     if (name && name !== existing.name) {
       const nameExists = await prisma.category.findFirst({
-        where: { 
-          name,
-          createdById: session.user.id
-        }
+        where: { name }
       });
       if (nameExists) {
         return NextResponse.json({ error: 'Category with this name already exists' }, { status: 409 });
@@ -180,11 +162,6 @@ export async function DELETE(request: NextRequest) {
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
-    }
-
-    // Nur eigene Kategorien löschen (oder legacy ohne createdById)
-    if (category.createdById && category.createdById !== session.user.id) {
-      return NextResponse.json({ error: 'Forbidden - Not your category' }, { status: 403 });
     }
 
     // Verhindere Löschen wenn Tickets zugeordnet sind

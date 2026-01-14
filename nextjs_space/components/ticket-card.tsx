@@ -29,9 +29,9 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
   }, 0) || 0;
 
   // Budget-Berechnung
-  const totalBudgetHours = ticket?.totalBudgetHours || 0;
-  const budgetUsedPercentage = totalBudgetHours > 0 
-    ? Math.min(Math.round((totalEstimatedHours / totalBudgetHours) * 100), 100) 
+  const estimatedHours = ticket?.estimatedHours || 0;
+  const budgetUsedPercentage = estimatedHours > 0 
+    ? Math.min(Math.round((totalEstimatedHours / estimatedHours) * 100), 100) 
     : 0;
 
   return (
@@ -154,7 +154,7 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
             )}
 
             {/* Budget-Anzeige */}
-            {totalBudgetHours > 0 && (
+            {estimatedHours > 0 && (
               <div className="mb-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-medium text-purple-700 dark:text-purple-400">
@@ -187,16 +187,16 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
                 </div>
                 <div className="flex items-center justify-between mt-1.5">
                   <span className="text-xs text-gray-600 dark:text-gray-400">
-                    {totalEstimatedHours}h von {totalBudgetHours}h verwendet
+                    {totalEstimatedHours}h von {estimatedHours}h verwendet
                   </span>
                   <span className={`text-xs font-medium ${
-                    totalEstimatedHours > totalBudgetHours 
+                    totalEstimatedHours > estimatedHours 
                       ? 'text-red-600' 
                       : 'text-purple-600'
                   }`}>
-                    {totalEstimatedHours > totalBudgetHours 
-                      ? `+${(totalEstimatedHours - totalBudgetHours).toFixed(1)}h über Budget` 
-                      : `${(totalBudgetHours - totalEstimatedHours).toFixed(1)}h verfügbar`}
+                    {totalEstimatedHours > estimatedHours 
+                      ? `+${(totalEstimatedHours - estimatedHours).toFixed(1)}h über Budget` 
+                      : `${(estimatedHours - totalEstimatedHours).toFixed(1)}h verfügbar`}
                   </span>
                 </div>
               </div>

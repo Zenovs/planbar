@@ -19,6 +19,8 @@ model User {
   image              String?
   imagePublic        Boolean   @default(false)
   emailNotifications Boolean   @default(true)
+  emailReportFrequency String? @default("none") // "none", "daily", "weekly"
+  desktopNotifications Boolean @default(false)
   
   // Pensum / Arbeitszeit
   weeklyHours        Float     @default(42)    // Soll-Stunden pro Woche
@@ -43,6 +45,7 @@ model User {
   teamId           String?
   team             Team?     @relation(fields: [teamId], references: [id])
   teamMemberships  TeamMember[]
+  notes            Note[]
 
   @@map("users")
 }
@@ -151,6 +154,7 @@ model Ticket {
   
   subTasks     SubTask[]
   assignees    TicketAssignee[]
+  notes        Note[]
 
   @@map("tickets")
 }
@@ -247,4 +251,21 @@ model SubTaskAssignee {
 
   @@unique([subTaskId, userId])
   @@map("subtask_assignees")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  noteDate  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
 }
