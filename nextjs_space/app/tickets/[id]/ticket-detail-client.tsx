@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft, 
@@ -37,8 +36,6 @@ import {
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/status-badge';
 import { PriorityBadge } from '@/components/priority-badge';
-import { ProjectTimeline } from '@/components/project-timeline';
-import { ProjectNotes } from '@/components/project-notes';
 
 interface User {
   id: string;
@@ -92,8 +89,7 @@ interface Projekt {
   teamId: string | null;
   shareToken: string | null;
   shareEnabled: boolean;
-  totalBudgetHours: number | null;
-  createdAt?: Date;
+  estimatedHours?: number | null;
   assignedTo?: User | null;
   createdBy?: User | null;
   category?: Category | null;
@@ -110,7 +106,6 @@ interface ProjektDetailClientProps {
 
 export function ProjektDetailClient({ ticket: initialTicket, users, categories, teams }: ProjektDetailClientProps) {
   const router = useRouter();
-  const { data: session } = useSession();
   const [ticket, setTicket] = useState<Projekt>(initialTicket);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -132,7 +127,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
     assignedToId: ticket.assignedToId || 'none',
     categoryId: ticket.categoryId || 'none',
     teamId: ticket.teamId || 'none',
-    totalBudgetHours: ticket.totalBudgetHours || null,
+    estimatedHours: ticket.estimatedHours?.toString() || '',
   });
 
   // Ressourcen laden (basierend auf SubTask-Deadlines)
@@ -174,7 +169,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
           assignedToId: formData.assignedToId === 'none' ? null : formData.assignedToId,
           categoryId: formData.categoryId === 'none' ? null : formData.categoryId,
           teamId: formData.teamId === 'none' ? null : formData.teamId,
-          totalBudgetHours: formData.totalBudgetHours,
+          estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : null,
         }),
       });
 
@@ -584,6 +579,29 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
                     </p>
                   )}
                 </div>
+
+                {/* Vorgabezeit */}
+                <div>
+                  <Label className="text-sm font-medium flex items-center gap-1">
+                    <Clock size={14} />
+                    Vorgabezeit (Stunden)
+                  </Label>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      value={formData.estimatedHours}
+                      onChange={(e) => setFormData({ ...formData, estimatedHours: e.target.value })}
+                      className="mt-2 w-32"
+                      placeholder="z.B. 40"
+                    />
+                  ) : (
+                    <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
+                      {ticket.estimatedHours ? `${ticket.estimatedHours} Stunden` : 'Nicht festgelegt'}
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -795,19 +813,6 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
                 </div>
               </CardContent>
             </Card>
-
-            {/* Projektzeitplan / Timeline */}
-            <ProjectTimeline
-              projectTitle={ticket.title}
-              subTasks={ticket.subTasks || []}
-              projectCreatedAt={ticket.createdAt}
-            />
-
-            {/* Sitzungsnotizen */}
-            <ProjectNotes
-              ticketId={ticket.id}
-              currentUserId={session?.user?.id || ''}
-            />
           </div>
 
           {/* Sidebar - Cards */}
@@ -899,32 +904,6 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
                   {isEditing && (
                     <p className="text-xs text-muted-foreground mt-1">
                       Teammitglieder können das Projekt sehen
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-sm flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    Projektvorgabe (Stunden)
-                  </Label>
-                  {isEditing ? (
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      value={formData.totalBudgetHours || ''}
-                      onChange={(e) => setFormData({ ...formData, totalBudgetHours: e.target.value ? parseFloat(e.target.value) : null })}
-                      className="mt-1 min-h-[44px]"
-                      placeholder="z.B. 40"
-                    />
-                  ) : (
-                    <p className="mt-1 text-sm">
-                      {ticket.totalBudgetHours ? `${ticket.totalBudgetHours}h` : 'Nicht festgelegt'}
-                    </p>
-                  )}
-                  {isEditing && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Gesamtbudget für dieses Projekt
                     </p>
                   )}
                 </div>

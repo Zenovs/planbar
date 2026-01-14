@@ -77,6 +77,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     assignedToId: '',
     categoryId: '',
     teamId: '',
+    estimatedHours: '',
     subTasks: [] as SubTaskForm[],
   });
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
@@ -248,6 +249,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
           categoryId: formData.categoryId || null,
           teamId: formData.teamId || null,
           templateId: selectedTemplateId || null,
+          estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : null,
         }),
       });
 
@@ -336,6 +338,26 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Detaillierte Beschreibung des Projekts..."
               />
+            </div>
+
+            {/* Vorgabezeit für das Projekt */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Clock className="w-4 h-4 inline mr-1" />
+                Vorgabezeit (Stunden)
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                value={formData.estimatedHours}
+                onChange={(e) => setFormData({ ...formData, estimatedHours: e.target.value })}
+                className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="z.B. 40"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Geschätzte Stunden für das gesamte Projekt
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

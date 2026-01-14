@@ -20,11 +20,6 @@ model User {
   imagePublic        Boolean   @default(false)
   emailNotifications Boolean   @default(true)
   
-  // Benachrichtigungs-Einstellungen
-  desktopNotifications Boolean @default(false)   // Live Push-Benachrichtigungen
-  emailReportFrequency String  @default("none")  // none, daily, weekly
-  pushSubscription     String? @db.Text          // Browser Push Subscription JSON
-  
   // Pensum / Arbeitszeit
   weeklyHours        Float     @default(42)    // Soll-Stunden pro Woche
   workloadPercent    Int       @default(100)   // Pensum in Prozent (z.B. 80% = 33.6h)
@@ -45,11 +40,9 @@ model User {
   assignedSubTasks SubTask[] @relation("AssignedSubTasks")
   ticketAssignees  TicketAssignee[]
   subTaskAssignees SubTaskAssignee[]
-  createdCategories Category[] @relation("UserCategories")
   teamId           String?
   team             Team?     @relation(fields: [teamId], references: [id])
   teamMemberships  TeamMember[]
-  notes            Note[]    @relation("AuthoredNotes")
 
   @@map("users")
 }
@@ -154,12 +147,10 @@ model Ticket {
   shareToken   String?   @unique
   shareEnabled Boolean   @default(false)
   
-  // Projekt-Budget (Vorgabezeit)
-  totalBudgetHours Float?
+  estimatedHours Float?
   
   subTasks     SubTask[]
   assignees    TicketAssignee[]
-  notes        Note[]
 
   @@map("tickets")
 }
@@ -187,15 +178,11 @@ model SubTask {
 
 model Category {
   id          String   @id @default(cuid())
-  name        String
+  name        String   @unique
   color       String
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  // User-Zuordnung für individuelle Kategorien
-  createdById String?
-  createdBy   User?    @relation("UserCategories", fields: [createdById], references: [id], onDelete: SetNull)
   
   // Team-Zuordnung für Kategorien
   teamId      String?
@@ -203,7 +190,6 @@ model Category {
 
   tickets Ticket[]
 
-  @@unique([name, createdById])
   @@map("categories")
 }
 
@@ -261,21 +247,4 @@ model SubTaskAssignee {
 
   @@unique([subTaskId, userId])
   @@map("subtask_assignees")
-}
-
-model Note {
-  id        String   @id @default(cuid())
-  title     String
-  content   String   @db.Text
-  noteDate  DateTime @default(now())  // Datum der Sitzung/Besprechung
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  ticketId String
-  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-
-  authorId String
-  author   User   @relation("AuthoredNotes", fields: [authorId], references: [id], onDelete: Cascade)
-
-  @@map("notes")
 }
