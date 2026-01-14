@@ -39,17 +39,27 @@ export async function GET(req: NextRequest) {
     }
 
     // Finde alle Benutzer mit aktivierter Frequenz
-    const users = await prisma.user.findMany({
-      where: {
-        emailReportFrequency: frequency,
-        emailNotifications: true, // Müssen auch E-Mail-Benachrichtigungen aktiviert haben
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-      },
-    });
+    let users: { id: string; email: string; name: string | null }[] = [];
+    try {
+      users = await prisma.user.findMany({
+        where: {
+          emailReportFrequency: frequency,
+          emailNotifications: true, // Müssen auch E-Mail-Benachrichtigungen aktiviert haben
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+        },
+      });
+    } catch (queryError) {
+      // emailReportFrequency field might not exist yet
+      console.warn('emailReportFrequency field may not exist, skipping user query');
+      return NextResponse.json({
+        success: false,
+        message: 'Email report frequency feature not available. Please run database migration.',
+      });
+    }
 
     if (testMode && session?.user) {
       // Test-Modus: Nur für aktuellen User

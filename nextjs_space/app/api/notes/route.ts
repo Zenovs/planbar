@@ -47,22 +47,29 @@ export async function GET(req: NextRequest) {
     }
 
     // Notizen abrufen
-    const notes = await prisma.note.findMany({
-      where: { ticketId },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true
+    let notes: any[] = [];
+    try {
+      notes = await prisma.note.findMany({
+        where: { ticketId },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true
+            }
           }
+        },
+        orderBy: {
+          noteDate: 'desc'
         }
-      },
-      orderBy: {
-        noteDate: 'desc'
-      }
-    });
+      });
+    } catch (noteError) {
+      // Note table might not exist yet
+      console.warn('Notes table may not exist, returning empty array');
+      notes = [];
+    }
 
     return NextResponse.json(notes);
   } catch (error) {
@@ -120,27 +127,34 @@ export async function POST(req: NextRequest) {
     }
 
     // Notiz erstellen
-    const note = await prisma.note.create({
-      data: {
-        title,
-        content,
-        noteDate: noteDate ? new Date(noteDate) : new Date(),
-        ticketId,
-        authorId: session.user.id
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true
+    try {
+      const note = await prisma.note.create({
+        data: {
+          title,
+          content,
+          noteDate: noteDate ? new Date(noteDate) : new Date(),
+          ticketId,
+          authorId: session.user.id
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true
+            }
           }
         }
-      }
-    });
-
-    return NextResponse.json(note, { status: 201 });
+      });
+      return NextResponse.json(note, { status: 201 });
+    } catch (createError) {
+      console.error('Note creation failed - table may not exist:', createError);
+      return NextResponse.json(
+        { error: 'Notizen-Feature nicht verfügbar. Bitte Datenbank-Migration ausführen.' },
+        { status: 503 }
+      );
+    }
   } catch (error) {
     console.error('Fehler beim Erstellen der Notiz:', error);
     return NextResponse.json(

@@ -15,28 +15,60 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        imagePublic: true,
-        role: true,
-        emailNotifications: true,
-        desktopNotifications: true,
-        emailReportFrequency: true,
-        designPrimaryColor: true,
-        designSecondaryColor: true,
-        designAccentColor: true,
-        designBorderRadius: true,
-        designLayoutDensity: true,
-        designBackgroundImage: true,
-        designBackgroundPublic: true,
-        createdAt: true,
-      },
-    });
+    // Try with all fields first, fallback to basic fields if some don't exist
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          imagePublic: true,
+          role: true,
+          emailNotifications: true,
+          desktopNotifications: true,
+          emailReportFrequency: true,
+          designPrimaryColor: true,
+          designSecondaryColor: true,
+          designAccentColor: true,
+          designBorderRadius: true,
+          designLayoutDensity: true,
+          designBackgroundImage: true,
+          designBackgroundPublic: true,
+          createdAt: true,
+        },
+      });
+    } catch (selectError) {
+      // Fallback: fetch without potentially missing fields
+      console.warn('Some user fields may not exist, using fallback query');
+      user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          imagePublic: true,
+          role: true,
+          emailNotifications: true,
+          designPrimaryColor: true,
+          designSecondaryColor: true,
+          designAccentColor: true,
+          designBorderRadius: true,
+          designLayoutDensity: true,
+          designBackgroundImage: true,
+          designBackgroundPublic: true,
+          createdAt: true,
+        },
+      });
+      // Add default values for missing fields
+      if (user) {
+        (user as any).desktopNotifications = false;
+        (user as any).emailReportFrequency = 'none';
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'Benutzer nicht gefunden' }, { status: 404 });

@@ -19,22 +19,31 @@ export async function PATCH(
     const { title, content, noteDate } = body;
 
     // Notiz abrufen
-    const note = await prisma.note.findUnique({
-      where: { id: noteId },
-      include: {
-        ticket: {
-          include: {
-            team: {
-              include: {
-                teamMembers: {
-                  where: { userId: session.user.id }
+    let note;
+    try {
+      note = await prisma.note.findUnique({
+        where: { id: noteId },
+        include: {
+          ticket: {
+            include: {
+              team: {
+                include: {
+                  teamMembers: {
+                    where: { userId: session.user.id }
+                  }
                 }
               }
             }
           }
         }
-      }
-    });
+      });
+    } catch (queryError) {
+      console.error('Note query failed - table may not exist:', queryError);
+      return NextResponse.json(
+        { error: 'Notizen-Feature nicht verfügbar' },
+        { status: 503 }
+      );
+    }
 
     if (!note) {
       return NextResponse.json({ error: 'Notiz nicht gefunden' }, { status: 404 });
@@ -57,22 +66,29 @@ export async function PATCH(
     if (content !== undefined) updateData.content = content;
     if (noteDate !== undefined) updateData.noteDate = new Date(noteDate);
 
-    const updatedNote = await prisma.note.update({
-      where: { id: noteId },
-      data: updateData,
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true
+    try {
+      const updatedNote = await prisma.note.update({
+        where: { id: noteId },
+        data: updateData,
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true
+            }
           }
         }
-      }
-    });
-
-    return NextResponse.json(updatedNote);
+      });
+      return NextResponse.json(updatedNote);
+    } catch (updateError) {
+      console.error('Note update failed:', updateError);
+      return NextResponse.json(
+        { error: 'Notizen-Feature nicht verfügbar' },
+        { status: 503 }
+      );
+    }
   } catch (error) {
     console.error('Fehler beim Aktualisieren der Notiz:', error);
     return NextResponse.json(
@@ -96,22 +112,31 @@ export async function DELETE(
     const noteId = params.id;
 
     // Notiz abrufen
-    const note = await prisma.note.findUnique({
-      where: { id: noteId },
-      include: {
-        ticket: {
-          include: {
-            team: {
-              include: {
-                teamMembers: {
-                  where: { userId: session.user.id }
+    let note;
+    try {
+      note = await prisma.note.findUnique({
+        where: { id: noteId },
+        include: {
+          ticket: {
+            include: {
+              team: {
+                include: {
+                  teamMembers: {
+                    where: { userId: session.user.id }
+                  }
                 }
               }
             }
           }
         }
-      }
-    });
+      });
+    } catch (queryError) {
+      console.error('Note query failed - table may not exist:', queryError);
+      return NextResponse.json(
+        { error: 'Notizen-Feature nicht verfügbar' },
+        { status: 503 }
+      );
+    }
 
     if (!note) {
       return NextResponse.json({ error: 'Notiz nicht gefunden' }, { status: 404 });
@@ -130,11 +155,18 @@ export async function DELETE(
     }
 
     // Notiz löschen
-    await prisma.note.delete({
-      where: { id: noteId }
-    });
-
-    return NextResponse.json({ message: 'Notiz gelöscht' });
+    try {
+      await prisma.note.delete({
+        where: { id: noteId }
+      });
+      return NextResponse.json({ message: 'Notiz gelöscht' });
+    } catch (deleteError) {
+      console.error('Note delete failed:', deleteError);
+      return NextResponse.json(
+        { error: 'Notizen-Feature nicht verfügbar' },
+        { status: 503 }
+      );
+    }
   } catch (error) {
     console.error('Fehler beim Löschen der Notiz:', error);
     return NextResponse.json(
