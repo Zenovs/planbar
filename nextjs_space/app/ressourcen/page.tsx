@@ -14,7 +14,8 @@ export default async function RessourcenPage() {
   }
 
   // Alle User mit ihren zugewiesenen SubTasks laden
-  const users = await prisma.user.findMany({
+  // Wichtig: TeamMember-Zuordnungen enthalten die tatsächlichen Arbeitsstunden
+  const usersRaw = await prisma.user.findMany({
     select: {
       id: true,
       name: true,
@@ -22,6 +23,19 @@ export default async function RessourcenPage() {
       image: true,
       weeklyHours: true,
       workloadPercent: true,
+      // TeamMember-Zuordnung für die tatsächlichen Arbeitsstunden
+      teamMemberships: {
+        select: {
+          weeklyHours: true,
+          workloadPercent: true,
+          team: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        }
+      },
       assignedSubTasks: {
         where: {
           completed: false
@@ -48,6 +62,44 @@ export default async function RessourcenPage() {
     orderBy: {
       name: 'asc'
     }
+  });
+
+  // Verwende TeamMember-Stunden wenn vorhanden, sonst User-Defaults
+  // Bei mehreren Team-Mitgliedschaften: Summiere die Stunden
+  const users = usersRaw.map(user => {
+    let weeklyHours = user.weeklyHours;
+    let workloadPercent = user.workloadPercent;
+    
+    // Wenn User TeamMember-Zuordnungen hat, verwende diese Werte
+    if (user.teamMemberships && user.teamMemberships.length > 0) {
+      // Bei einer Team-Mitgliedschaft: verwende diese Werte direkt
+      if (user.teamMemberships.length === 1) {
+        weeklyHours = user.teamMemberships[0].weeklyHours;
+        workloadPercent = user.teamMemberships[0].workloadPercent;
+      } else {
+        // Bei mehreren Teams: Durchschnitt der Werte (oder Summe je nach Logik)
+        // Hier verwenden wir den Durchschnitt
+        const totalWeeklyHours = user.teamMemberships.reduce(
+          (sum, tm) => sum + tm.weeklyHours, 0
+        );
+        const avgWorkload = user.teamMemberships.reduce(
+          (sum, tm) => sum + tm.workloadPercent, 0
+        ) / user.teamMemberships.length;
+        
+        weeklyHours = totalWeeklyHours / user.teamMemberships.length;
+        workloadPercent = Math.round(avgWorkload);
+      }
+    }
+    
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      weeklyHours,
+      workloadPercent,
+      assignedSubTasks: user.assignedSubTasks,
+    };
   });
 
   // Alle Projekte mit SubTasks für Timeline
