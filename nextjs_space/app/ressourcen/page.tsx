@@ -65,30 +65,23 @@ export default async function RessourcenPage() {
   });
 
   // Verwende TeamMember-Stunden wenn vorhanden, sonst User-Defaults
-  // Bei mehreren Team-Mitgliedschaften: Summiere die Stunden
+  // Bei mehreren Team-Mitgliedschaften: SUMMIERE die verfügbaren Stunden
   const users = usersRaw.map(user => {
     let weeklyHours = user.weeklyHours;
     let workloadPercent = user.workloadPercent;
     
     // Wenn User TeamMember-Zuordnungen hat, verwende diese Werte
     if (user.teamMemberships && user.teamMemberships.length > 0) {
-      // Bei einer Team-Mitgliedschaft: verwende diese Werte direkt
-      if (user.teamMemberships.length === 1) {
-        weeklyHours = user.teamMemberships[0].weeklyHours;
-        workloadPercent = user.teamMemberships[0].workloadPercent;
-      } else {
-        // Bei mehreren Teams: Durchschnitt der Werte (oder Summe je nach Logik)
-        // Hier verwenden wir den Durchschnitt
-        const totalWeeklyHours = user.teamMemberships.reduce(
-          (sum, tm) => sum + tm.weeklyHours, 0
-        );
-        const avgWorkload = user.teamMemberships.reduce(
-          (sum, tm) => sum + tm.workloadPercent, 0
-        ) / user.teamMemberships.length;
-        
-        weeklyHours = totalWeeklyHours / user.teamMemberships.length;
-        workloadPercent = Math.round(avgWorkload);
-      }
+      // Berechne die tatsächlich verfügbaren Stunden pro Team und summiere
+      // Formel: weeklyHours * workloadPercent / 100 = verfügbare Stunden
+      const totalAvailableHours = user.teamMemberships.reduce((sum, tm) => {
+        return sum + (tm.weeklyHours * tm.workloadPercent / 100);
+      }, 0);
+      
+      // Setze weeklyHours auf die Gesamtsumme und workloadPercent auf 100
+      // damit die Client-Berechnung (weeklyHours * workloadPercent / 100) korrekt ist
+      weeklyHours = totalAvailableHours;
+      workloadPercent = 100;
     }
     
     return {
