@@ -67,7 +67,7 @@ interface Milestone {
 
 // Vordefinierte Verantwortlichkeiten
 const responsibilityOptions = [
-  { value: '', label: 'Keine Angabe' },
+  { value: 'none', label: 'Keine Angabe' },
   { value: 'Kunde', label: 'Kunde' },
   { value: 'Entwickler', label: 'Entwickler' },
   { value: 'Designer', label: 'Designer' },
@@ -112,8 +112,8 @@ export function MilestoneTimeline({
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [color, setColor] = useState('gray');
-  const [responsibility, setResponsibility] = useState('');
-  const [dependsOnId, setDependsOnId] = useState('');
+  const [responsibility, setResponsibility] = useState('none');
+  const [dependsOnId, setDependsOnId] = useState('none');
   const [cascadeShift, setCascadeShift] = useState(true);
   const [customResponsibility, setCustomResponsibility] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -145,7 +145,7 @@ export function MilestoneTimeline({
     }
 
     // Verwende entweder custom oder vordefinierte Verantwortung
-    const finalResponsibility = customResponsibility.trim() || responsibility || null;
+    const finalResponsibility = customResponsibility.trim() || (responsibility === 'none' ? null : responsibility) || null;
 
     try {
       setSubmitting(true);
@@ -159,7 +159,7 @@ export function MilestoneTimeline({
           dueDate,
           color,
           responsibility: finalResponsibility,
-          dependsOnId: dependsOnId || null,
+          dependsOnId: dependsOnId === 'none' ? null : dependsOnId,
         }),
       });
 
@@ -184,7 +184,7 @@ export function MilestoneTimeline({
     }
 
     // Verwende entweder custom oder vordefinierte Verantwortung
-    const finalResponsibility = customResponsibility.trim() || responsibility || null;
+    const finalResponsibility = customResponsibility.trim() || (responsibility === 'none' ? null : responsibility) || null;
 
     // Prüfe ob Datum sich geändert hat und Abhängige vorhanden sind
     const dateChanged = editingMilestone.dueDate.split('T')[0] !== dueDate;
@@ -201,7 +201,7 @@ export function MilestoneTimeline({
           dueDate,
           color,
           responsibility: finalResponsibility,
-          dependsOnId: dependsOnId || null,
+          dependsOnId: dependsOnId === 'none' ? null : dependsOnId,
           cascadeShift: cascadeShift && dateChanged && hasDependents,
         }),
       });
@@ -262,9 +262,9 @@ export function MilestoneTimeline({
     setDescription('');
     setDueDate('');
     setColor('gray');
-    setResponsibility('');
+    setResponsibility('none');
     setCustomResponsibility('');
-    setDependsOnId('');
+    setDependsOnId('none');
     setCascadeShift(true);
     setEditingMilestone(null);
   };
@@ -279,14 +279,14 @@ export function MilestoneTimeline({
     // Prüfe ob Verantwortlichkeit vordefiniert ist oder custom
     const predefinedResp = responsibilityOptions.find(r => r.value === milestone.responsibility);
     if (predefinedResp) {
-      setResponsibility(milestone.responsibility || '');
+      setResponsibility(milestone.responsibility || 'none');
       setCustomResponsibility('');
     } else {
-      setResponsibility('');
+      setResponsibility('none');
       setCustomResponsibility(milestone.responsibility || '');
     }
     
-    setDependsOnId(milestone.dependsOnId || '');
+    setDependsOnId(milestone.dependsOnId || 'none');
     setCascadeShift(true);
     setIsEditDialogOpen(true);
   };
@@ -425,14 +425,14 @@ export function MilestoneTimeline({
                   </Label>
                   <Select value={responsibility} onValueChange={(val) => {
                     setResponsibility(val);
-                    if (val) setCustomResponsibility('');
+                    if (val && val !== 'none') setCustomResponsibility('');
                   }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Wählen oder unten eingeben..." />
                     </SelectTrigger>
                     <SelectContent>
                       {responsibilityOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value || 'none'}>
+                        <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
                         </SelectItem>
                       ))}
@@ -443,7 +443,7 @@ export function MilestoneTimeline({
                     value={customResponsibility}
                     onChange={(e) => {
                       setCustomResponsibility(e.target.value);
-                      if (e.target.value) setResponsibility('');
+                      if (e.target.value) setResponsibility('none');
                     }}
                     placeholder="Oder eigene Verantwortung eingeben..."
                   />
@@ -460,7 +460,7 @@ export function MilestoneTimeline({
                       <SelectValue placeholder="Kein Vorgänger" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Kein Vorgänger</SelectItem>
+                      <SelectItem value="none">Kein Vorgänger</SelectItem>
                       {milestones.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
                           {m.title} ({format(new Date(m.dueDate), 'dd.MM.yyyy')})
@@ -765,7 +765,7 @@ export function MilestoneTimeline({
                 Verantwortung
               </Label>
               <Select value={responsibility} onValueChange={(val) => {
-                setResponsibility(val === 'none' ? '' : val);
+                setResponsibility(val);
                 if (val && val !== 'none') setCustomResponsibility('');
               }}>
                 <SelectTrigger>
@@ -773,7 +773,7 @@ export function MilestoneTimeline({
                 </SelectTrigger>
                 <SelectContent>
                   {responsibilityOptions.map((opt) => (
-                    <SelectItem key={opt.value || 'none'} value={opt.value || 'none'}>
+                    <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>
                   ))}
@@ -784,7 +784,7 @@ export function MilestoneTimeline({
                 value={customResponsibility}
                 onChange={(e) => {
                   setCustomResponsibility(e.target.value);
-                  if (e.target.value) setResponsibility('');
+                  if (e.target.value) setResponsibility('none');
                 }}
                 placeholder="Oder eigene Verantwortung eingeben..."
               />
@@ -801,7 +801,7 @@ export function MilestoneTimeline({
                   <SelectValue placeholder="Kein Vorgänger" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Kein Vorgänger</SelectItem>
+                  <SelectItem value="none">Kein Vorgänger</SelectItem>
                   {milestones
                     .filter(m => m.id !== editingMilestone?.id) // Kann nicht von sich selbst abhängen
                     .map((m) => (
