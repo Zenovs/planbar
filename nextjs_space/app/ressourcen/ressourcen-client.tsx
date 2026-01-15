@@ -12,6 +12,7 @@ import {
   ChevronRight,
   User as UserIcon
 } from 'lucide-react';
+import { Header } from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -25,7 +26,9 @@ import {
   addWeeks,
   subWeeks,
   startOfDay,
-  endOfDay
+  endOfDay,
+  differenceInCalendarDays,
+  isWithinInterval
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -90,33 +93,100 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
   const nextWeek = () => setCurrentDate(addWeeks(currentDate, 1));
   const goToToday = () => setCurrentDate(new Date());
 
+  // Berechne Stunden pro Tag für einen SubTask
+  const calculateHoursPerDay = (task: SubTask): { hoursPerDay: number; startDate: Date; endDate: Date } => {
+    if (!task.dueDate || !task.estimatedHours) {
+      return { hoursPerDay: 0, startDate: new Date(), endDate: new Date() };
+    }
+    
+    const today = startOfDay(new Date());
+    const dueDate = startOfDay(new Date(task.dueDate));
+    
+    // Start ist heute oder früher wenn deadline schon begonnen
+    const startDate = today;
+    const endDate = dueDate;
+    
+    // Arbeitstage berechnen (Mo-Fr)
+    let workDays = 0;
+    let current = new Date(startDate);
+    while (current <= endDate) {
+      const dayOfWeek = current.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Keine Wochenenden
+        workDays++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    
+    // Minimum 1 Tag um Division durch 0 zu vermeiden
+    workDays = Math.max(workDays, 1);
+    
+    const hoursPerDay = task.estimatedHours / workDays;
+    
+    return { hoursPerDay, startDate, endDate };
+  };
+
+  // Berechne Stunden für eine bestimmte Woche
+  const calculateWeeklyHoursForTask = (task: SubTask, weekStartDate: Date, weekEndDate: Date): number => {
+    if (!task.dueDate || !task.estimatedHours) return 0;
+    
+    const { hoursPerDay, startDate, endDate } = calculateHoursPerDay(task);
+    
+    // Zähle Arbeitstage in dieser Woche, die auch im Task-Zeitraum liegen
+    let hoursInWeek = 0;
+    let current = new Date(weekStartDate);
+    
+    while (current <= weekEndDate) {
+      const dayOfWeek = current.getDay();
+      // Nur Arbeitstage und nur wenn im Task-Zeitraum
+      if (dayOfWeek !== 0 && dayOfWeek !== 6 && current >= startDate && current <= endDate) {
+        hoursInWeek += hoursPerDay;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return hoursInWeek;
+  };
+
   // Berechne Auslastung pro User
   const usersWithStats = useMemo(() => {
     return users.map(user => {
+      // Verfügbare Stunden pro Woche (weeklyHours * workloadPercent)
+      const targetHours = (user.weeklyHours * user.workloadPercent) / 100;
+      
+      // Stunden pro Tag (5 Arbeitstage)
+      const hoursPerDay = targetHours / 5;
+      
+      // Geplante Stunden diese Woche (basierend auf Stunden/Tag bis Deadline)
+      let hoursThisWeek = 0;
+      const tasksThisWeek: (SubTask & { hoursInWeek: number; hoursPerDay: number })[] = [];
+      
+      user.assignedSubTasks.forEach(task => {
+        const taskHoursThisWeek = calculateWeeklyHoursForTask(task, weekStart, weekEnd);
+        if (taskHoursThisWeek > 0) {
+          const { hoursPerDay } = calculateHoursPerDay(task);
+          tasksThisWeek.push({
+            ...task,
+            hoursInWeek: taskHoursThisWeek,
+            hoursPerDay
+          });
+          hoursThisWeek += taskHoursThisWeek;
+        }
+      });
+      
+      // Gesamtstunden aller offenen Tasks
       const totalHours = user.assignedSubTasks.reduce(
         (sum, task) => sum + (task.estimatedHours || 0),
         0
       );
       
-      const targetHours = (user.weeklyHours * user.workloadPercent) / 100;
-      const utilization = targetHours > 0 ? (totalHours / targetHours) * 100 : 0;
-      
-      // Tasks diese Woche
-      const tasksThisWeek = user.assignedSubTasks.filter(task => {
-        if (!task.dueDate) return false;
-        const dueDate = new Date(task.dueDate);
-        return dueDate >= weekStart && dueDate <= weekEnd;
-      });
-      
-      const hoursThisWeek = tasksThisWeek.reduce(
-        (sum, task) => sum + (task.estimatedHours || 0),
-        0
-      );
+      // Auslastung = geplante Stunden diese Woche / verfügbare Stunden
+      const utilization = targetHours > 0 ? (hoursThisWeek / targetHours) * 100 : 0;
 
       return {
         ...user,
         totalHours,
         targetHours,
+        hoursPerDay,
         utilization,
         tasksThisWeek,
         hoursThisWeek
@@ -155,21 +225,23 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
   }, [usersWithStats]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+      <Header />
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Page Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6"
         >
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-              <UserCheck className="w-8 h-8 text-blue-600" />
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-3">
+              <UserCheck className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600" />
               Ressourcenplanung
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Übersicht über Auslastung und Verfügbarkeit
+            <p className="text-gray-600 mt-1">
+              Wochenübersicht: {format(weekStart, 'dd. MMM', { locale: de })} - {format(weekEnd, 'dd. MMM yyyy', { locale: de })}
             </p>
           </div>
         </motion.div>
@@ -330,7 +402,7 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
                           {user.name || user.email}
                         </h4>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {user.workloadPercent}% Pensum • {user.targetHours}h/Woche
+                          {user.workloadPercent}% Pensum • {user.targetHours}h/Woche verfügbar • {user.hoursPerDay.toFixed(1)}h/Tag
                         </p>
                       </div>
                     </div>
@@ -339,8 +411,13 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
                         {Math.round(user.utilization)}%
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {user.totalHours}h von {user.targetHours}h
+                        {user.hoursThisWeek.toFixed(1)}h geplant / {user.targetHours}h verfügbar
                       </p>
+                      {user.totalHours > 0 && (
+                        <p className="text-[10px] text-gray-400">
+                          ({user.totalHours}h Gesamt offen)
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -352,26 +429,40 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
                     />
                   </div>
 
-                  {/* Wochenübersicht */}
+                  {/* Wochenübersicht - Stunden pro Tag */}
                   <div className="grid grid-cols-7 gap-2">
                     {weekDays.map((day, dayIndex) => {
-                      const dayTasks = user.assignedSubTasks.filter(task => {
-                        if (!task.dueDate) return false;
-                        return isSameDay(new Date(task.dueDate), day);
+                      const dayOfWeek = day.getDay();
+                      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                      const isToday = isSameDay(day, new Date());
+                      
+                      // Berechne geplante Stunden für diesen Tag
+                      let dayHours = 0;
+                      let tasksOnDay = 0;
+                      
+                      user.assignedSubTasks.forEach(task => {
+                        if (!task.dueDate || !task.estimatedHours || isWeekend) return;
+                        
+                        const { hoursPerDay, startDate, endDate } = calculateHoursPerDay(task);
+                        
+                        // Prüfe ob dieser Tag im Task-Zeitraum liegt
+                        if (day >= startDate && day <= endDate) {
+                          dayHours += hoursPerDay;
+                          tasksOnDay++;
+                        }
                       });
                       
-                      const dayHours = dayTasks.reduce(
-                        (sum, task) => sum + (task.estimatedHours || 0),
-                        0
-                      );
-                      
-                      const isToday = isSameDay(day, new Date());
+                      // Verfügbare Stunden pro Tag (nur Arbeitstage)
+                      const availableHoursPerDay = isWeekend ? 0 : user.hoursPerDay;
+                      const utilizationPercent = availableHoursPerDay > 0 ? (dayHours / availableHoursPerDay) * 100 : 0;
 
                       return (
                         <div
                           key={dayIndex}
                           className={`text-center p-2 rounded-lg ${
-                            isToday 
+                            isWeekend 
+                              ? 'bg-gray-100 dark:bg-gray-800/50 opacity-50'
+                              : isToday 
                               ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                               : 'bg-gray-50 dark:bg-gray-800'
                           }`}
@@ -385,22 +476,30 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
                             {format(day, 'd.', { locale: de })}
                           </p>
                           
-                          {dayTasks.length > 0 && (
-                            <div className={`text-xs font-semibold px-2 py-1 rounded ${
-                              dayHours > 8 
-                                ? 'bg-red-100 dark:bg-red-900/30 text-red-600'
-                                : dayHours > 6
-                                ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600'
-                                : 'bg-green-100 dark:bg-green-900/30 text-green-600'
-                            }`}>
-                              {dayHours}h
-                            </div>
-                          )}
-                          
-                          {dayTasks.length > 0 && (
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                              {dayTasks.length} {dayTasks.length === 1 ? 'Task' : 'Tasks'}
-                            </p>
+                          {!isWeekend && (
+                            <>
+                              <div className={`text-xs font-semibold px-2 py-1 rounded ${
+                                utilizationPercent > 100 
+                                  ? 'bg-red-100 dark:bg-red-900/30 text-red-600'
+                                  : utilizationPercent > 80
+                                  ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600'
+                                  : utilizationPercent > 0
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                              }`}>
+                                {dayHours > 0 ? `${dayHours.toFixed(1)}h` : '-'}
+                              </div>
+                              
+                              {tasksOnDay > 0 && (
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                  {tasksOnDay} {tasksOnDay === 1 ? 'Task' : 'Tasks'}
+                                </p>
+                              )}
+                              
+                              <p className="text-[9px] text-gray-400 mt-0.5">
+                                /{availableHoursPerDay.toFixed(1)}h
+                              </p>
+                            </>
                           )}
                         </div>
                       );
@@ -411,39 +510,45 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
                   {user.tasksThisWeek.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                       <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Tasks diese Woche ({user.tasksThisWeek.length})
+                        Tasks diese Woche ({user.tasksThisWeek.length}) • {user.hoursThisWeek.toFixed(1)}h geplant
                       </h5>
                       <div className="space-y-2">
-                        {user.tasksThisWeek.slice(0, 3).map(task => (
+                        {user.tasksThisWeek.slice(0, 5).map(task => (
                           <div
                             key={task.id}
-                            className="text-xs flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded"
+                            className="text-xs p-2 bg-gray-50 dark:bg-gray-800 rounded"
                           >
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 dark:text-white truncate">
-                                {task.title}
-                              </p>
-                              <p className="text-gray-500 dark:text-gray-400 truncate">
-                                {task.ticket.title}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 ml-2">
-                              {task.estimatedHours && (
-                                <span className="text-gray-600 dark:text-gray-400">
-                                  {task.estimatedHours}h
-                                </span>
-                              )}
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 dark:text-white truncate">
+                                  {task.title}
+                                </p>
+                                <p className="text-gray-500 dark:text-gray-400 truncate">
+                                  {task.ticket.title}
+                                </p>
+                              </div>
                               {task.dueDate && (
-                                <span className="text-gray-500 dark:text-gray-500">
-                                  {format(new Date(task.dueDate), 'dd.MM.', { locale: de })}
+                                <span className="text-gray-500 ml-2 whitespace-nowrap">
+                                  bis {format(new Date(task.dueDate), 'dd.MM.', { locale: de })}
                                 </span>
                               )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1 text-[10px]">
+                              <span className="text-blue-600 font-medium">
+                                {task.hoursPerDay.toFixed(1)}h/Tag
+                              </span>
+                              <span className="text-purple-600 font-medium">
+                                {task.hoursInWeek.toFixed(1)}h diese Woche
+                              </span>
+                              <span className="text-gray-500">
+                                (Gesamt: {task.estimatedHours}h)
+                              </span>
                             </div>
                           </div>
                         ))}
-                        {user.tasksThisWeek.length > 3 && (
+                        {user.tasksThisWeek.length > 5 && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                            +{user.tasksThisWeek.length - 3} weitere Tasks
+                            +{user.tasksThisWeek.length - 5} weitere Tasks
                           </p>
                         )}
                       </div>
@@ -454,7 +559,7 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </main>
     </div>
   );
 }
