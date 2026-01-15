@@ -1,6 +1,19 @@
-import type { User, Ticket, Category, SubTask } from '@prisma/client';
+import type { User, Ticket, Category } from '@prisma/client';
 
-export type { User, Ticket, Category, SubTask };
+export type { User, Ticket, Category };
+
+// SubTask type (matching Prisma schema)
+export interface SubTask {
+  id: string;
+  title: string;
+  completed: boolean;
+  estimatedHours: number | null;
+  dueDate: Date | null;
+  ticketId: string;
+  assigneeId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 // Simple user type with basic info
 export type SimpleUser = Pick<User, 'id' | 'name' | 'email'>;

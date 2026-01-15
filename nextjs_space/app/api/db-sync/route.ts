@@ -18,10 +18,10 @@ export async function GET(req: NextRequest) {
       WHERE table_schema = 'public'
     `;
     
-    const tableNames = tables.map(t => t.table_name);
+    const tableNames = tables.map((t: { table_name: string }) => t.table_name);
     
     const requiredTables = ['users', 'tickets', 'sub_tasks', 'categories', 'teams', 'notes'];
-    const missingTables = requiredTables.filter(t => !tableNames.includes(t));
+    const missingTables = requiredTables.filter((t: string) => !tableNames.includes(t));
     
     return NextResponse.json({
       status: 'ok',
