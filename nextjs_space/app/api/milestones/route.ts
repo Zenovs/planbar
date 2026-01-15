@@ -20,6 +20,14 @@ export async function GET(request: NextRequest) {
 
     const milestones = await prisma.milestone.findMany({
       where: { ticketId },
+      include: {
+        dependsOn: {
+          select: { id: true, title: true, dueDate: true }
+        },
+        dependents: {
+          select: { id: true, title: true, dueDate: true }
+        }
+      },
       orderBy: [{ dueDate: 'asc' }, { position: 'asc' }],
     });
 
@@ -39,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { ticketId, title, description, dueDate, color } = body;
+    const { ticketId, title, description, dueDate, color, responsibility, dependsOnId } = body;
 
     if (!ticketId || !title || !dueDate) {
       return NextResponse.json({ error: 'ticketId, title und dueDate sind erforderlich' }, { status: 400 });
@@ -58,7 +66,17 @@ export async function POST(request: NextRequest) {
         description: description || null,
         dueDate: new Date(dueDate),
         color: color || 'gray',
+        responsibility: responsibility || null,
+        dependsOnId: dependsOnId || null,
         position: (lastMilestone?.position || 0) + 1,
+      },
+      include: {
+        dependsOn: {
+          select: { id: true, title: true, dueDate: true }
+        },
+        dependents: {
+          select: { id: true, title: true, dueDate: true }
+        }
       },
     });
 

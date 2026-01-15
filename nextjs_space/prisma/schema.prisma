@@ -273,18 +273,24 @@ model Note {
 
 // Meilensteine für Projekt-Timeline
 model Milestone {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  dueDate     DateTime
-  completed   Boolean   @default(false)
-  position    Int       @default(0)
-  color       String    @default("gray")  // "green", "red", "gray", "blue"
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  dueDate       DateTime
+  completed     Boolean   @default(false)
+  position      Int       @default(0)
+  color         String    @default("gray")  // "green", "red", "gray", "blue"
+  responsibility String?  // z.B. "Kunde", "Fotograf", "Entwickler"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  ticketId    String
-  ticket      Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId      String
+  ticket        Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  // Abhängigkeiten
+  dependsOnId   String?
+  dependsOn     Milestone?  @relation("MilestoneDependency", fields: [dependsOnId], references: [id], onDelete: SetNull)
+  dependents    Milestone[] @relation("MilestoneDependency")
 
   @@map("milestones")
 }

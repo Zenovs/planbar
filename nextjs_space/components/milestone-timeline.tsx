@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, differenceInDays, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -39,7 +40,16 @@ import {
   Share2,
   Copy,
   ExternalLink,
+  Link2,
+  User,
+  ArrowRight,
 } from 'lucide-react';
+
+interface MilestoneRef {
+  id: string;
+  title: string;
+  dueDate: string;
+}
 
 interface Milestone {
   id: string;
@@ -49,7 +59,23 @@ interface Milestone {
   completed: boolean;
   color: string;
   position: number;
+  responsibility: string | null;
+  dependsOnId: string | null;
+  dependsOn: MilestoneRef | null;
+  dependents: MilestoneRef[];
 }
+
+// Vordefinierte Verantwortlichkeiten
+const responsibilityOptions = [
+  { value: '', label: 'Keine Angabe' },
+  { value: 'Kunde', label: 'Kunde' },
+  { value: 'Entwickler', label: 'Entwickler' },
+  { value: 'Designer', label: 'Designer' },
+  { value: 'Fotograf', label: 'Fotograf' },
+  { value: 'Texter', label: 'Texter' },
+  { value: 'Projektleiter', label: 'Projektleiter' },
+  { value: 'Extern', label: 'Extern' },
+];
 
 interface MilestoneTimelineProps {
   ticketId: string;
@@ -86,6 +112,10 @@ export function MilestoneTimeline({
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [color, setColor] = useState('gray');
+  const [responsibility, setResponsibility] = useState('');
+  const [dependsOnId, setDependsOnId] = useState('');
+  const [cascadeShift, setCascadeShift] = useState(true);
+  const [customResponsibility, setCustomResponsibility] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Load milestones
@@ -114,6 +144,9 @@ export function MilestoneTimeline({
       return;
     }
 
+    // Verwende entweder custom oder vordefinierte Verantwortung
+    const finalResponsibility = customResponsibility.trim() || responsibility || null;
+
     try {
       setSubmitting(true);
       const res = await fetch('/api/milestones', {
@@ -125,6 +158,8 @@ export function MilestoneTimeline({
           description: description.trim() || null,
           dueDate,
           color,
+          responsibility: finalResponsibility,
+          dependsOnId: dependsOnId || null,
         }),
       });
 
@@ -148,6 +183,13 @@ export function MilestoneTimeline({
       return;
     }
 
+    // Verwende entweder custom oder vordefinierte Verantwortung
+    const finalResponsibility = customResponsibility.trim() || responsibility || null;
+
+    // Prüfe ob Datum sich geändert hat und Abhängige vorhanden sind
+    const dateChanged = editingMilestone.dueDate.split('T')[0] !== dueDate;
+    const hasDependents = editingMilestone.dependents && editingMilestone.dependents.length > 0;
+
     try {
       setSubmitting(true);
       const res = await fetch(`/api/milestones/${editingMilestone.id}`, {
@@ -158,12 +200,18 @@ export function MilestoneTimeline({
           description: description.trim() || null,
           dueDate,
           color,
+          responsibility: finalResponsibility,
+          dependsOnId: dependsOnId || null,
+          cascadeShift: cascadeShift && dateChanged && hasDependents,
         }),
       });
 
       if (!res.ok) throw new Error('Fehler beim Aktualisieren');
 
-      toast.success('Meilenstein aktualisiert');
+      const message = cascadeShift && dateChanged && hasDependents 
+        ? 'Meilenstein und abhängige Meilensteine aktualisiert'
+        : 'Meilenstein aktualisiert';
+      toast.success(message);
       setIsEditDialogOpen(false);
       resetForm();
       loadMilestones();
@@ -214,6 +262,10 @@ export function MilestoneTimeline({
     setDescription('');
     setDueDate('');
     setColor('gray');
+    setResponsibility('');
+    setCustomResponsibility('');
+    setDependsOnId('');
+    setCascadeShift(true);
     setEditingMilestone(null);
   };
 
@@ -223,6 +275,19 @@ export function MilestoneTimeline({
     setDescription(milestone.description || '');
     setDueDate(format(new Date(milestone.dueDate), 'yyyy-MM-dd'));
     setColor(milestone.color);
+    
+    // Prüfe ob Verantwortlichkeit vordefiniert ist oder custom
+    const predefinedResp = responsibilityOptions.find(r => r.value === milestone.responsibility);
+    if (predefinedResp) {
+      setResponsibility(milestone.responsibility || '');
+      setCustomResponsibility('');
+    } else {
+      setResponsibility('');
+      setCustomResponsibility(milestone.responsibility || '');
+    }
+    
+    setDependsOnId(milestone.dependsOnId || '');
+    setCascadeShift(true);
     setIsEditDialogOpen(true);
   };
 
@@ -312,7 +377,7 @@ export function MilestoneTimeline({
                 Meilenstein
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Neuer Meilenstein</DialogTitle>
               </DialogHeader>
@@ -351,13 +416,70 @@ export function MilestoneTimeline({
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Verantwortlichkeit */}
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Verantwortung
+                  </Label>
+                  <Select value={responsibility} onValueChange={(val) => {
+                    setResponsibility(val);
+                    if (val) setCustomResponsibility('');
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Wählen oder unten eingeben..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {responsibilityOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value || 'none'}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    className="mt-2"
+                    value={customResponsibility}
+                    onChange={(e) => {
+                      setCustomResponsibility(e.target.value);
+                      if (e.target.value) setResponsibility('');
+                    }}
+                    placeholder="Oder eigene Verantwortung eingeben..."
+                  />
+                </div>
+
+                {/* Abhängigkeit */}
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <Link2 className="w-4 h-4" />
+                    Abhängig von
+                  </Label>
+                  <Select value={dependsOnId} onValueChange={setDependsOnId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Kein Vorgänger" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Kein Vorgänger</SelectItem>
+                      {milestones.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.title} ({format(new Date(m.dueDate), 'dd.MM.yyyy')})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Wenn sich der Vorgänger verschiebt, verschiebt sich dieser Meilenstein ebenfalls.
+                  </p>
+                </div>
+
                 <div>
                   <Label>Beschreibung</Label>
                   <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Optionale Details..."
-                    rows={3}
+                    rows={2}
                   />
                 </div>
                 <div className="flex justify-end gap-2">
@@ -396,11 +518,64 @@ export function MilestoneTimeline({
               {/* Timeline Bar */}
               <div className="absolute left-4 right-4 top-1/2 h-2 bg-amber-600/80 rounded-full transform -translate-y-1/2 shadow-sm" />
               
+              {/* Dependency Lines - SVG overlay */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible" style={{ zIndex: 5 }}>
+                {sortedMilestones.map((milestone) => {
+                  if (!milestone.dependsOnId) return null;
+                  
+                  const parentMilestone = sortedMilestones.find(m => m.id === milestone.dependsOnId);
+                  if (!parentMilestone) return null;
+                  
+                  const parentPos = getTimelinePosition(parentMilestone);
+                  const childPos = getTimelinePosition(milestone);
+                  const parentIdx = sortedMilestones.findIndex(m => m.id === parentMilestone.id);
+                  const childIdx = sortedMilestones.findIndex(m => m.id === milestone.id);
+                  const parentIsAbove = parentIdx % 2 === 0;
+                  const childIsAbove = childIdx % 2 === 0;
+                  
+                  // Calculate positions
+                  const x1 = `${Math.max(8, Math.min(92, parentPos))}%`;
+                  const x2 = `${Math.max(8, Math.min(92, childPos))}%`;
+                  const y1 = parentIsAbove ? '40%' : '60%';
+                  const y2 = childIsAbove ? '40%' : '60%';
+                  
+                  return (
+                    <g key={`dep-${milestone.id}`}>
+                      {/* Curved connection line */}
+                      <path
+                        d={`M ${x1} ${y1} Q ${x1} 50%, ${x2} 50% Q ${x2} 50%, ${x2} ${y2}`}
+                        fill="none"
+                        stroke="#3b82f6"
+                        strokeWidth="2"
+                        strokeDasharray="4 2"
+                        opacity="0.6"
+                        markerEnd="url(#arrowhead)"
+                      />
+                    </g>
+                  );
+                })}
+                {/* Arrow marker definition */}
+                <defs>
+                  <marker
+                    id="arrowhead"
+                    markerWidth="6"
+                    markerHeight="6"
+                    refX="5"
+                    refY="3"
+                    orient="auto"
+                  >
+                    <polygon points="0 0, 6 3, 0 6" fill="#3b82f6" opacity="0.6" />
+                  </marker>
+                </defs>
+              </svg>
+              
               {/* Milestone markers - positioned ON the bar */}
-              <div className="relative" style={{ minHeight: '120px' }}>
+              <div className="relative" style={{ minHeight: '120px', zIndex: 10 }}>
                 {sortedMilestones.map((milestone, index) => {
                   const position = getTimelinePosition(milestone);
                   const isAbove = index % 2 === 0;
+                  const hasDependency = !!milestone.dependsOnId;
+                  const hasDependents = milestone.dependents && milestone.dependents.length > 0;
                   
                   return (
                     <div
@@ -414,13 +589,16 @@ export function MilestoneTimeline({
                     >
                       {/* Circle marker ON the bar */}
                       <div
-                        className={`w-4 h-4 rounded-full cursor-pointer transition-all hover:scale-125 shadow-md border-2 border-white ${getColorClass(milestone.color)}`}
+                        className={`w-4 h-4 rounded-full cursor-pointer transition-all hover:scale-125 shadow-md border-2 ${
+                          hasDependency || hasDependents ? 'border-blue-400' : 'border-white'
+                        } ${getColorClass(milestone.color)}`}
                         onClick={() => openEditDialog(milestone)}
+                        title={hasDependency ? `Abhängig von: ${milestone.dependsOn?.title}` : undefined}
                       />
                       
                       {/* Label above or below */}
                       <div 
-                        className={`absolute left-1/2 transform -translate-x-1/2 text-center max-w-[100px] ${
+                        className={`absolute left-1/2 transform -translate-x-1/2 text-center max-w-[120px] ${
                           isAbove ? 'bottom-full mb-2' : 'top-full mt-2'
                         }`}
                       >
@@ -430,6 +608,11 @@ export function MilestoneTimeline({
                         <p className="text-[9px] sm:text-[10px] text-gray-500">
                           {format(new Date(milestone.dueDate), 'dd. MMM', { locale: de })}
                         </p>
+                        {milestone.responsibility && (
+                          <p className="text-[8px] sm:text-[9px] text-purple-600 dark:text-purple-400 font-medium mt-0.5">
+                            {milestone.responsibility}
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -443,49 +626,73 @@ export function MilestoneTimeline({
               {sortedMilestones.map((milestone) => (
                 <div
                   key={milestone.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border-l-4 bg-gray-50 dark:bg-gray-800 ${getBorderClass(milestone.color)}`}
+                  className={`p-3 rounded-lg border-l-4 bg-gray-50 dark:bg-gray-800 ${getBorderClass(milestone.color)}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleToggleComplete(milestone)}
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                        milestone.completed
-                          ? 'bg-green-500 border-green-500 text-white'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                    >
-                      {milestone.completed && <Check className="w-3 h-3" />}
-                    </button>
-                    <div>
-                      <p className={`font-medium ${milestone.completed ? 'line-through text-gray-500' : ''}`}>
-                        {milestone.title}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {format(new Date(milestone.dueDate), 'dd. MMMM yyyy', { locale: de })}
-                        {milestone.description && ` • ${milestone.description}`}
-                      </p>
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditDialog(milestone)}>
-                        <Edit2 className="w-4 h-4 mr-2" />
-                        Bearbeiten
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(milestone.id)}
-                        className="text-red-600"
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleToggleComplete(milestone)}
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 ${
+                          milestone.completed
+                            ? 'bg-green-500 border-green-500 text-white'
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Löschen
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        {milestone.completed && <Check className="w-3 h-3" />}
+                      </button>
+                      <div className="min-w-0">
+                        <p className={`font-medium ${milestone.completed ? 'line-through text-gray-500' : ''}`}>
+                          {milestone.title}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {format(new Date(milestone.dueDate), 'dd. MMMM yyyy', { locale: de })}
+                          {milestone.description && ` • ${milestone.description}`}
+                        </p>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(milestone)}>
+                          <Edit2 className="w-4 h-4 mr-2" />
+                          Bearbeiten
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(milestone.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Löschen
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  
+                  {/* Verantwortung & Abhängigkeit Badges */}
+                  <div className="flex flex-wrap gap-2 mt-2 ml-8">
+                    {milestone.responsibility && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                        <User className="w-3 h-3" />
+                        {milestone.responsibility}
+                      </span>
+                    )}
+                    {milestone.dependsOn && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                        <Link2 className="w-3 h-3" />
+                        Abhängig von: {milestone.dependsOn.title}
+                      </span>
+                    )}
+                    {milestone.dependents && milestone.dependents.length > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
+                        <ArrowRight className="w-3 h-3" />
+                        {milestone.dependents.length} abhängige{milestone.dependents.length > 1 ? '' : 'r'} Meilenstein{milestone.dependents.length > 1 ? 'e' : ''}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -498,7 +705,7 @@ export function MilestoneTimeline({
         setIsEditDialogOpen(open);
         if (!open) resetForm();
       }}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Meilenstein bearbeiten</DialogTitle>
           </DialogHeader>
@@ -518,6 +725,19 @@ export function MilestoneTimeline({
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
               />
+              {/* Cascade Shift Option */}
+              {editingMilestone?.dependents && editingMilestone.dependents.length > 0 && (
+                <div className="flex items-center gap-2 mt-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <Checkbox
+                    id="cascadeShift"
+                    checked={cascadeShift}
+                    onCheckedChange={(checked) => setCascadeShift(checked === true)}
+                  />
+                  <label htmlFor="cascadeShift" className="text-xs text-orange-700 dark:text-orange-300 cursor-pointer">
+                    Abhängige Meilensteine ({editingMilestone.dependents.length}) automatisch verschieben
+                  </label>
+                </div>
+              )}
             </div>
             <div>
               <Label>Farbe / Status</Label>
@@ -537,13 +757,72 @@ export function MilestoneTimeline({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Verantwortlichkeit */}
+            <div>
+              <Label className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Verantwortung
+              </Label>
+              <Select value={responsibility} onValueChange={(val) => {
+                setResponsibility(val === 'none' ? '' : val);
+                if (val && val !== 'none') setCustomResponsibility('');
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Wählen oder unten eingeben..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {responsibilityOptions.map((opt) => (
+                    <SelectItem key={opt.value || 'none'} value={opt.value || 'none'}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                className="mt-2"
+                value={customResponsibility}
+                onChange={(e) => {
+                  setCustomResponsibility(e.target.value);
+                  if (e.target.value) setResponsibility('');
+                }}
+                placeholder="Oder eigene Verantwortung eingeben..."
+              />
+            </div>
+
+            {/* Abhängigkeit */}
+            <div>
+              <Label className="flex items-center gap-2">
+                <Link2 className="w-4 h-4" />
+                Abhängig von
+              </Label>
+              <Select value={dependsOnId} onValueChange={setDependsOnId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Kein Vorgänger" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Kein Vorgänger</SelectItem>
+                  {milestones
+                    .filter(m => m.id !== editingMilestone?.id) // Kann nicht von sich selbst abhängen
+                    .map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.title} ({format(new Date(m.dueDate), 'dd.MM.yyyy')})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                Wenn sich der Vorgänger verschiebt, verschiebt sich dieser Meilenstein ebenfalls.
+              </p>
+            </div>
+
             <div>
               <Label>Beschreibung</Label>
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optionale Details..."
-                rows={3}
+                rows={2}
               />
             </div>
             <div className="flex justify-end gap-2">
