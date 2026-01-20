@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { isAdmin, validateEmail, validatePassword } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     // User mit Team sehen nur Teammitglieder
     let whereClause = {};
     
-    if (currentUser?.role !== 'admin') {
+    if (!isAdmin(currentUser?.role)) {
       if (!currentUser?.teamId) {
         // User ohne Team sieht nur sich selbst
         whereClause = { id: session.user.id };
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || !['admin', 'Administrator', 'ADMIN'].includes(session.user.role || '')) {
+    if (!session?.user || !isAdmin(session.user.role)) {
       return NextResponse.json(
         { error: 'Nur Administratoren können Benutzer löschen' },
         { status: 403 }
@@ -130,7 +131,7 @@ export async function DELETE(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || !['admin', 'Administrator', 'ADMIN'].includes(session.user.role || '')) {
+    if (!session?.user || !isAdmin(session.user.role)) {
       return NextResponse.json(
         { error: 'Nur Administratoren können Benutzer bearbeiten' },
         { status: 403 }
@@ -197,7 +198,7 @@ export async function PATCH(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || !['admin', 'Administrator', 'ADMIN'].includes(session.user.role || '')) {
+    if (!session?.user || !isAdmin(session.user.role)) {
       return NextResponse.json(
         { error: 'Keine Berechtigung' },
         { status: 403 }
@@ -214,8 +215,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // E-Mail-Validierung
+    if (!validateEmail(email)) {
+      return NextResponse.json(
+        { error: 'Ungültige E-Mail-Adresse' },
+        { status: 400 }
+      );
+    }
+
+    // Passwort-Validierung
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return NextResponse.json(
+        { error: passwordValidation.error },
+        { status: 400 }
+      );
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
@@ -225,14 +244,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
-        name: name || email.split('@')[0],
-        role: role || 'member',
+        name: name?.trim() || normalizedEmail.split('@')[0],
+        role: role?.toLowerCase() || 'member',
       },
       select: {
         id: true,
