@@ -466,7 +466,9 @@ export default function SettingsClient({ isAdmin = true }: SettingsClientProps) 
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {ROLES.map((r) => (
+                                  {ROLES
+                                    .filter((r) => isAdmin || r.value !== 'admin')
+                                    .map((r) => (
                                     <SelectItem key={r.value} value={r.value}>
                                       <div className="flex flex-col">
                                         <span>{r.name}</span>
