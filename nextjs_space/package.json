@@ -127,5 +127,8 @@
     "> 0.5%",
     "last 2 versions",
     "not dead"
-  ]
+  ],
+  "resolutions": {
+    "regl": "npm:@plotly/regl@^2.1.2"
+  }
 }
