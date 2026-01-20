@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/header';
 import { motion } from 'framer-motion';
-import { CheckSquare, Square, Clock, Calendar, User, Filter, ExternalLink, Users, BarChart3, TrendingUp, X, Plus } from 'lucide-react';
+import { CheckSquare, Square, Clock, Calendar, User, Filter, ExternalLink, Users, BarChart3, TrendingUp, X, Plus, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { Session } from 'next-auth';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -65,6 +65,11 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
   // Auslastung
   const [workloadPeriod, setWorkloadPeriod] = useState<'day' | 'week' | 'month'>('week');
   const [workloadData, setWorkloadData] = useState<Record<string, WorkloadData>>({});
+  
+  // Zeitfilter
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'custom'>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   // Load tasks when user or filter changes
   useEffect(() => {
@@ -176,15 +181,62 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
     }
   };
 
+  // Date filter helper
+  const filterByDate = (taskList: Task[]) => {
+    if (dateFilter === 'all') return taskList;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return taskList.filter(task => {
+      // Tasks ohne Fälligkeitsdatum werden bei Zeitfiltern ausgeblendet
+      if (!task.dueDate) return false;
+      
+      const taskDate = new Date(task.dueDate);
+      taskDate.setHours(0, 0, 0, 0);
+      
+      if (dateFilter === 'today') {
+        return taskDate.getTime() === today.getTime();
+      }
+      
+      if (dateFilter === 'week') {
+        const weekEnd = new Date(today);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        return taskDate >= today && taskDate <= weekEnd;
+      }
+      
+      if (dateFilter === 'custom') {
+        const from = dateFrom ? new Date(dateFrom) : null;
+        const to = dateTo ? new Date(dateTo) : null;
+        if (from) from.setHours(0, 0, 0, 0);
+        if (to) to.setHours(23, 59, 59, 999);
+        
+        if (from && to) {
+          return taskDate >= from && taskDate <= to;
+        } else if (from) {
+          return taskDate >= from;
+        } else if (to) {
+          return taskDate <= to;
+        }
+        // Wenn kein Datum gesetzt, alle mit Fälligkeitsdatum anzeigen
+        return true;
+      }
+      
+      return true;
+    });
+  };
+
   const openTasks = tasks.filter(t => !t.completed);
   const doneTasks = tasks.filter(t => t.completed);
-  const filteredTasks = filter === 'open' ? openTasks : filter === 'done' ? doneTasks : tasks;
+  const statusFilteredTasks = filter === 'open' ? openTasks : filter === 'done' ? doneTasks : tasks;
+  const filteredTasks = filterByDate(statusFilteredTasks);
 
   // Helper to get filtered tasks for a compare user
   const getFilteredTasks = (userTasks: Task[]) => {
     const open = userTasks.filter(t => !t.completed);
     const done = userTasks.filter(t => t.completed);
-    return filter === 'open' ? open : filter === 'done' ? done : userTasks;
+    const statusFiltered = filter === 'open' ? open : filter === 'done' ? done : userTasks;
+    return filterByDate(statusFiltered);
   };
 
   // Get available users for comparison (not already selected)
@@ -429,6 +481,24 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
                 </select>
               </div>
 
+              {/* Zeitfilter */}
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <CalendarDays className="w-4 h-4 inline mr-1" />
+                  Fälligkeit
+                </label>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">Alle Termine</option>
+                  <option value="today">Heute fällig</option>
+                  <option value="week">Diese Woche</option>
+                  <option value="custom">Zeitraum wählen...</option>
+                </select>
+              </div>
+
               {/* Auslastungs-Zeitraum */}
               {canViewOthers && (
                 <div className="flex-1">
@@ -448,6 +518,45 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
                 </div>
               )}
             </div>
+
+            {/* Custom Date Range */}
+            {dateFilter === 'custom' && (
+              <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t border-gray-100">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Von
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bis
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                {(dateFrom || dateTo) && (
+                  <div className="flex items-end">
+                    <button
+                      onClick={() => { setDateFrom(''); setDateTo(''); }}
+                      className="px-3 py-2 text-sm text-gray-600 hover:text-red-600 flex items-center gap-1"
+                    >
+                      <X className="w-4 h-4" />
+                      Zurücksetzen
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Vergleichs-Toggle & User Selection */}
             {canViewOthers && teamMembers.length > 1 && (
