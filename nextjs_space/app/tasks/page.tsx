@@ -13,10 +13,17 @@ export default async function TasksPage() {
     redirect('/');
   }
 
-  // Get current user with role and team info
+  // Get current user with role, team info and team memberships
   const currentUser = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, role: true, teamId: true, name: true, email: true },
+    select: { 
+      id: true, 
+      role: true, 
+      teamId: true, 
+      name: true, 
+      email: true,
+      teamMemberships: { select: { teamId: true } }
+    },
   });
 
   if (!currentUser) {
@@ -28,8 +35,15 @@ export default async function TasksPage() {
   const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(currentUser.role || '');
   const canViewOthers = isKoordinator || isAdmin;
 
+  // Collect all team IDs the user belongs to
+  const userTeamIds: string[] = [];
+  if (currentUser.teamId) userTeamIds.push(currentUser.teamId);
+  currentUser.teamMemberships?.forEach(tm => {
+    if (!userTeamIds.includes(tm.teamId)) userTeamIds.push(tm.teamId);
+  });
+
   // Get team members if koordinator/admin
-  let teamMembers: any[] = [];
+  let teamMembers: { id: string; name: string | null; email: string }[] = [];
   if (canViewOthers) {
     if (isAdmin) {
       // Admin sees all users
@@ -37,23 +51,26 @@ export default async function TasksPage() {
         select: { id: true, name: true, email: true },
         orderBy: { name: 'asc' },
       });
-    } else if (isKoordinator && currentUser.teamId) {
-      // Koordinator sees team members
+    } else if (isKoordinator && userTeamIds.length > 0) {
+      // Koordinator sees team members from ALL their teams
       const teamMemberships = await prisma.teamMember.findMany({
-        where: { teamId: currentUser.teamId },
+        where: { teamId: { in: userTeamIds } },
         include: { user: { select: { id: true, name: true, email: true } } },
       });
       teamMembers = teamMemberships.map(tm => tm.user);
       
-      // Also get users directly assigned to team
+      // Also get users directly assigned to these teams
       const directTeamUsers = await prisma.user.findMany({
-        where: { teamId: currentUser.teamId },
+        where: { teamId: { in: userTeamIds } },
         select: { id: true, name: true, email: true },
       });
       
       // Merge and dedupe
       const allMembers = [...teamMembers, ...directTeamUsers];
       teamMembers = allMembers.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+      
+      // Sort by name
+      teamMembers.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
     }
   }
 
@@ -78,11 +95,20 @@ export default async function TasksPage() {
     ],
   });
 
+  // Prepare currentUser for client (without teamMemberships)
+  const currentUserForClient = {
+    id: currentUser.id,
+    role: currentUser.role,
+    teamId: currentUser.teamId,
+    name: currentUser.name,
+    email: currentUser.email,
+  };
+
   return (
     <TasksClient
       session={session}
       initialTasks={tasks}
-      currentUser={currentUser}
+      currentUser={currentUserForClient}
       teamMembers={teamMembers}
       canViewOthers={canViewOthers}
     />
