@@ -127,6 +127,73 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || !['admin', 'Administrator', 'ADMIN'].includes(session.user.role || '')) {
+      return NextResponse.json(
+        { error: 'Nur Administratoren können Benutzer bearbeiten' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('id');
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Benutzer-ID ist erforderlich' },
+        { status: 400 }
+      );
+    }
+
+    const body = await req.json();
+    const { role, teamId, name, weeklyHours, workloadPercent } = body;
+
+    // Validate role if provided
+    const validRoles = ['member', 'koordinator', 'admin'];
+    if (role && !validRoles.includes(role.toLowerCase())) {
+      return NextResponse.json(
+        { error: 'Ungültige Rolle. Erlaubt: member, koordinator, admin' },
+        { status: 400 }
+      );
+    }
+
+    // Build update data
+    const updateData: any = {};
+    if (role !== undefined) updateData.role = role.toLowerCase();
+    if (teamId !== undefined) updateData.teamId = teamId || null;
+    if (name !== undefined) updateData.name = name;
+    if (weeklyHours !== undefined) updateData.weeklyHours = parseFloat(weeklyHours);
+    if (workloadPercent !== undefined) updateData.workloadPercent = parseInt(workloadPercent);
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        teamId: true,
+        weeklyHours: true,
+        workloadPercent: true,
+        team: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    return NextResponse.json({ user });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return NextResponse.json(
+      { error: 'Fehler beim Aktualisieren des Benutzers' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
