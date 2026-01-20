@@ -30,9 +30,9 @@ interface WorkloadData {
   workloadPercent: number;
   availableHoursPerWeek: number;
   periods: {
-    day: { assigned: number; capacity: number; percentage: number };
-    week: { assigned: number; capacity: number; percentage: number };
-    month: { assigned: number; capacity: number; percentage: number };
+    day: { assigned: number; capacity: number; percentage: number; absenceDays?: number };
+    week: { assigned: number; capacity: number; percentage: number; absenceDays?: number };
+    month: { assigned: number; capacity: number; percentage: number; absenceDays?: number };
   };
 }
 
@@ -384,6 +384,7 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
     if (!data) return null;
     
     const periodData = data.periods[workloadPeriod];
+    const hasAbsence = periodData.absenceDays && periodData.absenceDays > 0;
     
     return (
       <div className="bg-white rounded-xl shadow-md p-4">
@@ -396,6 +397,17 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
             {periodData.percentage}%
           </span>
         </div>
+        
+        {/* Abwesenheits-Hinweis */}
+        {hasAbsence && (
+          <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-xs text-amber-700 flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {periodData.absenceDays} {periodData.absenceDays === 1 ? 'Tag' : 'Tage'} abwesend (Ferien/Workshop)
+            </p>
+          </div>
+        )}
+        
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Zugewiesen:</span>
