@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/header';
 import { motion } from 'framer-motion';
-import { CheckSquare, Square, Clock, Calendar, User, Filter, ExternalLink, Users, BarChart3, TrendingUp } from 'lucide-react';
+import { CheckSquare, Square, Clock, Calendar, User, Filter, ExternalLink, Users, BarChart3, TrendingUp, X, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { Session } from 'next-auth';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -36,6 +36,11 @@ interface WorkloadData {
   };
 }
 
+interface CompareUser {
+  userId: string;
+  tasks: Task[];
+}
+
 interface TasksClientProps {
   session: Session;
   initialTasks: Task[];
@@ -53,10 +58,9 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
   const [filter, setFilter] = useState<'all' | 'open' | 'done'>(searchParams.get('filter') as any || 'all');
   const [loading, setLoading] = useState(false);
   
-  // Vergleichsmodus
+  // Multi-Vergleichsmodus
   const [compareMode, setCompareMode] = useState(false);
-  const [compareUserId, setCompareUserId] = useState<string>('');
-  const [compareTasks, setCompareTasks] = useState<Task[]>([]);
+  const [compareUsers, setCompareUsers] = useState<CompareUser[]>([]);
   
   // Auslastung
   const [workloadPeriod, setWorkloadPeriod] = useState<'day' | 'week' | 'month'>('week');
@@ -82,27 +86,50 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
     loadTasks();
   }, [selectedUserId, filter]);
 
-  // Load compare tasks when compare user changes
+  // Load tasks for all compare users when filter changes
   useEffect(() => {
-    const loadCompareTasks = async () => {
-      if (!compareMode || !compareUserId) {
-        setCompareTasks([]);
-        return;
-      }
+    const loadAllCompareTasks = async () => {
+      if (!compareMode || compareUsers.length === 0) return;
       
-      try {
-        const response = await fetch(`/api/tasks?userId=${compareUserId}&filter=${filter}`);
-        if (response.ok) {
-          const data = await response.json();
-          setCompareTasks(data);
-        }
-      } catch (error) {
-        console.error('Error loading compare tasks:', error);
-      }
+      const updatedUsers = await Promise.all(
+        compareUsers.map(async (cu) => {
+          try {
+            const response = await fetch(`/api/tasks?userId=${cu.userId}&filter=${filter}`);
+            if (response.ok) {
+              const data = await response.json();
+              return { ...cu, tasks: data };
+            }
+          } catch (error) {
+            console.error('Error loading tasks for user:', cu.userId, error);
+          }
+          return cu;
+        })
+      );
+      setCompareUsers(updatedUsers);
     };
 
-    loadCompareTasks();
-  }, [compareUserId, filter, compareMode]);
+    loadAllCompareTasks();
+  }, [filter, compareMode]);
+
+  // Add user to comparison
+  const addCompareUser = async (userId: string) => {
+    if (compareUsers.some(cu => cu.userId === userId)) return;
+    
+    try {
+      const response = await fetch(`/api/tasks?userId=${userId}&filter=${filter}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCompareUsers([...compareUsers, { userId, tasks: data }]);
+      }
+    } catch (error) {
+      console.error('Error adding compare user:', error);
+    }
+  };
+
+  // Remove user from comparison
+  const removeCompareUser = (userId: string) => {
+    setCompareUsers(compareUsers.filter(cu => cu.userId !== userId));
+  };
 
   // Load workload data
   useEffect(() => {
@@ -138,9 +165,11 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
         setTasks(tasks.map(t => 
           t.id === taskId ? { ...t, completed: !completed } : t
         ));
-        setCompareTasks(compareTasks.map(t => 
-          t.id === taskId ? { ...t, completed: !completed } : t
-        ));
+        // Update compare users tasks too
+        setCompareUsers(compareUsers.map(cu => ({
+          ...cu,
+          tasks: cu.tasks.map(t => t.id === taskId ? { ...t, completed: !completed } : t)
+        })));
       }
     } catch (error) {
       console.error('Error toggling task:', error);
@@ -151,9 +180,17 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
   const doneTasks = tasks.filter(t => t.completed);
   const filteredTasks = filter === 'open' ? openTasks : filter === 'done' ? doneTasks : tasks;
 
-  const compareOpenTasks = compareTasks.filter(t => !t.completed);
-  const compareDoneTasks = compareTasks.filter(t => t.completed);
-  const filteredCompareTasks = filter === 'open' ? compareOpenTasks : filter === 'done' ? compareDoneTasks : compareTasks;
+  // Helper to get filtered tasks for a compare user
+  const getFilteredTasks = (userTasks: Task[]) => {
+    const open = userTasks.filter(t => !t.completed);
+    const done = userTasks.filter(t => t.completed);
+    return filter === 'open' ? open : filter === 'done' ? done : userTasks;
+  };
+
+  // Get available users for comparison (not already selected)
+  const availableForComparison = teamMembers.filter(
+    m => !compareUsers.some(cu => cu.userId === m.id)
+  );
 
   const formatDate = (dateValue: string | Date | null) => {
     if (!dateValue) return null;
@@ -183,7 +220,8 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
   };
 
   const selectedUser = teamMembers.find(m => m.id === selectedUserId) || currentUser;
-  const compareUser = teamMembers.find(m => m.id === compareUserId);
+  
+  const getUserById = (userId: string) => teamMembers.find(m => m.id === userId);
 
   const renderWorkloadBadge = (userId: string) => {
     const data = workloadData[userId];
@@ -341,7 +379,7 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
           </h1>
           <p className="text-gray-600">
             {compareMode 
-              ? `Vergleich: ${selectedUser.name || selectedUser.email} vs. ${compareUser?.name || compareUser?.email || '...'}`
+              ? `Vergleich: ${compareUsers.length} Mitarbeiter`
               : canViewOthers 
                 ? `Alle Tasks von ${selectedUser.name || selectedUser.email}`
                 : 'Alle deine zugewiesenen Tasks'
@@ -353,12 +391,12 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
         <div className="bg-white rounded-xl shadow-md p-4 mb-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-4">
-              {/* User Filter (only for koordinator/admin) */}
-              {canViewOthers && teamMembers.length > 0 && (
+              {/* User Filter (only for koordinator/admin, hidden in compare mode) */}
+              {canViewOthers && teamMembers.length > 0 && !compareMode && (
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     <User className="w-4 h-4 inline mr-1" />
-                    Benutzer {!compareMode && renderWorkloadBadge(selectedUserId)}
+                    Benutzer {renderWorkloadBadge(selectedUserId)}
                   </label>
                   <select
                     value={selectedUserId}
@@ -366,28 +404,6 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     {teamMembers.map(member => (
-                      <option key={member.id} value={member.id}>
-                        {member.name || member.email} {workloadData[member.id] ? `(${workloadData[member.id].periods[workloadPeriod].percentage}%)` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Compare User (nur im Vergleichsmodus) */}
-              {compareMode && canViewOthers && (
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Users className="w-4 h-4 inline mr-1" />
-                    Vergleichen mit {renderWorkloadBadge(compareUserId)}
-                  </label>
-                  <select
-                    value={compareUserId}
-                    onChange={(e) => setCompareUserId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Benutzer wählen...</option>
-                    {teamMembers.filter(m => m.id !== selectedUserId).map(member => (
                       <option key={member.id} value={member.id}>
                         {member.name || member.email} {workloadData[member.id] ? `(${workloadData[member.id].periods[workloadPeriod].percentage}%)` : ''}
                       </option>
@@ -407,9 +423,9 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
                   onChange={(e) => setFilter(e.target.value as any)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="all">Alle ({tasks.length})</option>
-                  <option value="open">Offen ({openTasks.length})</option>
-                  <option value="done">Erledigt ({doneTasks.length})</option>
+                  <option value="all">Alle</option>
+                  <option value="open">Offen</option>
+                  <option value="done">Erledigt</option>
                 </select>
               </div>
 
@@ -433,15 +449,26 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
               )}
             </div>
 
-            {/* Vergleichs-Toggle */}
+            {/* Vergleichs-Toggle & User Selection */}
             {canViewOthers && teamMembers.length > 1 && (
-              <div className="flex items-center gap-2">
+              <div className="space-y-3">
                 <button
                   onClick={() => {
-                    setCompareMode(!compareMode);
-                    if (!compareMode && teamMembers.length > 1) {
-                      const firstOther = teamMembers.find(m => m.id !== selectedUserId);
-                      setCompareUserId(firstOther?.id || '');
+                    if (compareMode) {
+                      setCompareMode(false);
+                      setCompareUsers([]);
+                    } else {
+                      setCompareMode(true);
+                      // Add first two users by default
+                      const firstTwo = teamMembers.slice(0, 2);
+                      Promise.all(firstTwo.map(async (m) => {
+                        const res = await fetch(`/api/tasks?userId=${m.id}&filter=${filter}`);
+                        if (res.ok) {
+                          const data = await res.json();
+                          return { userId: m.id, tasks: data };
+                        }
+                        return { userId: m.id, tasks: [] };
+                      })).then(setCompareUsers);
                     }
                   }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -453,60 +480,161 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
                   <Users className="w-4 h-4" />
                   {compareMode ? 'Vergleich beenden' : 'Mitarbeiter vergleichen'}
                 </button>
+
+                {/* Multi-User Selection in Compare Mode */}
+                {compareMode && (
+                  <div className="space-y-2">
+                    {/* Selected users chips */}
+                    <div className="flex flex-wrap gap-2">
+                      {compareUsers.map(cu => {
+                        const user = getUserById(cu.userId);
+                        return (
+                          <span
+                            key={cu.userId}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm"
+                          >
+                            {user?.name || user?.email}
+                            {renderWorkloadBadge(cu.userId)}
+                            <button
+                              onClick={() => removeCompareUser(cu.userId)}
+                              className="ml-1 hover:text-red-600"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+
+                    {/* Add more users */}
+                    {availableForComparison.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <select
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              addCompareUser(e.target.value);
+                              e.target.value = '';
+                            }
+                          }}
+                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          defaultValue=""
+                        >
+                          <option value="">+ Mitarbeiter hinzufügen...</option>
+                          {availableForComparison.map(member => (
+                            <option key={member.id} value={member.id}>
+                              {member.name || member.email} {workloadData[member.id] ? `(${workloadData[member.id].periods[workloadPeriod].percentage}%)` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Vergleichsmodus: Zwei Spalten mit Auslastung */}
-        {compareMode && compareUserId ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Linke Spalte */}
-            <div className="space-y-4">
-              <div className="text-lg font-semibold text-gray-900">
-                {selectedUser.name || selectedUser.email}
-              </div>
-              {renderWorkloadCard(selectedUserId)}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-white rounded-lg shadow p-3 text-center">
-                  <p className="text-xl font-bold text-gray-900">{tasks.length}</p>
-                  <p className="text-xs text-gray-600">Gesamt</p>
-                </div>
-                <div className="bg-white rounded-lg shadow p-3 text-center">
-                  <p className="text-xl font-bold text-orange-500">{openTasks.length}</p>
-                  <p className="text-xs text-gray-600">Offen</p>
-                </div>
-                <div className="bg-white rounded-lg shadow p-3 text-center">
-                  <p className="text-xl font-bold text-green-500">{doneTasks.length}</p>
-                  <p className="text-xs text-gray-600">Erledigt</p>
-                </div>
-              </div>
-              {renderTaskList(filteredTasks, 'Tasks')}
+        {/* Vergleichsmodus: Multi-Spalten */}
+        {compareMode && compareUsers.length > 0 ? (
+          <>
+            {/* Summary Table */}
+            <div className="bg-white rounded-xl shadow-md p-4 mb-6 overflow-x-auto">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Übersicht</h3>
+              <table className="w-full min-w-[600px]">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-3 font-medium text-gray-700">Mitarbeiter</th>
+                    <th className="text-center py-2 px-3 font-medium text-gray-700">Auslastung</th>
+                    <th className="text-center py-2 px-3 font-medium text-gray-700">Gesamt</th>
+                    <th className="text-center py-2 px-3 font-medium text-gray-700">Offen</th>
+                    <th className="text-center py-2 px-3 font-medium text-gray-700">Erledigt</th>
+                    <th className="text-center py-2 px-3 font-medium text-gray-700">Stunden</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {compareUsers.map(cu => {
+                    const user = getUserById(cu.userId);
+                    const openCount = cu.tasks.filter(t => !t.completed).length;
+                    const doneCount = cu.tasks.filter(t => t.completed).length;
+                    const totalHours = cu.tasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
+                    const workload = workloadData[cu.userId];
+                    const percentage = workload?.periods[workloadPeriod].percentage || 0;
+                    
+                    return (
+                      <tr key={cu.userId} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold">
+                              {(user?.name || user?.email || '?')[0].toUpperCase()}
+                            </div>
+                            <span className="font-medium">{user?.name || user?.email}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className={`px-3 py-1 rounded-full text-white text-sm font-medium ${getWorkloadColor(percentage)}`}>
+                            {percentage}%
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center font-bold text-gray-900">{cu.tasks.length}</td>
+                        <td className="py-3 px-3 text-center font-bold text-orange-500">{openCount}</td>
+                        <td className="py-3 px-3 text-center font-bold text-green-500">{doneCount}</td>
+                        <td className="py-3 px-3 text-center text-gray-600">{totalHours.toFixed(1)}h</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
 
-            {/* Rechte Spalte */}
-            <div className="space-y-4">
-              <div className="text-lg font-semibold text-gray-900">
-                {compareUser?.name || compareUser?.email}
-              </div>
-              {renderWorkloadCard(compareUserId)}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-white rounded-lg shadow p-3 text-center">
-                  <p className="text-xl font-bold text-gray-900">{compareTasks.length}</p>
-                  <p className="text-xs text-gray-600">Gesamt</p>
-                </div>
-                <div className="bg-white rounded-lg shadow p-3 text-center">
-                  <p className="text-xl font-bold text-orange-500">{compareOpenTasks.length}</p>
-                  <p className="text-xs text-gray-600">Offen</p>
-                </div>
-                <div className="bg-white rounded-lg shadow p-3 text-center">
-                  <p className="text-xl font-bold text-green-500">{compareDoneTasks.length}</p>
-                  <p className="text-xs text-gray-600">Erledigt</p>
-                </div>
-              </div>
-              {renderTaskList(filteredCompareTasks, 'Tasks')}
+            {/* Multi-Column Grid */}
+            <div className={`grid gap-6 ${
+              compareUsers.length === 2 ? 'grid-cols-1 lg:grid-cols-2' :
+              compareUsers.length === 3 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' :
+              'grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
+            }`}>
+              {compareUsers.map(cu => {
+                const user = getUserById(cu.userId);
+                const userTasks = cu.tasks;
+                const userOpenTasks = userTasks.filter(t => !t.completed);
+                const userDoneTasks = userTasks.filter(t => t.completed);
+                const userFilteredTasks = getFilteredTasks(userTasks);
+                
+                return (
+                  <div key={cu.userId} className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        {user?.name || user?.email}
+                        {renderWorkloadBadge(cu.userId)}
+                      </div>
+                      <button
+                        onClick={() => removeCompareUser(cu.userId)}
+                        className="text-gray-400 hover:text-red-500"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    {renderWorkloadCard(cu.userId)}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-white rounded-lg shadow p-3 text-center">
+                        <p className="text-xl font-bold text-gray-900">{userTasks.length}</p>
+                        <p className="text-xs text-gray-600">Gesamt</p>
+                      </div>
+                      <div className="bg-white rounded-lg shadow p-3 text-center">
+                        <p className="text-xl font-bold text-orange-500">{userOpenTasks.length}</p>
+                        <p className="text-xs text-gray-600">Offen</p>
+                      </div>
+                      <div className="bg-white rounded-lg shadow p-3 text-center">
+                        <p className="text-xl font-bold text-green-500">{userDoneTasks.length}</p>
+                        <p className="text-xs text-gray-600">Erledigt</p>
+                      </div>
+                    </div>
+                    {renderTaskList(userFilteredTasks, 'Tasks')}
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          </>
         ) : (
           /* Normaler Modus */
           <>
