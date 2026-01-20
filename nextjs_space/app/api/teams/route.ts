@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { canManageTeams, isAdminOrProjektleiter } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,11 +13,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user is admin or projektleiter
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
     });
-    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(currentUser?.role || '');
+    const isAdmin = isAdminOrProjektleiter(currentUser?.role);
 
     // Non-admins only see teams they are members of
     const teams = await prisma.team.findMany({
@@ -76,14 +77,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user can manage teams (admin or projektleiter)
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
     });
 
-    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
+    if (!canManageTeams(user?.role)) {
       return NextResponse.json(
-        { error: 'Nur Administratoren können Teams erstellen' },
+        { error: 'Keine Berechtigung zum Erstellen von Teams' },
         { status: 403 }
       );
     }

@@ -391,6 +391,7 @@ export default function TeamClient() {
   const getRoleBadgeColor = (role: string) => {
     const r = role.toLowerCase();
     if (['admin', 'administrator'].includes(r)) return 'bg-red-100 text-red-800';
+    if (r === 'projektleiter') return 'bg-purple-100 text-purple-800';
     if (r === 'koordinator') return 'bg-blue-100 text-blue-800';
     return 'bg-gray-100 text-gray-800';
   };
@@ -398,6 +399,7 @@ export default function TeamClient() {
   const getRoleLabel = (role: string) => {
     const r = role.toLowerCase();
     if (['admin', 'administrator'].includes(r)) return 'Admin';
+    if (r === 'projektleiter') return 'Projektleiter';
     if (r === 'koordinator') return 'Koordinator';
     return 'Mitglied';
   };
@@ -634,6 +636,7 @@ export default function TeamClient() {
                                 <SelectContent>
                                   <SelectItem value="member">Mitglied</SelectItem>
                                   <SelectItem value="koordinator">Koordinator</SelectItem>
+                                  <SelectItem value="projektleiter">Projektleiter</SelectItem>
                                   <SelectItem value="admin">Admin</SelectItem>
                                 </SelectContent>
                               </Select>
@@ -727,11 +730,12 @@ export default function TeamClient() {
                 <SelectContent>
                   <SelectItem value="member">Mitglied</SelectItem>
                   <SelectItem value="koordinator">Koordinator</SelectItem>
+                  <SelectItem value="projektleiter">Projektleiter</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500 mt-1">
-                Koordinatoren können Team-Tasks sehen und zuweisen
+                Koordinatoren: Team-Tasks sehen • Projektleiter: Teams & Benutzer verwalten
               </p>
             </div>
           </div>

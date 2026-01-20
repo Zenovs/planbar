@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { isAdmin as checkIsAdmin, isKoordinatorOrHigher } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,11 +24,11 @@ export async function GET(request: NextRequest) {
       select: { role: true, teamId: true },
     });
 
-    // Check permissions
-    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(currentUser?.role || '');
-    const isKoordinator = ['koordinator', 'Koordinator'].includes(currentUser?.role || '');
+    // Check permissions - Projektleiter haben gleiche Rechte wie Koordinator
+    const isAdmin = checkIsAdmin(currentUser?.role);
+    const isKoordinator = isKoordinatorOrHigher(currentUser?.role);
     
-    // If not admin/koordinator, can only view own tasks
+    // If not admin/koordinator/projektleiter, can only view own tasks
     let userId = session.user.id;
     
     if (requestedUserId !== session.user.id) {

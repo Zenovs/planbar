@@ -24,6 +24,7 @@ const COLORS = [
 const ROLES = [
   { name: 'Mitglied', value: 'member', description: 'Kann eigene Tasks sehen und bearbeiten' },
   { name: 'Koordinator', value: 'koordinator', description: 'Kann Team-Tasks sehen und zuweisen' },
+  { name: 'Projektleiter', value: 'projektleiter', description: 'Kann Teams und Benutzer verwalten' },
   { name: 'Admin', value: 'admin', description: 'Voller Zugriff auf alle Funktionen' },
 ];
 
@@ -53,7 +54,11 @@ interface Team {
   color: string;
 }
 
-export default function SettingsClient() {
+interface SettingsClientProps {
+  isAdmin?: boolean;
+}
+
+export default function SettingsClient({ isAdmin = true }: SettingsClientProps) {
   // Categories State
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
@@ -66,12 +71,12 @@ export default function SettingsClient() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editUserData, setEditUserData] = useState({ role: '', teamId: '', weeklyHours: 42, workloadPercent: 100 });
 
-  // Active Tab
-  const [activeTab, setActiveTab] = useState('categories');
+  // Active Tab - Projektleiter starten auf Users-Tab
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'categories' : 'users');
 
   // Load data
   useEffect(() => {
-    loadCategories();
+    if (isAdmin) loadCategories();
     loadUsers();
     loadTeams();
   }, []);
@@ -230,6 +235,7 @@ export default function SettingsClient() {
   const getRoleBadgeColor = (role: string) => {
     switch (role.toLowerCase()) {
       case 'admin': return 'bg-red-500';
+      case 'projektleiter': return 'bg-purple-500';
       case 'koordinator': return 'bg-blue-500';
       default: return 'bg-gray-500';
     }
@@ -251,19 +257,21 @@ export default function SettingsClient() {
         <p className="text-muted-foreground mb-8">Verwalte Kategorien und Benutzer</p>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="categories" className="flex items-center gap-2">
-              <Tag className="w-4 h-4" />
-              Kategorien
-            </TabsTrigger>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {isAdmin && (
+              <TabsTrigger value="categories" className="flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                Kategorien
+              </TabsTrigger>
+            )}
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Benutzer
+              Benutzer & Teams
             </TabsTrigger>
           </TabsList>
 
-          {/* Categories Tab */}
-          <TabsContent value="categories" className="space-y-6">
+          {/* Categories Tab - nur für Admins */}
+          {isAdmin && <TabsContent value="categories" className="space-y-6">
             {/* Neue Kategorie erstellen */}
             <Card>
               <CardHeader>
@@ -417,7 +425,7 @@ export default function SettingsClient() {
                 ))
               )}
             </div>
-          </TabsContent>
+          </TabsContent>}
 
           {/* Users Tab */}
           <TabsContent value="users" className="space-y-6">

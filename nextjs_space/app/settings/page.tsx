@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import SettingsClient from './settings-client';
+import { canManageUsers, isAdmin } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,10 +13,13 @@ export default async function SettingsPage() {
     redirect('/');
   }
 
-  // Nur Admins haben Zugriff auf Settings
-  if (!['admin', 'Administrator', 'ADMIN'].includes(session.user.role || '')) {
+  // Admins und Projektleiter haben Zugriff auf Settings
+  // Projektleiter nur für Benutzer/Teams, Admins für alles
+  if (!canManageUsers(session.user.role)) {
     redirect('/dashboard');
   }
 
-  return <SettingsClient />;
+  const userIsAdmin = isAdmin(session.user.role);
+
+  return <SettingsClient isAdmin={userIsAdmin} />;
 }

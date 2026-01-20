@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
-import { isAdmin, validateEmail, validatePassword } from '@/lib/auth-helpers';
+import { isAdmin, canManageUsers, validateEmail, validatePassword } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,9 +83,9 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || !isAdmin(session.user.role)) {
+    if (!session?.user || !canManageUsers(session.user.role)) {
       return NextResponse.json(
-        { error: 'Nur Administratoren können Benutzer löschen' },
+        { error: 'Keine Berechtigung zum Löschen von Benutzern' },
         { status: 403 }
       );
     }
@@ -131,9 +131,9 @@ export async function DELETE(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || !isAdmin(session.user.role)) {
+    if (!session?.user || !canManageUsers(session.user.role)) {
       return NextResponse.json(
-        { error: 'Nur Administratoren können Benutzer bearbeiten' },
+        { error: 'Keine Berechtigung zum Bearbeiten von Benutzern' },
         { status: 403 }
       );
     }
@@ -152,11 +152,19 @@ export async function PATCH(req: NextRequest) {
     const { role, teamId, name, weeklyHours, workloadPercent } = body;
 
     // Validate role if provided
-    const validRoles = ['member', 'koordinator', 'admin'];
+    const validRoles = ['member', 'koordinator', 'projektleiter', 'admin'];
     if (role && !validRoles.includes(role.toLowerCase())) {
       return NextResponse.json(
-        { error: 'Ungültige Rolle. Erlaubt: member, koordinator, admin' },
+        { error: 'Ungültige Rolle. Erlaubt: member, koordinator, projektleiter, admin' },
         { status: 400 }
+      );
+    }
+    
+    // Projektleiter dürfen keine Admins erstellen
+    if (role?.toLowerCase() === 'admin' && !isAdmin(session.user.role)) {
+      return NextResponse.json(
+        { error: 'Nur Administratoren können Admin-Rollen vergeben' },
+        { status: 403 }
       );
     }
 
@@ -198,15 +206,23 @@ export async function PATCH(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || !isAdmin(session.user.role)) {
+    if (!session?.user || !canManageUsers(session.user.role)) {
       return NextResponse.json(
-        { error: 'Keine Berechtigung' },
+        { error: 'Keine Berechtigung zum Erstellen von Benutzern' },
         { status: 403 }
       );
     }
 
     const body = await req.json();
     const { email, name, password, role } = body;
+    
+    // Projektleiter dürfen keine Admins erstellen
+    if (role?.toLowerCase() === 'admin' && !isAdmin(session.user.role)) {
+      return NextResponse.json(
+        { error: 'Nur Administratoren können Admin-Benutzer erstellen' },
+        { status: 403 }
+      );
+    }
 
     if (!email || !password) {
       return NextResponse.json(

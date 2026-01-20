@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { canManageTeams } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,14 +17,14 @@ export async function POST(
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user can manage teams (admin or projektleiter)
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
     });
 
-    if (!['admin', 'Administrator', 'ADMIN'].includes(user?.role || '')) {
+    if (!canManageTeams(user?.role)) {
       return NextResponse.json(
-        { error: 'Nur Administratoren können Teammitglieder verwalten' },
+        { error: 'Keine Berechtigung zum Verwalten von Teammitgliedern' },
         { status: 403 }
       );
     }

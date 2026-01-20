@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { CalendarPlanningClient } from './calendar-planning-client';
+import { isAdmin as checkIsAdmin, isKoordinatorOrHigher } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,8 +32,8 @@ export default async function CalendarPlanningPage() {
     redirect('/');
   }
 
-  const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user.role || '');
-  const isKoordinator = user.role?.toLowerCase() === 'koordinator';
+  const isAdmin = checkIsAdmin(user.role);
+  const isKoordinator = isKoordinatorOrHigher(user.role);
   const canViewOthers = isAdmin || isKoordinator;
 
   // Team IDs sammeln

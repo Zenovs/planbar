@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { sendSubTaskAssignedEmail } from '@/lib/email';
+import { isAdmin as checkIsAdmin, isKoordinatorOrHigher } from '@/lib/auth-helpers';
 
 // GET - Alle SubTasks eines Tickets laden
 export async function GET(request: NextRequest) {
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Zugriffskontrolle
-    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
+    const isAdmin = checkIsAdmin(user?.role);
     const isCreator = ticket.createdById === user?.id;
     const isAssigned = ticket.assignedToId === user?.id;
     const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
@@ -99,8 +100,8 @@ export async function POST(request: NextRequest) {
     });
 
     // Zugriffskontrolle (nur Creator, Assigned, TeamMember oder Admin)
-    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
-    const isKoordinator = ['koordinator', 'Koordinator'].includes(user?.role || '');
+    const isAdmin = checkIsAdmin(user?.role);
+    const isKoordinator = isKoordinatorOrHigher(user?.role);
     const isCreator = ticket.createdById === user?.id;
     const isAssigned = ticket.assignedToId === user?.id;
     const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Berechtigungsprüfung für Zuweisung an andere:
-    // - Admin und Koordinator können an andere zuweisen
+    // - Admin, Projektleiter und Koordinator können an andere zuweisen
     // - Normale Mitglieder können nur sich selbst zuweisen
     let finalAssigneeId = assigneeId;
     if (assigneeId && assigneeId !== user?.id) {
@@ -211,8 +212,8 @@ export async function PATCH(request: NextRequest) {
     });
 
     // Zugriffskontrolle
-    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
-    const isKoordinator = ['koordinator', 'Koordinator'].includes(user?.role || '');
+    const isAdmin = checkIsAdmin(user?.role);
+    const isKoordinator = isKoordinatorOrHigher(user?.role);
     const isCreator = subTask.ticket.createdById === user?.id;
     const isAssigned = subTask.ticket.assignedToId === user?.id;
     const isTeamMember = subTask.ticket.teamId && subTask.ticket.teamId === user?.teamId;
@@ -231,7 +232,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Berechtigungsprüfung für Zuweisung an andere:
-    // - Admin und Koordinator können an andere zuweisen
+    // - Admin, Projektleiter und Koordinator können an andere zuweisen
     // - Normale Mitglieder können nur sich selbst zuweisen
     let finalAssigneeId = assigneeId;
     if (assigneeId !== undefined && assigneeId !== user?.id && assigneeId !== null) {
@@ -299,7 +300,7 @@ export async function DELETE(request: NextRequest) {
     });
 
     // Zugriffskontrolle
-    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
+    const isAdmin = checkIsAdmin(user?.role);
     const isCreator = subTask.ticket.createdById === user?.id;
     const isAssigned = subTask.ticket.assignedToId === user?.id;
     const isTeamMember = subTask.ticket.teamId && subTask.ticket.teamId === user?.teamId;

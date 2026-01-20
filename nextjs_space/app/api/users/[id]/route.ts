@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { canManageUsers, isAdmin } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || !['admin', 'Administrator', 'ADMIN'].includes(session.user.role || '')) {
+    if (!session?.user || !canManageUsers(session.user.role)) {
       return NextResponse.json(
         { error: 'Keine Berechtigung' },
         { status: 403 }
@@ -21,6 +22,14 @@ export async function PATCH(
 
     const body = await req.json();
     const { name, email, role, password, weeklyHours, workloadPercent } = body;
+    
+    // Projektleiter dürfen keine Admins erstellen/bearbeiten
+    if (role?.toLowerCase() === 'admin' && !isAdmin(session.user.role)) {
+      return NextResponse.json(
+        { error: 'Nur Administratoren können Admin-Rollen vergeben' },
+        { status: 403 }
+      );
+    }
 
     const updateData: any = {};
 
@@ -64,7 +73,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || !['admin', 'Administrator', 'ADMIN'].includes(session.user.role || '')) {
+    if (!session?.user || !canManageUsers(session.user.role)) {
       return NextResponse.json(
         { error: 'Keine Berechtigung' },
         { status: 403 }

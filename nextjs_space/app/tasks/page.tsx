@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { TasksClient } from './tasks-client';
 import prisma from '@/lib/db';
+import { isAdmin as checkIsAdmin, isKoordinatorOrHigher } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,9 +31,9 @@ export default async function TasksPage() {
     redirect('/');
   }
 
-  // Check if user is koordinator or admin
-  const isKoordinator = ['koordinator', 'Koordinator'].includes(currentUser.role || '');
-  const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(currentUser.role || '');
+  // Check if user is koordinator, projektleiter or admin
+  const isKoordinator = isKoordinatorOrHigher(currentUser.role);
+  const isAdmin = checkIsAdmin(currentUser.role);
   const canViewOthers = isKoordinator || isAdmin;
 
   // Collect all team IDs the user belongs to

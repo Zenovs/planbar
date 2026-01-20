@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { isAdmin as checkIsAdmin, isKoordinatorOrHigher } from '@/lib/auth-helpers';
 
 // GET - Abwesenheiten abrufen (rollenbasiert)
 export async function GET(request: NextRequest) {
@@ -32,8 +33,8 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate');
     const userId = searchParams.get('userId');
 
-    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user.role || '');
-    const isKoordinator = user.role?.toLowerCase() === 'koordinator';
+    const isAdmin = checkIsAdmin(user.role);
+    const isKoordinator = isKoordinatorOrHigher(user.role);
 
     // Team IDs sammeln
     const teamIds: string[] = [];
@@ -130,8 +131,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user.role || '');
-    const isKoordinator = user.role?.toLowerCase() === 'koordinator';
+    const isAdmin = checkIsAdmin(user.role);
+    const isKoordinator = isKoordinatorOrHigher(user.role);
 
     // Bestimme für wen die Abwesenheit ist
     let forUserId = user.id;
@@ -219,10 +220,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Absence not found' }, { status: 404 });
     }
 
-    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user.role || '');
+    const isAdmin = checkIsAdmin(user.role);
+    const canManageTeam = isKoordinatorOrHigher(user.role);
     const isOwner = absence.userId === user.id;
 
-    if (!isAdmin && !isOwner) {
+    if (!isAdmin && !canManageTeam && !isOwner) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 

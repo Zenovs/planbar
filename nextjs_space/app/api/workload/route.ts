@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { isAdmin as checkIsAdmin, isKoordinatorOrHigher } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,8 +36,8 @@ export async function GET(req: NextRequest) {
       select: { role: true, teamId: true },
     });
 
-    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(currentUser?.role || '');
-    const isKoordinator = ['koordinator', 'Koordinator'].includes(currentUser?.role || '');
+    const isAdmin = checkIsAdmin(currentUser?.role);
+    const isKoordinator = isKoordinatorOrHigher(currentUser?.role);
     const canViewOthers = isAdmin || isKoordinator;
 
     // Validate access
