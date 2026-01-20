@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 
-// GET - Get all templates for the user's team
+// GET - Get all templates for the user's teams
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -11,19 +11,47 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user with team
+    // Get user with team and team memberships
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { id: true, teamId: true }
+      select: { 
+        id: true, 
+        teamId: true,
+        role: true,
+        teamMemberships: {
+          select: { teamId: true }
+        }
+      }
     });
 
-    if (!user?.teamId) {
-      return NextResponse.json({ error: 'User not assigned to a team' }, { status: 400 });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get templates for the user's team
+    // Collect all team IDs the user belongs to
+    const teamIds: string[] = [];
+    if (user.teamId) {
+      teamIds.push(user.teamId);
+    }
+    if (user.teamMemberships) {
+      user.teamMemberships.forEach(tm => {
+        if (!teamIds.includes(tm.teamId)) {
+          teamIds.push(tm.teamId);
+        }
+      });
+    }
+
+    // Admins can see all templates
+    const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user.role || '');
+
+    // If no teams and not admin, return empty array (no error)
+    if (teamIds.length === 0 && !isAdmin) {
+      return NextResponse.json([]);
+    }
+
+    // Get templates for the user's teams (or all for admin)
     const templates = await prisma.template.findMany({
-      where: { teamId: user.teamId },
+      where: isAdmin ? {} : { teamId: { in: teamIds } },
       include: {
         subTickets: {
           orderBy: { order: 'asc' }
@@ -63,18 +91,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user with team
+    // Get user with team and team memberships
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: { id: true, teamId: true }
+      select: { 
+        id: true, 
+        teamId: true,
+        teamMemberships: {
+          select: { teamId: true },
+          take: 1
+        }
+      }
     });
 
-    if (!user?.teamId) {
+    // Get the team ID - prefer direct teamId, fall back to first membership
+    let effectiveTeamId = user?.teamId;
+    if (!effectiveTeamId && user?.teamMemberships?.length) {
+      effectiveTeamId = user.teamMemberships[0].teamId;
+    }
+
+    if (!effectiveTeamId) {
       return NextResponse.json({ error: 'User not assigned to a team' }, { status: 400 });
     }
 
     const body = await request.json();
-    const { name, description, subTickets = [] } = body;
+    const { name, description, subTickets = [], teamId } = body;
+
+    // Use provided teamId if admin, otherwise use user's team
+    const targetTeamId = teamId || effectiveTeamId;
 
     if (!name) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
@@ -84,7 +128,7 @@ export async function POST(request: NextRequest) {
     const existing = await prisma.template.findFirst({
       where: { 
         name,
-        teamId: user.teamId
+        teamId: targetTeamId
       }
     });
 
@@ -97,7 +141,7 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         description,
-        teamId: user.teamId,
+        teamId: targetTeamId,
         subTickets: {
           create: subTickets.map((st: { title: string; description?: string; order?: number }, index: number) => ({
             title: st.title,
