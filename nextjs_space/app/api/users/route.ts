@@ -20,12 +20,12 @@ export async function GET(req: NextRequest) {
       select: { role: true, teamId: true },
     });
 
-    // Admins sehen alle User
+    // Admins und Projektleiter sehen alle User
     // User ohne Team sehen nur sich selbst
     // User mit Team sehen nur Teammitglieder
     let whereClause = {};
     
-    if (!isAdmin(currentUser?.role)) {
+    if (!canManageUsers(currentUser?.role)) {
       if (!currentUser?.teamId) {
         // User ohne Team sieht nur sich selbst
         whereClause = { id: session.user.id };
