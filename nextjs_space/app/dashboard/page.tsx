@@ -72,9 +72,9 @@ export default async function DashboardPage() {
     // Separate query for stats (counts ALL tickets, not just 10)
     const [totalCount, openCount, inProgressCount, doneCount] = await Promise.all([
       prisma.ticket.count({ where: ticketWhereClause }).catch(() => 0),
-      prisma.ticket.count({ where: { ...ticketWhereClause, status: 'open' } }).catch(() => 0),
-      prisma.ticket.count({ where: { ...ticketWhereClause, status: 'in_progress' } }).catch(() => 0),
-      prisma.ticket.count({ where: { ...ticketWhereClause, status: 'done' } }).catch(() => 0),
+      prisma.ticket.count({ where: { AND: [ticketWhereClause, { status: 'open' }] } }).catch(() => 0),
+      prisma.ticket.count({ where: { AND: [ticketWhereClause, { status: 'in_progress' }] } }).catch(() => 0),
+      prisma.ticket.count({ where: { AND: [ticketWhereClause, { status: 'done' }] } }).catch(() => 0),
     ]);
 
     stats = {
