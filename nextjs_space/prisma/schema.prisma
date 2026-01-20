@@ -46,6 +46,7 @@ model User {
   team             Team?     @relation(fields: [teamId], references: [id])
   teamMemberships  TeamMember[]
   notes            Note[]
+  absences         Absence[]
 
   @@map("users")
 }

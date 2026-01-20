@@ -55,6 +55,7 @@ export function DashboardClient({ session, stats, recentTickets, users, todaySub
             icon={ListTodo}
             color="bg-gradient-to-br from-blue-500 to-blue-600"
             index={0}
+            href="/tasks?filter=all"
           />
           <StatsCard
             title="Offen"
@@ -62,6 +63,7 @@ export function DashboardClient({ session, stats, recentTickets, users, todaySub
             icon={Ticket}
             color="bg-gradient-to-br from-gray-500 to-gray-600"
             index={1}
+            href="/tasks?filter=open"
           />
           <StatsCard
             title="In Bearbeitung"
@@ -69,6 +71,7 @@ export function DashboardClient({ session, stats, recentTickets, users, todaySub
             icon={Clock}
             color="bg-gradient-to-br from-purple-500 to-purple-600"
             index={2}
+            href="/tasks?filter=open"
           />
           <StatsCard
             title="Erledigt"
@@ -76,6 +79,7 @@ export function DashboardClient({ session, stats, recentTickets, users, todaySub
             icon={CheckCircle}
             color="bg-gradient-to-br from-green-500 to-green-600"
             index={3}
+            href="/tasks?filter=done"
           />
         </div>
 

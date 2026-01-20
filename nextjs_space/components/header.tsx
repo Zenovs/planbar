@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Ticket, LogOut, Users, LayoutDashboard, User, Settings, Sparkles, Menu, X, UserCheck } from 'lucide-react';
+import { Ticket, LogOut, Users, LayoutDashboard, User, Settings, Sparkles, Menu, X, CalendarDays, CheckSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   DropdownMenu,
@@ -27,9 +27,10 @@ export function Header() {
 
   const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/tasks', label: 'Tasks', icon: CheckSquare },
     { href: '/tickets', label: 'Projekte', icon: Ticket },
     { href: '/team', label: 'Team', icon: Users },
-    { href: '/ressourcen', label: 'Ressourcen', icon: UserCheck },
+    { href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays },
   ];
 
   return (
@@ -103,7 +104,7 @@ export function Header() {
                     Profil bearbeiten
                   </Link>
                 </DropdownMenuItem>
-                {['admin', 'Administrator', 'ADMIN'].includes(session?.user?.role || '') && (
+                {['admin', 'Administrator', 'ADMIN', 'koordinator', 'Koordinator'].includes(session?.user?.role || '') && (
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="cursor-pointer">
                       <Settings className="w-4 h-4 mr-2" />
@@ -182,7 +183,7 @@ export function Header() {
                   <User className="w-5 h-5" />
                   <span className="text-base">Profil bearbeiten</span>
                 </Link>
-                {['admin', 'Administrator', 'ADMIN'].includes(session?.user?.role || '') && (
+                {['admin', 'Administrator', 'ADMIN', 'koordinator', 'Koordinator'].includes(session?.user?.role || '') && (
                   <Link 
                     href="/settings" 
                     onClick={() => setMobileMenuOpen(false)}

@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
 
     // Zugriffskontrolle (nur Creator, Assigned, TeamMember oder Admin)
     const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
+    const isKoordinator = ['koordinator', 'Koordinator'].includes(user?.role || '');
     const isCreator = ticket.createdById === user?.id;
     const isAssigned = ticket.assignedToId === user?.id;
     const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;
@@ -117,6 +118,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Berechtigungsprüfung für Zuweisung an andere:
+    // - Admin und Koordinator können an andere zuweisen
+    // - Normale Mitglieder können nur sich selbst zuweisen
+    let finalAssigneeId = assigneeId;
+    if (assigneeId && assigneeId !== user?.id) {
+      if (!isAdmin && !isKoordinator) {
+        // Mitglied versucht, jemand anderem zuzuweisen -> weise sich selbst zu oder niemanden
+        finalAssigneeId = user?.id || null;
+      }
+    }
+
     const subTask = await prisma.subTask.create({
       data: {
         ticketId,
@@ -124,7 +136,7 @@ export async function POST(request: NextRequest) {
         position,
         completed: false,
         dueDate: dueDate ? new Date(dueDate) : null,
-        assigneeId: assigneeId || null,
+        assigneeId: finalAssigneeId || null,
         estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null
       },
       include: {
@@ -138,7 +150,7 @@ export async function POST(request: NextRequest) {
     });
 
     // E-Mail-Benachrichtigung an zugewiesenen User senden
-    if (subTask.assignee && subTask.assignee.emailNotifications && assigneeId) {
+    if (subTask.assignee && subTask.assignee.emailNotifications && finalAssigneeId) {
       try {
         await sendSubTaskAssignedEmail(
           subTask.assignee.email,
@@ -200,6 +212,7 @@ export async function PATCH(request: NextRequest) {
 
     // Zugriffskontrolle
     const isAdmin = ['admin', 'Administrator', 'ADMIN'].includes(user?.role || '');
+    const isKoordinator = ['koordinator', 'Koordinator'].includes(user?.role || '');
     const isCreator = subTask.ticket.createdById === user?.id;
     const isAssigned = subTask.ticket.assignedToId === user?.id;
     const isTeamMember = subTask.ticket.teamId && subTask.ticket.teamId === user?.teamId;
@@ -217,6 +230,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Berechtigungsprüfung für Zuweisung an andere:
+    // - Admin und Koordinator können an andere zuweisen
+    // - Normale Mitglieder können nur sich selbst zuweisen
+    let finalAssigneeId = assigneeId;
+    if (assigneeId !== undefined && assigneeId !== user?.id && assigneeId !== null) {
+      if (!isAdmin && !isKoordinator) {
+        // Mitglied versucht, jemand anderem zuzuweisen -> behalte aktuelle Zuweisung
+        finalAssigneeId = subTask.assigneeId;
+      }
+    }
+
     const updatedSubTask = await prisma.subTask.update({
       where: { id },
       data: {
@@ -224,7 +248,7 @@ export async function PATCH(request: NextRequest) {
         ...(completed !== undefined && { completed }),
         ...(position !== undefined && { position }),
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
-        ...(assigneeId !== undefined && { assigneeId: assigneeId || null }),
+        ...(assigneeId !== undefined && { assigneeId: finalAssigneeId || null }),
         ...(estimatedHours !== undefined && { estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null })
       },
       include: {

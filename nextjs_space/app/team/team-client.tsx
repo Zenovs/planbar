@@ -220,7 +220,7 @@ export default function TeamClient() {
   const handleUpdateRole = async (userId: string, newRole: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/users/${userId}`, {
+      const res = await fetch(`/api/users?id=${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole }),
@@ -230,7 +230,8 @@ export default function TeamClient() {
         setEditingRoleId(null);
         loadUsers();
       } else {
-        toast.error('Fehler beim Aktualisieren');
+        const data = await res.json();
+        toast.error(data.error || 'Fehler beim Aktualisieren');
       }
     } catch (error) {
       toast.error('Fehler beim Aktualisieren der Rolle');
@@ -388,11 +389,17 @@ export default function TeamClient() {
   };
 
   const getRoleBadgeColor = (role: string) => {
-    return ['admin', 'Administrator', 'ADMIN'].includes(role) ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800';
+    const r = role.toLowerCase();
+    if (['admin', 'administrator'].includes(r)) return 'bg-red-100 text-red-800';
+    if (r === 'koordinator') return 'bg-blue-100 text-blue-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   const getRoleLabel = (role: string) => {
-    return ['admin', 'Administrator', 'ADMIN'].includes(role) ? 'Administrator' : 'Mitglied';
+    const r = role.toLowerCase();
+    if (['admin', 'administrator'].includes(r)) return 'Admin';
+    if (r === 'koordinator') return 'Koordinator';
+    return 'Mitglied';
   };
 
   return (
@@ -621,11 +628,12 @@ export default function TeamClient() {
                           {editingRoleId === user.id ? (
                             <div className="flex items-center gap-1">
                               <Select value={tempRole} onValueChange={setTempRole}>
-                                <SelectTrigger className="w-24 h-8 text-xs">
+                                <SelectTrigger className="w-28 h-8 text-xs">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="member">Mitglied</SelectItem>
+                                  <SelectItem value="koordinator">Koordinator</SelectItem>
                                   <SelectItem value="admin">Admin</SelectItem>
                                 </SelectContent>
                               </Select>
@@ -718,9 +726,13 @@ export default function TeamClient() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="member">Mitglied</SelectItem>
-                  <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="koordinator">Koordinator</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                Koordinatoren können Team-Tasks sehen und zuweisen
+              </p>
             </div>
           </div>
           <DialogFooter>

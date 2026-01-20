@@ -24,6 +24,7 @@ export default async function DashboardPage() {
   let users: any[] = [];
   let todaySubTasks: any[] = [];
   let currentUser: any = null;
+  let stats = { total: 0, open: 0, inProgress: 0, done: 0 };
 
   try {
     // Get current user info
@@ -52,22 +53,41 @@ export default async function DashboardPage() {
       }
     }
 
+    // Ticket visibility filter (same for stats and display)
+    const ticketWhereClause = {
+      OR: [
+        { assignedToId: session.user.id },
+        { createdById: session.user.id },
+        ...(currentUser?.teamId ? [{ teamId: currentUser.teamId }] : []),
+        ...(userTeamIds.length > 0 ? [{ teamId: { in: userTeamIds } }] : []),
+      ],
+    };
+
     // Berechne Start und Ende des heutigen Tages
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    // Separate query for stats (counts ALL tickets, not just 10)
+    const [totalCount, openCount, inProgressCount, doneCount] = await Promise.all([
+      prisma.ticket.count({ where: ticketWhereClause }).catch(() => 0),
+      prisma.ticket.count({ where: { AND: [ticketWhereClause, { status: 'open' }] } }).catch(() => 0),
+      prisma.ticket.count({ where: { AND: [ticketWhereClause, { status: 'in_progress' }] } }).catch(() => 0),
+      prisma.ticket.count({ where: { AND: [ticketWhereClause, { status: 'done' }] } }).catch(() => 0),
+    ]);
+
+    stats = {
+      total: totalCount,
+      open: openCount,
+      inProgress: inProgressCount,
+      done: doneCount,
+    };
+
     [tickets, users, todaySubTasks] = await Promise.all([
+      // Only fetch last 10 tickets for display
       prisma.ticket.findMany({
-        where: {
-          OR: [
-            { assignedToId: session.user.id },
-            { createdById: session.user.id },
-            ...(currentUser?.teamId ? [{ teamId: currentUser.teamId }] : []),
-            ...(userTeamIds.length > 0 ? [{ teamId: { in: userTeamIds } }] : []),
-          ],
-        },
+        where: ticketWhereClause,
         include: {
           assignedTo: true,
           createdBy: true,
@@ -148,13 +168,6 @@ export default async function DashboardPage() {
     console.error('Database query error:', error);
     // Continue with empty data
   }
-
-  const stats = {
-    total: tickets?.length || 0,
-    open: tickets?.filter((t: any) => t?.status === 'open')?.length || 0,
-    inProgress: tickets?.filter((t: any) => t?.status === 'in_progress')?.length || 0,
-    done: tickets?.filter((t: any) => t?.status === 'done')?.length || 0,
-  };
 
   return (
     <DashboardClient
