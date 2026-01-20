@@ -46,6 +46,7 @@ model User {
   team             Team?     @relation(fields: [teamId], references: [id])
   teamMemberships  TeamMember[]
   notes            Note[]
+  absences         Absence[]
 
   @@map("users")
 }
@@ -268,4 +269,23 @@ model Note {
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@map("notes")
+}
+
+// Abwesenheiten / Kalenderplanung
+model Absence {
+  id          String   @id @default(cuid())
+  title       String
+  type        String   // "vacation" | "workshop" | "sick" | "other"
+  startDate   DateTime
+  endDate     DateTime
+  allDay      Boolean  @default(true)
+  description String?
+  color       String?  @default("#ef4444")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("absences")
 }
