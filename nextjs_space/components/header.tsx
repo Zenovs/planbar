@@ -104,7 +104,7 @@ export function Header() {
                     Profil bearbeiten
                   </Link>
                 </DropdownMenuItem>
-                {['admin', 'Administrator', 'ADMIN', 'koordinator', 'Koordinator'].includes(session?.user?.role || '') && (
+                {['admin', 'Administrator', 'ADMIN', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="cursor-pointer">
                       <Settings className="w-4 h-4 mr-2" />
@@ -183,7 +183,7 @@ export function Header() {
                   <User className="w-5 h-5" />
                   <span className="text-base">Profil bearbeiten</span>
                 </Link>
-                {['admin', 'Administrator', 'ADMIN', 'koordinator', 'Koordinator'].includes(session?.user?.role || '') && (
+                {['admin', 'Administrator', 'ADMIN', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
                   <Link 
                     href="/settings" 
                     onClick={() => setMobileMenuOpen(false)}
