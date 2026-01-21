@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { isAdmin, isAdminOrProjektleiter } from '@/lib/auth-helpers';
+
+// Helper: Check if user can manage a specific team
+async function canManageTeam(userId: string, userRole: string, teamId: string): Promise<boolean> {
+  if (isAdmin(userRole)) return true;
+  if (!isAdminOrProjektleiter(userRole)) return false;
+  
+  // Projektleiter can only manage teams they are members of
+  const membership = await prisma.teamMember.findUnique({
+    where: { userId_teamId: { userId, teamId } },
+  });
+  return !!membership;
+}
 
 // GET - Alle Team-Mitgliedschaften eines Users oder alle eines Teams
 export async function GET(request: NextRequest) {
@@ -81,6 +94,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'userId und teamId sind erforderlich' }, { status: 400 });
     }
 
+    // Get current user's role
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+
+    // Check permission
+    const canManage = await canManageTeam(session.user.id, currentUser?.role || '', teamId);
+    if (!canManage) {
+      return NextResponse.json({ error: 'Keine Berechtigung für dieses Team' }, { status: 403 });
+    }
+
     // Prüfen ob bereits existiert
     const existing = await prisma.teamMember.findUnique({
       where: {
@@ -132,12 +156,25 @@ export async function PATCH(request: NextRequest) {
 
     // Entweder ID oder userId+teamId müssen angegeben werden
     let whereClause;
+    let targetTeamId = teamId;
     if (id) {
       whereClause = { id };
+      // Get teamId from membership
+      const existingMembership = await prisma.teamMember.findUnique({ where: { id } });
+      targetTeamId = existingMembership?.teamId;
     } else if (userId && teamId) {
       whereClause = { userId_teamId: { userId, teamId } };
     } else {
       return NextResponse.json({ error: 'id oder userId+teamId sind erforderlich' }, { status: 400 });
+    }
+
+    // Get current user's role and check permission
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+    const canManage = await canManageTeam(session.user.id, currentUser?.role || '', targetTeamId);
+    if (!canManage) {
+      return NextResponse.json({ error: 'Keine Berechtigung für dieses Team' }, { status: 403 });
     }
 
     const membership = await prisma.teamMember.update({
@@ -180,12 +217,27 @@ export async function DELETE(request: NextRequest) {
     const teamId = searchParams.get('teamId');
 
     let whereClause;
+    let targetTeamId = teamId;
     if (id) {
       whereClause = { id };
+      // Get teamId from membership
+      const existingMembership = await prisma.teamMember.findUnique({ where: { id } });
+      targetTeamId = existingMembership?.teamId || null;
     } else if (userId && teamId) {
       whereClause = { userId_teamId: { userId, teamId } };
     } else {
       return NextResponse.json({ error: 'id oder userId+teamId sind erforderlich' }, { status: 400 });
+    }
+
+    // Get current user's role and check permission
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+    if (targetTeamId) {
+      const canManage = await canManageTeam(session.user.id, currentUser?.role || '', targetTeamId);
+      if (!canManage) {
+        return NextResponse.json({ error: 'Keine Berechtigung für dieses Team' }, { status: 403 });
+      }
     }
 
     await prisma.teamMember.delete({

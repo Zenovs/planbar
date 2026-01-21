@@ -128,7 +128,23 @@ export default function TeamClient() {
     workloadPercent: 100,
   });
 
-  const isAdmin = status === 'authenticated' && ['admin', 'Administrator', 'ADMIN'].includes(session?.user?.role || '');
+  const userRole = session?.user?.role?.toLowerCase() || '';
+  const isAdmin = status === 'authenticated' && ['admin', 'administrator'].includes(userRole);
+  const isProjektleiter = status === 'authenticated' && userRole === 'projektleiter';
+  const canManageUsers = isAdmin || isProjektleiter;
+
+  // Check if user is member of a specific team
+  const isTeamMember = (team: Team): boolean => {
+    if (!session?.user?.id) return false;
+    return team.teamMembers?.some(m => m.userId === session.user.id) || false;
+  };
+
+  // Check if user can manage a specific team (Admin: all, Projektleiter: only own teams)
+  const canManageTeam = (team: Team): boolean => {
+    if (isAdmin) return true;
+    if (isProjektleiter) return isTeamMember(team);
+    return false;
+  };
 
   useEffect(() => {
     loadUsers();
@@ -424,19 +440,21 @@ export default function TeamClient() {
                 <p className="text-sm sm:text-base text-gray-600">Teams und Mitglieder mit individuellem Pensum verwalten</p>
               </div>
             </div>
-            {isAdmin && (
+            {canManageUsers && (
               <div className="flex gap-2 w-full sm:w-auto">
-                <Button
-                  onClick={() => setShowAddTeamModal(true)}
-                  className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-purple-600 text-white min-h-[44px]"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  <span>Team erstellen</span>
-                </Button>
+                {isAdmin && (
+                  <Button
+                    onClick={() => setShowAddTeamModal(true)}
+                    className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-purple-600 text-white min-h-[44px]"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    <span>Team erstellen</span>
+                  </Button>
+                )}
                 <Button
                   onClick={() => setShowAddUserModal(true)}
-                  variant="outline"
-                  className="flex-1 sm:flex-none min-h-[44px]"
+                  variant={isAdmin ? "outline" : "default"}
+                  className={`flex-1 sm:flex-none min-h-[44px] ${!isAdmin ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : ''}`}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   <span>Benutzer</span>
@@ -466,7 +484,7 @@ export default function TeamClient() {
                             />
                             <CardTitle className="text-lg truncate">{team.name}</CardTitle>
                           </div>
-                          {isAdmin && (
+                          {canManageTeam(team) && (
                             <div className="flex gap-1 flex-shrink-0">
                               <Button
                                 variant="ghost"
@@ -479,14 +497,16 @@ export default function TeamClient() {
                               >
                                 <UserPlus className="w-4 h-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="min-w-[40px] min-h-[40px]"
-                                onClick={() => handleDeleteTeam(team.id)}
-                              >
-                                <Trash2 className="w-4 h-4 text-red-600" />
-                              </Button>
+                              {isAdmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="min-w-[40px] min-h-[40px]"
+                                  onClick={() => handleDeleteTeam(team.id)}
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -540,7 +560,7 @@ export default function TeamClient() {
                                     </div>
                                   </div>
                                 </div>
-                                {isAdmin && (
+                                {canManageTeam(team) && (
                                   <div className="flex gap-1 flex-shrink-0">
                                     <Button
                                       variant="ghost"
@@ -592,7 +612,7 @@ export default function TeamClient() {
                 <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12">
                   <Users className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mb-4" />
                   <p className="text-gray-600 mb-4 text-sm sm:text-base">Noch keine Benutzer</p>
-                  {isAdmin && (
+                  {canManageUsers && (
                     <Button
                       onClick={() => setShowAddUserModal(true)}
                       className="bg-gradient-to-r from-blue-600 to-purple-600 text-white min-h-[44px]"
@@ -637,7 +657,7 @@ export default function TeamClient() {
                                   <SelectItem value="member">Mitglied</SelectItem>
                                   <SelectItem value="koordinator">Koordinator</SelectItem>
                                   <SelectItem value="projektleiter">Projektleiter</SelectItem>
-                                  <SelectItem value="admin">Admin</SelectItem>
+                                  {isAdmin && <SelectItem value="admin">Admin</SelectItem>}
                                 </SelectContent>
                               </Select>
                               <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleUpdateRole(user.id, tempRole)}>
@@ -653,7 +673,7 @@ export default function TeamClient() {
                                 {user.role === 'admin' && <Shield className="w-3 h-3 mr-1" />}
                                 {getRoleLabel(user.role)}
                               </Badge>
-                              {isAdmin && user.id !== session?.user?.id && (
+                              {canManageUsers && user.id !== session?.user?.id && !(isProjektleiter && user.role?.toLowerCase() === 'admin') && (
                                 <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => { setEditingRoleId(user.id); setTempRole(user.role); }}>
                                   <Edit className="w-3 h-3" />
                                 </Button>
@@ -667,7 +687,7 @@ export default function TeamClient() {
                           Seit {format(new Date(user.createdAt), 'dd.MM.yyyy')}
                         </div>
 
-                        {isAdmin && user.id !== session?.user?.id && (
+                        {canManageUsers && user.id !== session?.user?.id && !(isProjektleiter && user.role?.toLowerCase() === 'admin') && (
                           <Button
                             variant="destructive"
                             size="sm"
@@ -731,7 +751,7 @@ export default function TeamClient() {
                   <SelectItem value="member">Mitglied</SelectItem>
                   <SelectItem value="koordinator">Koordinator</SelectItem>
                   <SelectItem value="projektleiter">Projektleiter</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  {isAdmin && <SelectItem value="admin">Admin</SelectItem>}
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500 mt-1">
