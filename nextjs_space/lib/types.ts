@@ -1,6 +1,6 @@
-import type { User, Ticket, Category } from '@prisma/client';
+import type { User, Ticket } from '@prisma/client';
 
-export type { User, Ticket, Category };
+export type { User, Ticket };
 
 // SubTask type (matching Prisma schema)
 export interface SubTask {
@@ -24,7 +24,6 @@ export type UserInfo = Pick<User, 'id' | 'name' | 'email' | 'role' | 'createdAt'
 export type TicketWithRelations = Ticket & {
   assignedTo: SimpleUser | null;
   createdBy: SimpleUser;
-  category: Category | null;
   _count?: {
     subTasks?: number;
   };
@@ -79,8 +78,6 @@ export const STATUS_COLOR_MAP: Record<TicketStatus, string> = {
 
 // SubTask mit Ticket-Informationen für "Tasks heute"
 export type SubTaskWithTicket = SubTask & {
-  ticket: Ticket & {
-    category: Category | null;
-  };
+  ticket: Ticket;
   assignee: SimpleUser | null;
 };

@@ -28,7 +28,6 @@ export async function GET(req: NextRequest) {
     const priority = searchParams.get('priority');
     const assignedToId = searchParams.get('assignedTo');
     const teamId = searchParams.get('teamId');
-    const categoryId = searchParams.get('categoryId');
     const search = searchParams.get('search');
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
@@ -75,10 +74,6 @@ export async function GET(req: NextRequest) {
 
     if (assignedToId && assignedToId !== 'all') {
       where.assignedToId = assignedToId;
-    }
-
-    if (categoryId && categoryId !== 'all') {
-      where.categoryId = categoryId;
     }
 
     if (search) {
@@ -131,7 +126,6 @@ export async function GET(req: NextRequest) {
             color: true,
           },
         },
-        category: true,
         subTasks: {
           select: {
             id: true,
@@ -170,7 +164,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, status, priority, assignedToId, teamId, categoryId, templateId, subTasks, estimatedHours } = body;
+    const { title, description, status, priority, assignedToId, teamId, templateId, subTasks, estimatedHours } = body;
     
     if (!title) {
       return NextResponse.json(
@@ -192,19 +186,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Determine team: 1) explicit teamId, 2) category's team, 3) assigned user's team
+    // Determine team: 1) explicit teamId, 2) assigned user's team
     let finalTeamId = teamId;
     
-    // If category is set and has a team, use that team
-    if (categoryId && !finalTeamId) {
-      const category = await prisma.category.findUnique({
-        where: { id: categoryId },
-        select: { teamId: true },
-      });
-      finalTeamId = category?.teamId || null;
-    }
-    
-    // If still no team and user is assigned, use their team
+    // If no team and user is assigned, use their team
     if (assignedToId && !finalTeamId) {
       const assignedUser = await prisma.user.findUnique({
         where: { id: assignedToId },
@@ -221,7 +206,6 @@ export async function POST(req: NextRequest) {
       priority: priority || 'medium',
       assignedToId: assignedToId || null,
       teamId: finalTeamId || null,
-      categoryId: categoryId || null,
       createdById: session.user.id,
       estimatedHours: estimatedHours || null,
     };
@@ -253,7 +237,6 @@ export async function POST(req: NextRequest) {
         assignedTo: true,
         createdBy: true,
         team: true,
-        category: true,
         subTasks: {
           select: {
             id: true,

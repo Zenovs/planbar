@@ -17,8 +17,6 @@ interface SharedTimelineViewProps {
   projectTitle: string;
   projectDescription: string | null;
   milestones: Milestone[];
-  categoryName?: string;
-  categoryColor?: string;
 }
 
 const getColorClass = (color: string) => {
@@ -47,8 +45,6 @@ export function SharedTimelineView({
   projectTitle,
   projectDescription,
   milestones,
-  categoryName,
-  categoryColor,
 }: SharedTimelineViewProps) {
   const sortedMilestones = [...milestones].sort(
     (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
@@ -75,16 +71,6 @@ export function SharedTimelineView({
           </div>
           {projectDescription && (
             <p className="text-gray-600 mt-2">{projectDescription}</p>
-          )}
-          {categoryName && (
-            <div className="mt-3">
-              <span
-                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-white"
-                style={{ backgroundColor: categoryColor || '#6b7280' }}
-              >
-                {categoryName}
-              </span>
-            </div>
           )}
         </div>
       </div>

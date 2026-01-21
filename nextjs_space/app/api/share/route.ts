@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
             email: true
           }
         },
-        category: true,
+
         subTasks: {
           orderBy: { position: 'asc' }
         }

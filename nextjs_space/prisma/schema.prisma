@@ -102,7 +102,6 @@ model Team {
   teamMembers TeamMember[]
   tickets     Ticket[]
   templates   Template[]
-  categories  Category[]
 
   @@map("teams")
 }
@@ -144,10 +143,6 @@ model Ticket {
   teamId String?
   team   Team?   @relation(fields: [teamId], references: [id])
 
-  // Neue Features
-  categoryId   String?
-  category     Category? @relation(fields: [categoryId], references: [id])
-  
   shareToken   String?   @unique
   shareEnabled Boolean   @default(false)
   
@@ -180,23 +175,6 @@ model SubTask {
   assignees  SubTaskAssignee[]
 
   @@map("sub_tasks")
-}
-
-model Category {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  color       String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Team-Zuordnung für Kategorien
-  teamId      String?
-  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-
-  tickets Ticket[]
-
-  @@map("categories")
 }
 
 model Template {

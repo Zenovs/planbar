@@ -9,12 +9,6 @@ import Link from 'next/link';
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser } from '@/lib/types';
 import { toast } from 'sonner';
 
-interface Category {
-  id: string;
-  name: string;
-  color: string;
-}
-
 interface Team {
   id: string;
   name: string;
@@ -62,7 +56,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [categories, setCategories] = useState<Category[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
@@ -75,7 +68,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     status: 'open',
     priority: 'medium',
     assignedToId: '',
-    categoryId: '',
     teamId: '',
     estimatedHours: '',
     subTasks: [] as SubTaskForm[],
@@ -86,7 +78,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
   const [newSubTaskHours, setNewSubTaskHours] = useState('');
 
   useEffect(() => {
-    loadCategories();
     loadTemplates();
     loadTeams();
   }, []);
@@ -112,18 +103,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
 
   function getDeadlineForResource(): string {
     return newSubTaskDueDate || '';
-  }
-
-  async function loadCategories() {
-    try {
-      const res = await fetch('/api/categories');
-      if (res.ok) {
-        const data = await res.json();
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-    }
   }
 
   async function loadTemplates() {
@@ -230,13 +209,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     e.preventDefault();
     setError('');
 
-    // Kategorie ist obligatorisch
-    if (!formData.categoryId) {
-      setError('Bitte wählen Sie eine Kategorie aus');
-      toast.error('Kategorie ist erforderlich');
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -246,7 +218,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
         body: JSON.stringify({
           ...formData,
           assignedToId: formData.assignedToId || null,
-          categoryId: formData.categoryId || null,
           teamId: formData.teamId || null,
           templateId: selectedTemplateId || null,
           estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : null,
@@ -395,27 +366,6 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                 </select>
               </div>
 
-              {/* Kategorie (Pflichtfeld) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Kategorie <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    !formData.categoryId ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                  }`}
-                  required
-                >
-                  <option value="">Bitte Kategorie auswählen...</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

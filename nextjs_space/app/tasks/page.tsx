@@ -83,7 +83,7 @@ export default async function TasksPage() {
     include: {
       ticket: {
         include: {
-          category: true,
+
         },
       },
       assignee: {

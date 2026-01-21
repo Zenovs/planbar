@@ -71,11 +71,7 @@ export async function GET(request: NextRequest) {
     const tasks = await prisma.subTask.findMany({
       where: whereClause,
       include: {
-        ticket: {
-          include: {
-            category: true,
-          },
-        },
+        ticket: true,
         assignee: {
           select: { id: true, name: true, email: true },
         },

@@ -17,7 +17,6 @@ interface Task {
   ticket: {
     id: string;
     title: string;
-    category: { name: string; color: string } | null;
   };
   assignee: { id: string; name: string | null; email: string } | null;
 }
@@ -335,14 +334,6 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
                     }`}>
                       {task.title}
                     </h3>
-                    {task.ticket.category && (
-                      <span
-                        className="px-2 py-0.5 text-xs rounded-full text-white"
-                        style={{ backgroundColor: task.ticket.category.color }}
-                      >
-                        {task.ticket.category.name}
-                      </span>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 flex-wrap">

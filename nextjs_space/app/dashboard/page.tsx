@@ -91,7 +91,6 @@ export default async function DashboardPage() {
         include: {
           assignedTo: true,
           createdBy: true,
-          category: true,
           subTasks: {
             select: {
               id: true,
@@ -146,11 +145,7 @@ export default async function DashboardPage() {
           },
         },
         include: {
-          ticket: {
-            include: {
-              category: true,
-            },
-          },
+          ticket: true,
           assignee: {
             select: {
               id: true,

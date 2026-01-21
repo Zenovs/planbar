@@ -16,12 +16,6 @@ interface SubTask {
   position: number;
 }
 
-interface Category {
-  id: string;
-  name: string;
-  color: string;
-}
-
 interface Ticket {
   id: string;
   title: string;
@@ -29,7 +23,6 @@ interface Ticket {
   status: string;
   priority: string;
   createdAt: string;
-  category: Category | null;
   subTasks: SubTask[];
   assignedTo: {
     id: string;
@@ -121,21 +114,6 @@ export default function SharePage() {
                 <div className="flex flex-wrap gap-2 items-center">
                   <StatusBadge status={ticket.status} />
                   <PriorityBadge priority={ticket.priority} />
-                  {ticket.category && (
-                    <div
-                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium"
-                      style={{
-                        backgroundColor: `${ticket.category.color}20`,
-                        color: ticket.category.color
-                      }}
-                    >
-                      <div
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: ticket.category.color }}
-                      />
-                      {ticket.category.name}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

@@ -72,7 +72,6 @@ export function TodayTasksCard({ tasks }: TodayTasksCardProps) {
       <div className="space-y-3">
         {tasks.map((task, index) => {
           const isCompleting = completingTasks.has(task.id);
-          const categoryColor = task.ticket.category?.color;
 
           return (
             <motion.div
@@ -116,20 +115,6 @@ export function TodayTasksCard({ tasks }: TodayTasksCardProps) {
                         {task.ticket.title}
                       </span>
                     </Link>
-
-                    {task.ticket.category && (
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0"
-                        style={{
-                          backgroundColor: `${categoryColor}20`,
-                          color: categoryColor,
-                          borderColor: categoryColor,
-                          borderWidth: '1px',
-                        }}
-                      >
-                        {task.ticket.category.name}
-                      </span>
-                    )}
 
                     {task.estimatedHours && (
                       <span className="flex items-center gap-1 text-gray-500">

@@ -49,13 +49,6 @@ interface User {
   workloadPercent?: number;
 }
 
-interface Category {
-  id: string;
-  name: string;
-  color: string;
-  description: string | null;
-}
-
 interface Team {
   id: string;
   name: string;
@@ -89,14 +82,12 @@ interface Projekt {
   status: string;
   priority: string;
   assignedToId: string | null;
-  categoryId: string | null;
   teamId: string | null;
   shareToken: string | null;
   shareEnabled: boolean;
   estimatedHours?: number | null;
   assignedTo?: User | null;
   createdBy?: User | null;
-  category?: Category | null;
   team?: Team | null;
   subTasks?: SubTask[];
 }
@@ -104,11 +95,10 @@ interface Projekt {
 interface ProjektDetailClientProps {
   ticket: Projekt;
   users: User[];
-  categories: Category[];
   teams: Team[];
 }
 
-export function ProjektDetailClient({ ticket: initialTicket, users, categories, teams }: ProjektDetailClientProps) {
+export function ProjektDetailClient({ ticket: initialTicket, users, teams }: ProjektDetailClientProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const [ticket, setTicket] = useState<Projekt>(initialTicket);
@@ -132,7 +122,6 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
     status: ticket.status,
     priority: ticket.priority,
     assignedToId: ticket.assignedToId || 'none',
-    categoryId: ticket.categoryId || 'none',
     teamId: ticket.teamId || 'none',
     estimatedHours: ticket.estimatedHours?.toString() || '',
   });
@@ -174,7 +163,6 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
           status: formData.status,
           priority: formData.priority,
           assignedToId: formData.assignedToId === 'none' ? null : formData.assignedToId,
-          categoryId: formData.categoryId === 'none' ? null : formData.categoryId,
           teamId: formData.teamId === 'none' ? null : formData.teamId,
           estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : null,
         }),
@@ -533,13 +521,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-            <Card 
-              className="relative overflow-hidden"
-              style={{
-                borderTopWidth: ticket.category?.color ? '4px' : undefined,
-                borderTopColor: ticket.category?.color || undefined,
-              }}
-            >
+            <Card className="relative overflow-hidden">
               <CardHeader className="p-4 sm:p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -588,18 +570,6 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
                     <>
                       <StatusBadge status={ticket.status} />
                       <PriorityBadge priority={ticket.priority} />
-                      {ticket.category && (
-                        <Badge
-                          style={{
-                            backgroundColor: `${ticket.category.color}20`,
-                            color: ticket.category.color,
-                            borderColor: ticket.category.color,
-                          }}
-                          variant="outline"
-                        >
-                          {ticket.category.name}
-                        </Badge>
-                      )}
                     </>
                   )}
                 </div>
@@ -955,35 +925,6 @@ export function ProjektDetailClient({ ticket: initialTicket, users, categories, 
                     <p className="mt-1 text-sm">
                       {ticket.assignedTo?.name || ticket.assignedTo?.email || 'Niemand'}
                     </p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-sm">Kategorie</Label>
-                  {isEditing ? (
-                    <Select
-                      value={formData.categoryId}
-                      onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
-                    >
-                      <SelectTrigger className="mt-1 min-h-[44px]">
-                        <SelectValue placeholder="Keine Kategorie" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Keine Kategorie</SelectItem>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: cat.color }}
-                              />
-                              {cat.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="mt-1 text-sm">{ticket.category?.name || 'Keine Kategorie'}</p>
                   )}
                 </div>
                 <div>

@@ -16,7 +16,6 @@ export default async function SharedTimelinePage({ params }: PageProps) {
       milestones: {
         orderBy: { dueDate: 'asc' },
       },
-      category: true,
     },
   });
 
@@ -29,8 +28,6 @@ export default async function SharedTimelinePage({ params }: PageProps) {
       projectTitle={ticket.title}
       projectDescription={ticket.description}
       milestones={ticket.milestones}
-      categoryName={ticket.category?.name || undefined}
-      categoryColor={ticket.category?.color || undefined}
     />
   );
 }

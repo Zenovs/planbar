@@ -10,7 +10,6 @@ interface TaskCardProps {
   id: string
   title: string
   description?: string
-  category: string
   completed: boolean
   onComplete: (id: string, completed: boolean) => void
   onDelete: (id: string) => void
@@ -21,7 +20,6 @@ export function TaskCard({
   id,
   title,
   description,
-  category,
   completed,
   onComplete,
   onDelete,
@@ -54,12 +52,11 @@ export function TaskCard({
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          {description && <p className="text-sm text-muted-foreground">{description}</p>}
-          <Badge variant="secondary" className="mt-2">
-            {category}
-          </Badge>
-        </CardContent>
+        {description && (
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{description}</p>
+          </CardContent>
+        )}
       </Card>
     </motion.div>
   )
