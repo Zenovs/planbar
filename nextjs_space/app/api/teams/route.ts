@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
-import { canManageTeams, isAdminOrProjektleiter } from '@/lib/auth-helpers';
+import { canManageTeams, isAdmin } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,15 +13,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
-    // Check if user is admin or projektleiter
+    // Check if user is admin - only admins see all teams
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
     });
-    const isAdmin = isAdminOrProjektleiter(currentUser?.role);
+    const userIsAdmin = isAdmin(currentUser?.role);
 
     // Non-admins only see teams they are members of
     const teams = await prisma.team.findMany({
-      where: isAdmin ? {} : {
+      where: userIsAdmin ? {} : {
         teamMembers: {
           some: {
             userId: session.user.id,
