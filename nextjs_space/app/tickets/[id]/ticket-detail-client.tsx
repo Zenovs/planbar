@@ -46,6 +46,7 @@ import { ProjectTimeline } from '@/components/project-timeline';
 import { ProjectNotes } from '@/components/project-notes';
 import { MilestoneTimeline } from '@/components/milestone-timeline';
 import { RichTextEditor, RichTextDisplay } from '@/components/richtext-editor';
+import { Header } from '@/components/header';
 
 interface User {
   id: string;
@@ -530,21 +531,23 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-3 sm:p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header - Mobile optimized */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8"
-        >
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Button onClick={() => router.push('/tickets')} variant="outline" size="sm" className="min-h-[44px] min-w-[44px] sm:min-w-0 px-2 sm:px-3">
-              <ArrowLeft size={18} />
-              <span className="hidden sm:inline ml-2">Zurück</span>
-            </Button>
-            <h1 className="text-xl sm:text-3xl font-bold">Projekt Details</h1>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <Header />
+      <div className="p-3 sm:p-6">
+        <div className="max-w-6xl mx-auto">
+          {/* Page Header - Mobile optimized */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8"
+          >
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Button onClick={() => router.push('/tickets')} variant="outline" size="sm" className="min-h-[44px] min-w-[44px] sm:min-w-0 px-2 sm:px-3">
+                <ArrowLeft size={18} />
+                <span className="hidden sm:inline ml-2">Zurück</span>
+              </Button>
+              <h1 className="text-xl sm:text-3xl font-bold">Projekt Details</h1>
+            </div>
           
           {/* Desktop actions */}
           <div className="hidden sm:flex gap-2">
@@ -1399,6 +1402,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
             </motion.div>
           </motion.div>
         )}
+        </div>
       </div>
     </div>
   );
