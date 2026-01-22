@@ -766,18 +766,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
             {/* Sub-Tasks */}
             <Card>
               <CardHeader className="p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base sm:text-lg">Sub-Tasks ({(ticket.subTasks || []).length})</CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowResourcePanel(!showResourcePanel)}
-                    className="gap-1"
-                  >
-                    <Users size={16} />
-                    <span className="hidden sm:inline">Ressourcen</span>
-                  </Button>
-                </div>
+                <CardTitle className="text-base sm:text-lg">Sub-Tasks ({(ticket.subTasks || []).length})</CardTitle>
                 {ticket.subTasks && ticket.subTasks.length > 0 && (
                   <div className="mt-2">
                     <div className="flex items-center justify-between text-sm">
@@ -794,35 +783,6 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                 )}
               </CardHeader>
               <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-2 sm:space-y-3">
-                {/* Ressourcen-Panel */}
-                {showResourcePanel && resources.length > 0 && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
-                    <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      Verfügbare Kapazität bis Deadline
-                    </h4>
-                    <div className="space-y-2">
-                      {resources.map((r) => (
-                        <div key={r.id} className="flex items-center justify-between text-sm bg-white dark:bg-gray-800 p-2 rounded">
-                          <span className="font-medium truncate">{r.name || r.email}</span>
-                          <div className="flex items-center gap-3">
-                            <span className={`${r.utilizationPercent > 80 ? 'text-red-600' : r.utilizationPercent > 50 ? 'text-orange-600' : 'text-green-600'}`}>
-                              {r.freeHours}h frei
-                            </span>
-                            <div className="w-20 bg-gray-200 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${r.utilizationPercent > 80 ? 'bg-red-500' : r.utilizationPercent > 50 ? 'bg-orange-500' : 'bg-green-500'}`}
-                                style={{ width: `${Math.min(100, r.utilizationPercent)}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-gray-500 w-12">{r.utilizationPercent}%</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* SubTask Filter */}
                 {subtaskStats.total > 0 && (
                   <div className="bg-white dark:bg-gray-800 border rounded-lg p-3 mb-4 space-y-3">
