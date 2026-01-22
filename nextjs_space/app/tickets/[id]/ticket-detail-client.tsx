@@ -331,12 +331,15 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
         setTicket({
           ...ticket,
           subTasks: (ticket.subTasks || []).map((st: SubTask) =>
-            st.id === subTaskId ? { ...st, ...updatedSubTask } : st
+            st.id === subTaskId ? { ...st, description: updatedSubTask.description } : st
           ),
         });
-        setEditingSubTaskId(null);
+        // Bearbeitungsmodus beenden
+        setExpandedSubTaskId(null);
         setEditingSubTaskDescription('');
         toast.success('Beschreibung aktualisiert');
+      } else {
+        toast.error('Fehler beim Speichern');
       }
     } catch (error) {
       toast.error('Fehler beim Aktualisieren');
