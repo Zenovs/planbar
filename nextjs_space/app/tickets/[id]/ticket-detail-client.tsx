@@ -1715,10 +1715,70 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                 </div>
               </div>
 
+              {/* Aktions-Buttons */}
+              <div className="flex gap-2 mt-6">
+                {/* Erinnerung senden */}
+                {selectedKanbanSubTask.assigneeId && !selectedKanbanSubTask.completed && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      handleSendReminder(selectedKanbanSubTask.id);
+                    }}
+                    disabled={sendingReminder === selectedKanbanSubTask.id || isBellBlocked(selectedKanbanSubTask.id)}
+                    className="flex-1 min-h-[44px] gap-2"
+                    title={isBellBlocked(selectedKanbanSubTask.id) ? `Noch ${getRemainingBlockTime(selectedKanbanSubTask.id)} Min warten` : 'Erinnerung senden'}
+                  >
+                    {sendingReminder === selectedKanbanSubTask.id ? (
+                      <div className="animate-spin h-4 w-4 border-2 border-orange-500 border-t-transparent rounded-full" />
+                    ) : isBellBlocked(selectedKanbanSubTask.id) ? (
+                      <BellOff size={16} className="text-gray-400" />
+                    ) : (
+                      <Bell size={16} className="text-orange-500" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {isBellBlocked(selectedKanbanSubTask.id) ? `${getRemainingBlockTime(selectedKanbanSubTask.id)} Min` : 'Erinnern'}
+                    </span>
+                  </Button>
+                )}
+                
+                {/* Bearbeiten */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedKanbanSubTask(null);
+                    setViewMode('list');
+                    setEditingSubTaskId(selectedKanbanSubTask.id);
+                    setEditingSubTaskTitle(selectedKanbanSubTask.title);
+                  }}
+                  className="flex-1 min-h-[44px] gap-2"
+                >
+                  <Edit2 size={16} className="text-blue-500" />
+                  <span className="hidden sm:inline">Bearbeiten</span>
+                </Button>
+                
+                {/* Löschen */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm('Sub-Task wirklich löschen?')) {
+                      handleDeleteSubTask(selectedKanbanSubTask.id);
+                      setSelectedKanbanSubTask(null);
+                    }
+                  }}
+                  className="flex-1 min-h-[44px] gap-2 hover:bg-red-50 hover:border-red-300"
+                >
+                  <Trash2 size={16} className="text-red-500" />
+                  <span className="hidden sm:inline">Löschen</span>
+                </Button>
+              </div>
+
               {/* Schließen Button */}
               <Button 
                 onClick={() => setSelectedKanbanSubTask(null)} 
-                className="w-full min-h-[48px] mt-6"
+                className="w-full min-h-[48px] mt-3"
               >
                 Schließen
               </Button>
