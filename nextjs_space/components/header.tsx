@@ -25,8 +25,11 @@ export function Header() {
     return null;
   }
 
+  const isAdmin = session?.user?.role === 'admin';
+  
   const navItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    // Dashboard nur für Admins sichtbar
+    ...(isAdmin ? [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] : []),
     { href: '/tasks', label: 'Tasks', icon: CheckSquare },
     { href: '/tickets', label: 'Projekte', icon: Ticket },
     { href: '/team', label: 'Team', icon: Users },
@@ -38,7 +41,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href={isAdmin ? '/dashboard' : '/tasks'} className="flex items-center gap-2">
             <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-1.5 sm:p-2 rounded-lg">
               <Ticket className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>

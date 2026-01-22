@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { DashboardClient } from './dashboard-client';
+import { AdminDashboard } from './admin-dashboard';
 import prisma from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -19,158 +19,121 @@ export default async function DashboardPage() {
     redirect('/');
   }
 
-  // Default values if database queries fail
-  let tickets: any[] = [];
-  let users: any[] = [];
-  let todaySubTasks: any[] = [];
-  let currentUser: any = null;
-  let stats = { total: 0, open: 0, inProgress: 0, done: 0 };
+  // Get current user with role
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
 
-  try {
-    // Get current user info
-    currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true, teamId: true },
-    });
-
-    // Get user's team memberships (for TeamMember model if exists)
-    const userTeamMemberships = await prisma.teamMember.findMany({
-      where: { userId: session.user.id },
-      select: { teamId: true },
-    }).catch(() => []);
-    const userTeamIds = userTeamMemberships.map((tm: { teamId: string }) => tm.teamId);
-
-    // User visibility logic:
-    // - Admins see all users
-    // - Users without team see only themselves
-    // - Users with team see only team members
-    let userWhereClause = {};
-    if (currentUser?.role !== 'admin') {
-      if (!currentUser?.teamId) {
-        userWhereClause = { id: session.user.id };
-      } else {
-        userWhereClause = { teamId: currentUser.teamId };
-      }
-    }
-
-    // Ticket visibility filter (same for stats and display)
-    const ticketWhereClause = {
-      OR: [
-        { assignedToId: session.user.id },
-        { createdById: session.user.id },
-        ...(currentUser?.teamId ? [{ teamId: currentUser.teamId }] : []),
-        ...(userTeamIds.length > 0 ? [{ teamId: { in: userTeamIds } }] : []),
-      ],
-    };
-
-    // Berechne Start und Ende des heutigen Tages
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    // Separate query for stats (counts ALL tickets, not just 10)
-    const [totalCount, openCount, inProgressCount, doneCount] = await Promise.all([
-      prisma.ticket.count({ where: ticketWhereClause }).catch(() => 0),
-      prisma.ticket.count({ where: { AND: [ticketWhereClause, { status: 'open' }] } }).catch(() => 0),
-      prisma.ticket.count({ where: { AND: [ticketWhereClause, { status: 'in_progress' }] } }).catch(() => 0),
-      prisma.ticket.count({ where: { AND: [ticketWhereClause, { status: 'done' }] } }).catch(() => 0),
-    ]);
-
-    stats = {
-      total: totalCount,
-      open: openCount,
-      inProgress: inProgressCount,
-      done: doneCount,
-    };
-
-    [tickets, users, todaySubTasks] = await Promise.all([
-      // Only fetch last 10 tickets for display
-      prisma.ticket.findMany({
-        where: ticketWhereClause,
-        include: {
-          assignedTo: true,
-          createdBy: true,
-          subTasks: {
-            select: {
-              id: true,
-              completed: true,
-              estimatedHours: true,
-            },
-          },
-          _count: {
-            select: {
-              subTasks: {
-                where: {
-                  completed: false,
-                },
-              },
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        take: 10,
-      }).catch(() => []),
-      prisma.user.findMany({
-        where: userWhereClause,
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          createdAt: true,
-          _count: {
-            select: {
-              assignedTickets: {
-                where: {
-                  status: {
-                    in: ['open', 'in_progress'],
-                  },
-                },
-              },
-            },
-          },
-        },
-      }).catch(() => []),
-      // Lade alle Subtasks die heute fällig sind und dem User zugewiesen sind
-      prisma.subTask.findMany({
-        where: {
-          assigneeId: session.user.id,
-          completed: false,
-          dueDate: {
-            gte: today,
-            lt: tomorrow,
-          },
-        },
-        include: {
-          ticket: true,
-          assignee: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-        orderBy: {
-          dueDate: 'asc',
-        },
-      }).catch(() => []),
-    ]);
-  } catch (error) {
-    console.error('Database query error:', error);
-    // Continue with empty data
+  // Only admin can access dashboard - redirect others to tasks
+  if (currentUser?.role !== 'admin') {
+    redirect('/tasks');
   }
 
+  // Get system statistics for admin dashboard
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [
+    totalUsers,
+    newUsersThisMonth,
+    newUsersThisWeek,
+    totalProjects,
+    newProjectsThisMonth,
+    newProjectsThisWeek,
+    openProjects,
+    inProgressProjects,
+    doneProjects,
+    totalTasks,
+    openTasks,
+    completedTasks,
+    totalTeams,
+    usersWithTeam,
+    recentLogins,
+  ] = await Promise.all([
+    // Users
+    prisma.user.count(),
+    prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+    prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+    // Projects (Tickets)
+    prisma.ticket.count(),
+    prisma.ticket.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+    prisma.ticket.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+    prisma.ticket.count({ where: { status: 'open' } }),
+    prisma.ticket.count({ where: { status: 'in_progress' } }),
+    prisma.ticket.count({ where: { status: 'done' } }),
+    // Tasks (SubTasks)
+    prisma.subTask.count(),
+    prisma.subTask.count({ where: { completed: false } }),
+    prisma.subTask.count({ where: { completed: true } }),
+    // Teams
+    prisma.team.count(),
+    prisma.user.count({ where: { teamId: { not: null } } }),
+    // Recent activity - users updated in last 24h (approximation for logins)
+    prisma.user.count({ where: { updatedAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } } }),
+  ]);
+
+  // Get recent projects
+  const recentProjects = await prisma.ticket.findMany({
+    take: 5,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      createdBy: { select: { name: true, email: true } },
+      assignedTo: { select: { name: true, email: true } },
+    },
+  });
+
+  // Get recent users
+  const recentUsers = await prisma.user.findMany({
+    take: 5,
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, name: true, email: true, role: true, createdAt: true },
+  });
+
+  // User role distribution
+  const roleDistribution = await prisma.user.groupBy({
+    by: ['role'],
+    _count: { role: true },
+  });
+
+  const stats = {
+    users: {
+      total: totalUsers,
+      newThisMonth: newUsersThisMonth,
+      newThisWeek: newUsersThisWeek,
+      withTeam: usersWithTeam,
+      recentLogins,
+    },
+    projects: {
+      total: totalProjects,
+      newThisMonth: newProjectsThisMonth,
+      newThisWeek: newProjectsThisWeek,
+      open: openProjects,
+      inProgress: inProgressProjects,
+      done: doneProjects,
+    },
+    tasks: {
+      total: totalTasks,
+      open: openTasks,
+      completed: completedTasks,
+    },
+    teams: {
+      total: totalTeams,
+    },
+    roleDistribution: roleDistribution.map((r) => ({
+      role: r.role,
+      count: r._count.role,
+    })),
+  };
+
   return (
-    <DashboardClient
-      session={session}
+    <AdminDashboard
       stats={stats}
-      recentTickets={tickets || []}
-      users={users || []}
-      todaySubTasks={todaySubTasks || []}
+      recentProjects={recentProjects}
+      recentUsers={recentUsers}
     />
   );
 }
