@@ -25,7 +25,10 @@ import {
   Search,
   Filter,
   Bell,
-  BellOff
+  BellOff,
+  List,
+  LayoutGrid,
+  GripVertical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +70,7 @@ interface SubTask {
   title: string;
   description?: string | null;
   completed: boolean;
+  status?: string;
   position: number;
   dueDate?: Date | null;
   estimatedHours?: number | null;
@@ -136,6 +140,10 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
   // Reminder Bell States (blockiert für 10 Minuten nach Klick)
   const [bellBlockedUntil, setBellBlockedUntil] = useState<Record<string, number>>({});
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+  
+  // View Mode State (list / kanban)
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [draggedSubTask, setDraggedSubTask] = useState<string | null>(null);
 
   // Gefilterte Subtasks
   const filteredSubTasks = useMemo(() => {
@@ -222,6 +230,55 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
       setSendingReminder(null);
     }
   };
+
+  // Status-Update für Kanban Drag & Drop
+  const handleUpdateSubTaskStatus = async (subTaskId: string, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/subtasks?id=${subTaskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          status: newStatus,
+          completed: newStatus === 'done'
+        }),
+      });
+      if (res.ok) {
+        const updatedSubTask = await res.json();
+        setTicket({
+          ...ticket,
+          subTasks: (ticket.subTasks || []).map((st: SubTask) =>
+            st.id === subTaskId ? { ...st, status: newStatus, completed: newStatus === 'done' } : st
+          ),
+        });
+        toast.success('Status aktualisiert');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Aktualisieren');
+    }
+  };
+
+  // Kanban Spalten-Definitionen
+  const kanbanColumns = [
+    { id: 'open', title: 'Offen', color: 'bg-gray-100 dark:bg-gray-800' },
+    { id: 'in_progress', title: 'In Bearbeitung', color: 'bg-blue-50 dark:bg-blue-900/20' },
+    { id: 'done', title: 'Erledigt', color: 'bg-green-50 dark:bg-green-900/20' },
+  ];
+
+  // SubTasks nach Status gruppieren
+  const subtasksByStatus = useMemo(() => {
+    const grouped: Record<string, SubTask[]> = {
+      open: [],
+      in_progress: [],
+      done: [],
+    };
+    filteredSubTasks.forEach((st: SubTask) => {
+      const status = st.status || (st.completed ? 'done' : 'open');
+      if (grouped[status]) {
+        grouped[status].push(st);
+      }
+    });
+    return grouped;
+  }, [filteredSubTasks]);
 
   const toggleDescriptionCollapse = (subTaskId: string) => {
     setCollapsedDescriptions(prev => {
@@ -766,7 +823,34 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
             {/* Sub-Tasks */}
             <Card>
               <CardHeader className="p-4 sm:p-6">
-                <CardTitle className="text-base sm:text-lg">Sub-Tasks ({(ticket.subTasks || []).length})</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base sm:text-lg">Sub-Tasks ({(ticket.subTasks || []).length})</CardTitle>
+                  {/* View Toggle */}
+                  <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`p-2 rounded-md transition-all ${
+                        viewMode === 'list' 
+                          ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' 
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                      title="Listenansicht"
+                    >
+                      <List size={18} />
+                    </button>
+                    <button
+                      onClick={() => setViewMode('kanban')}
+                      className={`p-2 rounded-md transition-all ${
+                        viewMode === 'kanban' 
+                          ? 'bg-white dark:bg-gray-700 shadow-sm text-primary' 
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                      title="Kanban-Ansicht"
+                    >
+                      <LayoutGrid size={18} />
+                    </button>
+                  </div>
+                </div>
                 {ticket.subTasks && ticket.subTasks.length > 0 && (
                   <div className="mt-2">
                     <div className="flex items-center justify-between text-sm">
@@ -890,7 +974,84 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                   </div>
                 )}
 
-                {filteredSubTasks.map((subTask: SubTask) => {
+                {/* KANBAN VIEW */}
+                {viewMode === 'kanban' && filteredSubTasks.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {kanbanColumns.map((column) => (
+                      <div
+                        key={column.id}
+                        className={`${column.color} rounded-lg p-3 min-h-[200px]`}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.classList.add('ring-2', 'ring-primary');
+                        }}
+                        onDragLeave={(e) => {
+                          e.currentTarget.classList.remove('ring-2', 'ring-primary');
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.classList.remove('ring-2', 'ring-primary');
+                          if (draggedSubTask) {
+                            handleUpdateSubTaskStatus(draggedSubTask, column.id);
+                            setDraggedSubTask(null);
+                          }
+                        }}
+                      >
+                        <h4 className="font-medium text-sm mb-3 flex items-center justify-between">
+                          <span>{column.title}</span>
+                          <span className="bg-white dark:bg-gray-700 text-xs px-2 py-1 rounded-full">
+                            {subtasksByStatus[column.id]?.length || 0}
+                          </span>
+                        </h4>
+                        <div className="space-y-2">
+                          {(subtasksByStatus[column.id] || []).map((subTask: SubTask) => (
+                            <motion.div
+                              key={subTask.id}
+                              draggable
+                              onDragStart={() => setDraggedSubTask(subTask.id)}
+                              onDragEnd={() => setDraggedSubTask(null)}
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className={`bg-white dark:bg-gray-700 p-3 rounded-lg shadow-sm cursor-grab active:cursor-grabbing border-l-4 ${
+                                column.id === 'done' ? 'border-l-green-500' :
+                                column.id === 'in_progress' ? 'border-l-blue-500' :
+                                'border-l-gray-300'
+                              } ${draggedSubTask === subTask.id ? 'opacity-50' : ''}`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <GripVertical size={14} className="text-gray-400 mt-1 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm font-medium truncate ${subTask.completed ? 'line-through text-gray-400' : ''}`}>
+                                    {subTask.title}
+                                  </p>
+                                  {subTask.assignee && (
+                                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                      <UserIcon size={10} />
+                                      {subTask.assignee.name || subTask.assignee.email}
+                                    </p>
+                                  )}
+                                  {subTask.dueDate && (
+                                    <p className={`text-xs mt-1 ${
+                                      new Date(subTask.dueDate) < new Date() && !subTask.completed 
+                                        ? 'text-red-600' 
+                                        : 'text-gray-500'
+                                    }`}>
+                                      <Clock size={10} className="inline mr-1" />
+                                      {new Date(subTask.dueDate).toLocaleDateString('de-DE')}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* LIST VIEW */}
+                {viewMode === 'list' && filteredSubTasks.map((subTask: SubTask) => {
                   const isOverdue = subTask.dueDate && new Date(subTask.dueDate) < new Date() && !subTask.completed;
                   const isUpcoming = subTask.dueDate && !isOverdue && 
                     new Date(subTask.dueDate) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) && !subTask.completed;

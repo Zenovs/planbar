@@ -163,6 +163,7 @@ model SubTask {
   title          String
   description    String?  @db.Text
   completed      Boolean  @default(false)
+  status         String   @default("open") // open, in_progress, done
   position       Int      @default(0)
   dueDate        DateTime?
   estimatedHours Float?

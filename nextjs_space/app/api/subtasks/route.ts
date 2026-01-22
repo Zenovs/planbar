@@ -192,7 +192,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, completed, position, dueDate, assigneeId, estimatedHours } = body;
+    const { title, description, completed, status, position, dueDate, assigneeId, estimatedHours } = body;
 
     // Hole SubTask mit Ticket
     const subTask = await prisma.subTask.findUnique({
@@ -249,6 +249,7 @@ export async function PATCH(request: NextRequest) {
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description: description || null }),
         ...(completed !== undefined && { completed }),
+        ...(status !== undefined && { status }),
         ...(position !== undefined && { position }),
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
         ...(assigneeId !== undefined && { assigneeId: finalAssigneeId || null }),
