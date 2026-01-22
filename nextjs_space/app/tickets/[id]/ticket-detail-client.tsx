@@ -43,7 +43,7 @@ import {
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/status-badge';
 import { PriorityBadge } from '@/components/priority-badge';
-import { ProjectTimeline } from '@/components/project-timeline';
+
 import { ProjectNotes } from '@/components/project-notes';
 import { MilestoneTimeline } from '@/components/milestone-timeline';
 import { RichTextEditor, RichTextDisplay } from '@/components/richtext-editor';
@@ -1308,12 +1308,6 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                 </div>
               </CardContent>
             </Card>
-
-            {/* Projektzeitplan / Timeline */}
-            <ProjectTimeline
-              projectTitle={ticket.title}
-              subTasks={ticket.subTasks || []}
-            />
 
             {/* Sitzungsnotizen */}
             <ProjectNotes
