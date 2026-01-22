@@ -40,6 +40,7 @@ import { PriorityBadge } from '@/components/priority-badge';
 import { ProjectTimeline } from '@/components/project-timeline';
 import { ProjectNotes } from '@/components/project-notes';
 import { MilestoneTimeline } from '@/components/milestone-timeline';
+import { RichTextEditor, RichTextDisplay } from '@/components/richtext-editor';
 
 interface User {
   id: string;
@@ -57,6 +58,7 @@ interface Team {
 interface SubTask {
   id: string;
   title: string;
+  description?: string | null;
   completed: boolean;
   position: number;
   dueDate?: Date | null;
@@ -108,11 +110,15 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
+  const [newSubTaskDescription, setNewSubTaskDescription] = useState('');
   const [newSubTaskDueDate, setNewSubTaskDueDate] = useState('');
   const [newSubTaskAssignee, setNewSubTaskAssignee] = useState('');
   const [newSubTaskHours, setNewSubTaskHours] = useState('');
   const [editingSubTaskId, setEditingSubTaskId] = useState<string | null>(null);
   const [editingSubTaskTitle, setEditingSubTaskTitle] = useState('');
+  const [editingSubTaskDescription, setEditingSubTaskDescription] = useState('');
+  const [expandedSubTaskId, setExpandedSubTaskId] = useState<string | null>(null);
+  const [showSubTaskForm, setShowSubTaskForm] = useState(false);
   const [resources, setResources] = useState<ResourceInfo[]>([]);
   const [showResourcePanel, setShowResourcePanel] = useState(false);
 
@@ -267,6 +273,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
         body: JSON.stringify({
           ticketId: ticket.id,
           title: newSubTaskTitle,
+          description: newSubTaskDescription || null,
           position: (ticket.subTasks || []).length,
           dueDate: newSubTaskDueDate || null,
           assigneeId: newSubTaskAssignee || null,
@@ -281,9 +288,11 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
           subTasks: [...(ticket.subTasks || []), newSubTask],
         });
         setNewSubTaskTitle('');
+        setNewSubTaskDescription('');
         setNewSubTaskDueDate('');
         setNewSubTaskAssignee('');
         setNewSubTaskHours('');
+        setShowSubTaskForm(false);
         toast.success('Sub-Task hinzugefügt');
         // Ressourcen neu laden, da eine neue Aufgabe zugewiesen wurde
         await loadResources();
@@ -291,6 +300,30 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
       }
     } catch (error) {
       toast.error('Fehler beim Hinzufügen');
+    }
+  };
+
+  const handleUpdateSubTaskDescription = async (subTaskId: string, description: string) => {
+    try {
+      const res = await fetch(`/api/subtasks?id=${subTaskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description }),
+      });
+      if (res.ok) {
+        const updatedSubTask = await res.json();
+        setTicket({
+          ...ticket,
+          subTasks: (ticket.subTasks || []).map((st: SubTask) =>
+            st.id === subTaskId ? { ...st, ...updatedSubTask } : st
+          ),
+        });
+        setEditingSubTaskId(null);
+        setEditingSubTaskDescription('');
+        toast.success('Beschreibung aktualisiert');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Aktualisieren');
     }
   };
 
@@ -816,60 +849,171 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                           </Badge>
                         </div>
                       )}
+                      
+                      {/* Beschreibung anzeigen/bearbeiten */}
+                      {(subTask.description || expandedSubTaskId === subTask.id) && (
+                        <div className="ml-10 mt-2">
+                          {expandedSubTaskId === subTask.id ? (
+                            <div className="space-y-2">
+                              <RichTextEditor
+                                value={editingSubTaskDescription}
+                                onChange={setEditingSubTaskDescription}
+                                placeholder="Beschreibung hinzufügen..."
+                                minHeight="80px"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => handleUpdateSubTaskDescription(subTask.id, editingSubTaskDescription)}
+                                  size="sm"
+                                  className="min-h-[36px]"
+                                >
+                                  <Save size={14} className="mr-1" />
+                                  Speichern
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    setExpandedSubTaskId(null);
+                                    setEditingSubTaskDescription('');
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                  className="min-h-[36px]"
+                                >
+                                  Abbrechen
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              className="cursor-pointer p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              onClick={() => {
+                                setExpandedSubTaskId(subTask.id);
+                                setEditingSubTaskDescription(subTask.description || '');
+                              }}
+                            >
+                              <RichTextDisplay content={subTask.description || ''} className="text-sm" />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Button zum Hinzufügen einer Beschreibung */}
+                      {!subTask.description && expandedSubTaskId !== subTask.id && (
+                        <button
+                          onClick={() => {
+                            setExpandedSubTaskId(subTask.id);
+                            setEditingSubTaskDescription('');
+                          }}
+                          className="ml-10 mt-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline"
+                        >
+                          + Beschreibung hinzufügen
+                        </button>
+                      )}
                     </motion.div>
                   );
                 })}
                 
                 {/* Neue Sub-Task hinzufügen */}
                 <div className="border-t pt-4 mt-4 space-y-3">
-                  <Input
-                    value={newSubTaskTitle}
-                    onChange={(e) => setNewSubTaskTitle(e.target.value)}
-                    placeholder="Neue Sub-Task..."
-                    className="min-h-[44px] text-base"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddSubTask();
-                      }
-                    }}
-                  />
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <select
-                      value={newSubTaskAssignee}
-                      onChange={(e) => setNewSubTaskAssignee(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[44px] bg-white dark:bg-gray-700 text-sm"
+                  {!showSubTaskForm ? (
+                    <Button
+                      onClick={() => setShowSubTaskForm(true)}
+                      variant="outline"
+                      className="w-full min-h-[44px] border-dashed"
                     >
-                      <option value="">Zuweisen...</option>
-                      {users.map((u) => {
-                        const resource = resources.find(r => r.id === u.id);
-                        return (
-                          <option key={u.id} value={u.id}>
-                            {u.name || u.email} {resource ? `(${resource.freeHours}h frei)` : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      value={newSubTaskHours}
-                      onChange={(e) => setNewSubTaskHours(e.target.value)}
-                      placeholder="Stunden"
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[44px] bg-white dark:bg-gray-700"
-                    />
-                    <input
-                      type="date"
-                      value={newSubTaskDueDate}
-                      onChange={(e) => setNewSubTaskDueDate(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[44px] bg-white dark:bg-gray-700"
-                    />
-                    <Button onClick={handleAddSubTask} className="min-h-[44px]">
-                      <Plus size={18} className="mr-1" />
-                      Hinzufügen
+                      <Plus size={18} className="mr-2" />
+                      Neue Sub-Task hinzufügen
                     </Button>
-                  </div>
+                  ) : (
+                    <div className="space-y-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                      <div>
+                        <Label className="text-sm font-medium mb-1 block">Titel *</Label>
+                        <Input
+                          value={newSubTaskTitle}
+                          onChange={(e) => setNewSubTaskTitle(e.target.value)}
+                          placeholder="Sub-Task Titel..."
+                          className="min-h-[44px] text-base"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label className="text-sm font-medium mb-1 block">Beschreibung (optional)</Label>
+                        <RichTextEditor
+                          value={newSubTaskDescription}
+                          onChange={setNewSubTaskDescription}
+                          placeholder="Detaillierte Beschreibung..."
+                          minHeight="100px"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs text-gray-500 mb-1 block">Zuweisen an</Label>
+                          <select
+                            value={newSubTaskAssignee}
+                            onChange={(e) => setNewSubTaskAssignee(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[44px] bg-white dark:bg-gray-700 text-sm"
+                          >
+                            <option value="">Niemand</option>
+                            {users.map((u) => {
+                              const resource = resources.find(r => r.id === u.id);
+                              return (
+                                <option key={u.id} value={u.id}>
+                                  {u.name || u.email} {resource ? `(${resource.freeHours}h frei)` : ''}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500 mb-1 block">Geschätzte Stunden</Label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0"
+                            value={newSubTaskHours}
+                            onChange={(e) => setNewSubTaskHours(e.target.value)}
+                            placeholder="z.B. 2.5"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[44px] bg-white dark:bg-gray-700"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500 mb-1 block">Fälligkeitsdatum</Label>
+                          <input
+                            type="date"
+                            value={newSubTaskDueDate}
+                            onChange={(e) => setNewSubTaskDueDate(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[44px] bg-white dark:bg-gray-700"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          onClick={() => {
+                            setShowSubTaskForm(false);
+                            setNewSubTaskTitle('');
+                            setNewSubTaskDescription('');
+                            setNewSubTaskDueDate('');
+                            setNewSubTaskAssignee('');
+                            setNewSubTaskHours('');
+                          }}
+                          variant="outline"
+                          className="min-h-[44px]"
+                        >
+                          Abbrechen
+                        </Button>
+                        <Button 
+                          onClick={handleAddSubTask} 
+                          className="min-h-[44px]"
+                          disabled={!newSubTaskTitle.trim()}
+                        >
+                          <Plus size={18} className="mr-1" />
+                          Sub-Task erstellen
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { ticketId, title, position = 0, dueDate, assigneeId, estimatedHours } = body;
+    const { ticketId, title, description, position = 0, dueDate, assigneeId, estimatedHours } = body;
 
     if (!ticketId || !title) {
       return NextResponse.json({ error: 'ticketId and title are required' }, { status: 400 });
@@ -134,6 +134,7 @@ export async function POST(request: NextRequest) {
       data: {
         ticketId,
         title,
+        description: description || null,
         position,
         completed: false,
         dueDate: dueDate ? new Date(dueDate) : null,
@@ -191,7 +192,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, completed, position, dueDate, assigneeId, estimatedHours } = body;
+    const { title, description, completed, position, dueDate, assigneeId, estimatedHours } = body;
 
     // Hole SubTask mit Ticket
     const subTask = await prisma.subTask.findUnique({
@@ -246,6 +247,7 @@ export async function PATCH(request: NextRequest) {
       where: { id },
       data: {
         ...(title !== undefined && { title }),
+        ...(description !== undefined && { description: description || null }),
         ...(completed !== undefined && { completed }),
         ...(position !== undefined && { position }),
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
