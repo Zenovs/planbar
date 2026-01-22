@@ -144,6 +144,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
   // View Mode State (list / kanban)
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [draggedSubTask, setDraggedSubTask] = useState<string | null>(null);
+  const [selectedKanbanSubTask, setSelectedKanbanSubTask] = useState<SubTask | null>(null);
 
   // Gefilterte Subtasks
   const filteredSubTasks = useMemo(() => {
@@ -1018,13 +1019,14 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                               draggable
                               onDragStart={() => setDraggedSubTask(subTask.id)}
                               onDragEnd={() => setDraggedSubTask(null)}
+                              onClick={() => setSelectedKanbanSubTask(subTask)}
                               initial={{ opacity: 0, scale: 0.95 }}
                               animate={{ opacity: 1, scale: 1 }}
-                              className={`bg-white dark:bg-gray-700 p-3 rounded-lg shadow-sm cursor-grab active:cursor-grabbing border-l-4 ${
+                              className={`bg-white dark:bg-gray-700 p-3 rounded-lg shadow-sm cursor-pointer hover:shadow-md transition-shadow border-l-4 ${
                                 column.id === 'done' ? 'border-l-green-500' :
                                 column.id === 'in_progress' ? 'border-l-blue-500' :
                                 'border-l-gray-300'
-                              } ${draggedSubTask === subTask.id ? 'opacity-50' : ''}`}
+                              } ${draggedSubTask === subTask.id ? 'opacity-50 cursor-grabbing' : ''}`}
                             >
                               <div className="flex items-start gap-2">
                                 <GripVertical size={14} className="text-gray-400 mt-1 flex-shrink-0" />
@@ -1590,6 +1592,134 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                 </Button>
               </div>
               <Button onClick={() => setShowShareDialog(false)} className="w-full min-h-[48px]">
+                Schließen
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* SubTask Detail Modal für Kanban */}
+        {selectedKanbanSubTask && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+            onClick={() => setSelectedKanbanSubTask(null)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-t-2xl sm:rounded-xl w-full sm:max-w-lg max-h-[85vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header mit Titel und Status */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="text-lg sm:text-xl font-bold">
+                    {selectedKanbanSubTask.title}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      selectedKanbanSubTask.completed 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : selectedKanbanSubTask.status === 'in_progress'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                    }`}>
+                      {selectedKanbanSubTask.completed ? 'Erledigt' : 
+                       selectedKanbanSubTask.status === 'in_progress' ? 'In Bearbeitung' : 'Offen'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedKanbanSubTask(null)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Details */}
+              <div className="space-y-4">
+                {/* Beschreibung */}
+                {selectedKanbanSubTask.description && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-2">
+                      <FileText size={14} />
+                      Beschreibung
+                    </label>
+                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                      <RichTextDisplay content={selectedKanbanSubTask.description} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Zuweisung */}
+                <div>
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-2">
+                    <UserIcon size={14} />
+                    Zugewiesen an
+                  </label>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                    {selectedKanbanSubTask.assignee ? (
+                      <span className="font-medium">
+                        {selectedKanbanSubTask.assignee.name || selectedKanbanSubTask.assignee.email}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">Nicht zugewiesen</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Deadline */}
+                <div>
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-2">
+                    <Clock size={14} />
+                    Fälligkeitsdatum
+                  </label>
+                  <div className={`bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 ${
+                    selectedKanbanSubTask.dueDate && 
+                    new Date(selectedKanbanSubTask.dueDate) < new Date() && 
+                    !selectedKanbanSubTask.completed 
+                      ? 'text-red-600 dark:text-red-400' 
+                      : ''
+                  }`}>
+                    {selectedKanbanSubTask.dueDate ? (
+                      <span className="font-medium">
+                        {new Date(selectedKanbanSubTask.dueDate).toLocaleDateString('de-DE', {
+                          weekday: 'long',
+                          day: '2-digit',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">Kein Datum gesetzt</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Geschätzte Stunden */}
+                <div>
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mb-2">
+                    <Clock size={14} />
+                    Geschätzte Stunden
+                  </label>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                    {selectedKanbanSubTask.estimatedHours ? (
+                      <span className="font-medium">{selectedKanbanSubTask.estimatedHours} Stunden</span>
+                    ) : (
+                      <span className="text-gray-400">Keine Angabe</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Schließen Button */}
+              <Button 
+                onClick={() => setSelectedKanbanSubTask(null)} 
+                className="w-full min-h-[48px] mt-6"
+              >
                 Schließen
               </Button>
             </motion.div>
