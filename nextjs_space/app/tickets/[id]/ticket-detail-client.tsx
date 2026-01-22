@@ -233,21 +233,21 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
 
   // Status-Update für Kanban Drag & Drop
   const handleUpdateSubTaskStatus = async (subTaskId: string, newStatus: string) => {
+    const isCompleted = newStatus === 'done';
     try {
       const res = await fetch(`/api/subtasks?id=${subTaskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           status: newStatus,
-          completed: newStatus === 'done'
+          completed: isCompleted
         }),
       });
       if (res.ok) {
-        const updatedSubTask = await res.json();
         setTicket({
           ...ticket,
           subTasks: (ticket.subTasks || []).map((st: SubTask) =>
-            st.id === subTaskId ? { ...st, status: newStatus, completed: newStatus === 'done' } : st
+            st.id === subTaskId ? { ...st, status: newStatus, completed: isCompleted } : st
           ),
         });
         toast.success('Status aktualisiert');
@@ -264,7 +264,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
     { id: 'done', title: 'Erledigt', color: 'bg-green-50 dark:bg-green-900/20' },
   ];
 
-  // SubTasks nach Status gruppieren
+  // SubTasks nach Status gruppieren (completed=true -> immer "done")
   const subtasksByStatus = useMemo(() => {
     const grouped: Record<string, SubTask[]> = {
       open: [],
@@ -272,9 +272,15 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
       done: [],
     };
     filteredSubTasks.forEach((st: SubTask) => {
-      const status = st.status || (st.completed ? 'done' : 'open');
-      if (grouped[status]) {
-        grouped[status].push(st);
+      // Wenn completed=true, immer in "done" Spalte, unabhängig vom status Feld
+      let effectiveStatus: string;
+      if (st.completed) {
+        effectiveStatus = 'done';
+      } else {
+        effectiveStatus = st.status || 'open';
+      }
+      if (grouped[effectiveStatus]) {
+        grouped[effectiveStatus].push(st);
       }
     });
     return grouped;
@@ -587,11 +593,13 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
   };
 
   const handleToggleSubTask = async (subTaskId: string, completed: boolean) => {
+    const newCompleted = !completed;
+    const newStatus = newCompleted ? 'done' : 'open';
     try {
       const res = await fetch(`/api/subtasks?id=${subTaskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: !completed }),
+        body: JSON.stringify({ completed: newCompleted, status: newStatus }),
       });
 
       if (res.ok) {
@@ -599,7 +607,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
         setTicket({
           ...ticket,
           subTasks: (ticket.subTasks || []).map((st: SubTask) =>
-            st.id === subTaskId ? updatedSubTask : st
+            st.id === subTaskId ? { ...updatedSubTask, status: newStatus } : st
           ),
         });
         // Ressourcen neu laden, da sich die Verfügbarkeit geändert hat
@@ -1021,7 +1029,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                               <div className="flex items-start gap-2">
                                 <GripVertical size={14} className="text-gray-400 mt-1 flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className={`text-sm font-medium truncate ${subTask.completed ? 'line-through text-gray-400' : ''}`}>
+                                  <p className="text-sm font-medium truncate">
                                     {subTask.title}
                                   </p>
                                   {subTask.assignee && (
