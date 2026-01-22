@@ -19,7 +19,10 @@ import {
   MoreVertical,
   Clock,
   User as UserIcon,
-  Users
+  Users,
+  ChevronDown,
+  ChevronUp,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -119,6 +122,19 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
   const [editingSubTaskDescription, setEditingSubTaskDescription] = useState('');
   const [expandedSubTaskId, setExpandedSubTaskId] = useState<string | null>(null);
   const [showSubTaskForm, setShowSubTaskForm] = useState(false);
+  const [collapsedDescriptions, setCollapsedDescriptions] = useState<Set<string>>(new Set());
+
+  const toggleDescriptionCollapse = (subTaskId: string) => {
+    setCollapsedDescriptions(prev => {
+      const next = new Set(prev);
+      if (next.has(subTaskId)) {
+        next.delete(subTaskId);
+      } else {
+        next.add(subTaskId);
+      }
+      return next;
+    });
+  };
   const [resources, setResources] = useState<ResourceInfo[]>([]);
   const [showResourcePanel, setShowResourcePanel] = useState(false);
 
@@ -850,11 +866,12 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                         </div>
                       )}
                       
-                      {/* Beschreibung anzeigen/bearbeiten */}
+                      {/* Beschreibung anzeigen/bearbeiten - Akkordeon */}
                       {(subTask.description || expandedSubTaskId === subTask.id) && (
                         <div className="ml-10 mt-2">
                           {expandedSubTaskId === subTask.id ? (
-                            <div className="space-y-2">
+                            // Bearbeitungsmodus
+                            <div className="space-y-2 border rounded-lg p-3 bg-white dark:bg-gray-800">
                               <RichTextEditor
                                 value={editingSubTaskDescription}
                                 onChange={setEditingSubTaskDescription}
@@ -884,14 +901,57 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                               </div>
                             </div>
                           ) : (
-                            <div
-                              className="cursor-pointer p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              onClick={() => {
-                                setExpandedSubTaskId(subTask.id);
-                                setEditingSubTaskDescription(subTask.description || '');
-                              }}
-                            >
-                              <RichTextDisplay content={subTask.description || ''} className="text-sm" />
+                            // Akkordeon-Ansicht
+                            <div className="border rounded-lg bg-gray-50 dark:bg-gray-700/50 overflow-hidden">
+                              {/* Akkordeon Header */}
+                              <button
+                                onClick={() => toggleDescriptionCollapse(subTask.id)}
+                                className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                              >
+                                <span className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
+                                  <FileText size={14} />
+                                  Beschreibung
+                                </span>
+                                {collapsedDescriptions.has(subTask.id) ? (
+                                  <ChevronDown size={16} className="text-gray-500" />
+                                ) : (
+                                  <ChevronUp size={16} className="text-gray-500" />
+                                )}
+                              </button>
+                              
+                              {/* Akkordeon Content */}
+                              <motion.div
+                                initial={false}
+                                animate={{
+                                  height: collapsedDescriptions.has(subTask.id) ? 0 : 'auto',
+                                  opacity: collapsedDescriptions.has(subTask.id) ? 0 : 1
+                                }}
+                                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                                className="overflow-hidden"
+                              >
+                                <div 
+                                  className="px-3 pb-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                  onClick={() => {
+                                    setExpandedSubTaskId(subTask.id);
+                                    setEditingSubTaskDescription(subTask.description || '');
+                                  }}
+                                  title="Klicken zum Bearbeiten"
+                                >
+                                  <RichTextDisplay content={subTask.description || ''} className="text-sm" />
+                                </div>
+                              </motion.div>
+                              
+                              {/* Zusammengeklappte Vorschau */}
+                              {collapsedDescriptions.has(subTask.id) && (
+                                <div 
+                                  className="px-3 pb-2 cursor-pointer"
+                                  onClick={() => toggleDescriptionCollapse(subTask.id)}
+                                >
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                    {subTask.description?.replace(/<[^>]*>/g, '').slice(0, 60)}...
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -904,9 +964,10 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                             setExpandedSubTaskId(subTask.id);
                             setEditingSubTaskDescription('');
                           }}
-                          className="ml-10 mt-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline"
+                          className="ml-10 mt-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline flex items-center gap-1"
                         >
-                          + Beschreibung hinzufügen
+                          <Plus size={12} />
+                          Beschreibung hinzufügen
                         </button>
                       )}
                     </motion.div>
