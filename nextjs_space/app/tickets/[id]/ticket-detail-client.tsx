@@ -23,7 +23,9 @@ import {
   ChevronUp,
   FileText,
   Search,
-  Filter
+  Filter,
+  Bell,
+  BellOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -130,6 +132,10 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
   const [subtaskSearch, setSubtaskSearch] = useState('');
   const [subtaskStatusFilter, setSubtaskStatusFilter] = useState<'all' | 'open' | 'completed'>('all');
   const [subtaskAssigneeFilter, setSubtaskAssigneeFilter] = useState<string>('all');
+  
+  // Reminder Bell States (blockiert für 10 Minuten nach Klick)
+  const [bellBlockedUntil, setBellBlockedUntil] = useState<Record<string, number>>({});
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
 
   // Gefilterte Subtasks
   const filteredSubTasks = useMemo(() => {
@@ -170,6 +176,52 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
     const open = all.length - completed;
     return { total: all.length, completed, open };
   }, [ticket.subTasks]);
+
+  // Prüfen ob Glocke blockiert ist
+  const isBellBlocked = (subTaskId: string): boolean => {
+    const blockedUntil = bellBlockedUntil[subTaskId];
+    if (!blockedUntil) return false;
+    return Date.now() < blockedUntil;
+  };
+
+  // Verbleibende Blockierzeit in Minuten
+  const getRemainingBlockTime = (subTaskId: string): number => {
+    const blockedUntil = bellBlockedUntil[subTaskId];
+    if (!blockedUntil) return 0;
+    const remaining = blockedUntil - Date.now();
+    return Math.max(0, Math.ceil(remaining / 60000));
+  };
+
+  // Erinnerung senden
+  const handleSendReminder = async (subTaskId: string) => {
+    if (isBellBlocked(subTaskId)) return;
+    
+    setSendingReminder(subTaskId);
+    try {
+      const res = await fetch('/api/subtasks/remind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subTaskId }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        // Glocke für 10 Minuten blockieren
+        setBellBlockedUntil(prev => ({
+          ...prev,
+          [subTaskId]: Date.now() + 10 * 60 * 1000 // 10 Minuten
+        }));
+        toast.success(data.message || 'Erinnerung gesendet');
+      } else {
+        toast.error(data.error || 'Fehler beim Senden');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Senden der Erinnerung');
+    } finally {
+      setSendingReminder(null);
+    }
+  };
 
   const toggleDescriptionCollapse = (subTaskId: string) => {
     setCollapsedDescriptions(prev => {
@@ -953,6 +1005,31 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                           >
                             {subTask.title}
                           </span>
+                        )}
+                        {/* Glocke für Erinnerung - nur wenn jemand zugewiesen ist */}
+                        {subTask.assigneeId && !subTask.completed && (
+                          <Button
+                            onClick={() => handleSendReminder(subTask.id)}
+                            size="sm"
+                            variant="ghost"
+                            disabled={isBellBlocked(subTask.id) || sendingReminder === subTask.id}
+                            className={`min-w-[44px] min-h-[44px] ${
+                              isBellBlocked(subTask.id) 
+                                ? 'text-gray-300 cursor-not-allowed' 
+                                : 'text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20'
+                            }`}
+                            title={isBellBlocked(subTask.id) 
+                              ? `Blockiert für ${getRemainingBlockTime(subTask.id)} Min.` 
+                              : 'Erinnerung senden'}
+                          >
+                            {sendingReminder === subTask.id ? (
+                              <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                            ) : isBellBlocked(subTask.id) ? (
+                              <BellOff size={16} />
+                            ) : (
+                              <Bell size={16} />
+                            )}
+                          </Button>
                         )}
                         <Button
                           onClick={() => startEditingSubTask(subTask)}

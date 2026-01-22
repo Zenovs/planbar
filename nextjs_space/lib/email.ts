@@ -356,6 +356,67 @@ export async function sendSubTaskCompletedEmail(
   });
 }
 
+// Sofortige SubTask-Erinnerung (Glocken-Benachrichtigung)
+export async function sendSubTaskReminderEmail(
+  assigneeEmail: string,
+  assigneeName: string,
+  subTaskTitle: string,
+  ticketTitle: string,
+  ticketId: string,
+  reminderBy: string,
+  dueDate?: Date
+) {
+  const companyName = process.env.COMPANY_NAME || 'planbar';
+  const primaryColor = process.env.PRIMARY_COLOR || '#3b82f6';
+
+  const dueDateText = dueDate 
+    ? `<p style="color: #f59e0b; margin: 5px 0 0 0;"><strong>Fällig:</strong> ${new Date(dueDate).toLocaleString('de-DE', { 
+        dateStyle: 'short', 
+        timeStyle: 'short' 
+      })}</p>`
+    : '';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(to right, #f59e0b, #f97316); padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">🔔 ${companyName}</h1>
+      </div>
+      <div style="padding: 30px; background-color: #f9fafb;">
+        <h2 style="color: #1f2937;">Erinnerung: Subtask wartet!</h2>
+        <p style="color: #4b5563; font-size: 16px;">
+          Hallo ${assigneeName},
+        </p>
+        <p style="color: #4b5563; font-size: 16px;">
+          <strong>${reminderBy}</strong> möchte Sie an folgenden Subtask erinnern:
+        </p>
+        <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+          <h3 style="margin: 0 0 10px 0; color: #1f2937;">📌 ${subTaskTitle}</h3>
+          <p style="color: #6b7280; margin: 5px 0 0 0;"><strong>Projekt:</strong> ${ticketTitle}</p>
+          ${dueDateText}
+        </div>
+        <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="color: #92400e; margin: 0; font-size: 14px;">
+            ⚡ Diese Aufgabe benötigt Ihre Aufmerksamkeit!
+          </p>
+        </div>
+        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+           style="display: inline-block; background: linear-gradient(to right, #f59e0b, #f97316); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+          Projekt öffnen
+        </a>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9ca3af; font-size: 14px;">
+        <p>${companyName} - Erinnerung</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: assigneeEmail,
+    subject: `🔔 Erinnerung: ${subTaskTitle}`,
+    html,
+  });
+}
+
 // Login-Benachrichtigung (noreply@planbar.dev)
 export async function sendLoginNotificationEmail(
   userEmail: string,
