@@ -33,7 +33,8 @@ export function Header() {
     { href: '/tasks', label: 'Tasks', icon: CheckSquare },
     { href: '/tickets', label: 'Projekte', icon: Ticket },
     { href: '/team', label: 'Team', icon: Users },
-    { href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays },
+    // Kalender nur für Admins sichtbar
+    ...(isAdmin ? [{ href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays }] : []),
   ];
 
   return (

@@ -33,6 +33,12 @@ export default async function CalendarPlanningPage() {
   }
 
   const isAdmin = checkIsAdmin(user.role);
+  
+  // Nur Admins dürfen die Kalenderseite sehen
+  if (!isAdmin) {
+    redirect('/tasks');
+  }
+
   const isKoordinator = isKoordinatorOrHigher(user.role);
   const canViewOthers = isAdmin || isKoordinator;
 
