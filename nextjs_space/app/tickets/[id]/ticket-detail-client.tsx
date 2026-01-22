@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { 
-  ArrowLeft, 
   Edit2, 
   Trash2, 
   Save, 
@@ -541,13 +540,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8"
           >
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Button onClick={() => router.push('/tickets')} variant="outline" size="sm" className="min-h-[44px] min-w-[44px] sm:min-w-0 px-2 sm:px-3">
-                <ArrowLeft size={18} />
-                <span className="hidden sm:inline ml-2">Zurück</span>
-              </Button>
-              <h1 className="text-xl sm:text-3xl font-bold">Projekt Details</h1>
-            </div>
+            <h1 className="text-xl sm:text-3xl font-bold">Projekt Details</h1>
           
           {/* Desktop actions */}
           <div className="hidden sm:flex gap-2">
