@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
@@ -22,7 +22,9 @@ import {
   Users,
   ChevronDown,
   ChevronUp,
-  FileText
+  FileText,
+  Search,
+  Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -123,6 +125,51 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
   const [expandedSubTaskId, setExpandedSubTaskId] = useState<string | null>(null);
   const [showSubTaskForm, setShowSubTaskForm] = useState(false);
   const [collapsedDescriptions, setCollapsedDescriptions] = useState<Set<string>>(new Set());
+  
+  // Subtask Filter States
+  const [subtaskSearch, setSubtaskSearch] = useState('');
+  const [subtaskStatusFilter, setSubtaskStatusFilter] = useState<'all' | 'open' | 'completed'>('all');
+  const [subtaskAssigneeFilter, setSubtaskAssigneeFilter] = useState<string>('all');
+
+  // Gefilterte Subtasks
+  const filteredSubTasks = useMemo(() => {
+    let filtered = ticket.subTasks || [];
+    
+    // Textsuche
+    if (subtaskSearch.trim()) {
+      const searchLower = subtaskSearch.toLowerCase();
+      filtered = filtered.filter((st: SubTask) => 
+        st.title.toLowerCase().includes(searchLower) ||
+        (st.description && st.description.toLowerCase().includes(searchLower))
+      );
+    }
+    
+    // Status-Filter
+    if (subtaskStatusFilter === 'open') {
+      filtered = filtered.filter((st: SubTask) => !st.completed);
+    } else if (subtaskStatusFilter === 'completed') {
+      filtered = filtered.filter((st: SubTask) => st.completed);
+    }
+    
+    // Zuordnungs-Filter
+    if (subtaskAssigneeFilter !== 'all') {
+      if (subtaskAssigneeFilter === 'unassigned') {
+        filtered = filtered.filter((st: SubTask) => !st.assigneeId);
+      } else {
+        filtered = filtered.filter((st: SubTask) => st.assigneeId === subtaskAssigneeFilter);
+      }
+    }
+    
+    return filtered;
+  }, [ticket.subTasks, subtaskSearch, subtaskStatusFilter, subtaskAssigneeFilter]);
+
+  // Subtask-Statistiken
+  const subtaskStats = useMemo(() => {
+    const all = ticket.subTasks || [];
+    const completed = all.filter((st: SubTask) => st.completed).length;
+    const open = all.length - completed;
+    return { total: all.length, completed, open };
+  }, [ticket.subTasks]);
 
   const toggleDescriptionCollapse = (subTaskId: string) => {
     setCollapsedDescriptions(prev => {
@@ -728,7 +775,114 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                   </div>
                 )}
 
-                {(ticket.subTasks || []).map((subTask: SubTask) => {
+                {/* SubTask Filter */}
+                {subtaskStats.total > 0 && (
+                  <div className="bg-white dark:bg-gray-800 border rounded-lg p-3 mb-4 space-y-3">
+                    {/* Statistiken */}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {subtaskStats.total} Sub-Tasks
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1 text-green-600">
+                          <CheckCircle2 size={14} />
+                          {subtaskStats.completed} erledigt
+                        </span>
+                        <span className="flex items-center gap-1 text-orange-600">
+                          <Circle size={14} />
+                          {subtaskStats.open} offen
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Filter-Zeile */}
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      {/* Suche */}
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          value={subtaskSearch}
+                          onChange={(e) => setSubtaskSearch(e.target.value)}
+                          placeholder="Sub-Tasks durchsuchen..."
+                          className="pl-9 min-h-[40px] text-sm"
+                        />
+                        {subtaskSearch && (
+                          <button
+                            onClick={() => setSubtaskSearch('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                          >
+                            <X size={14} className="text-gray-400" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Status-Filter */}
+                      <select
+                        value={subtaskStatusFilter}
+                        onChange={(e) => setSubtaskStatusFilter(e.target.value as 'all' | 'open' | 'completed')}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[40px] bg-white dark:bg-gray-700 text-sm min-w-[120px]"
+                      >
+                        <option value="all">Alle Status</option>
+                        <option value="open">Offen</option>
+                        <option value="completed">Erledigt</option>
+                      </select>
+                      
+                      {/* Zuordnungs-Filter */}
+                      <select
+                        value={subtaskAssigneeFilter}
+                        onChange={(e) => setSubtaskAssigneeFilter(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[40px] bg-white dark:bg-gray-700 text-sm min-w-[140px]"
+                      >
+                        <option value="all">Alle Zuweisungen</option>
+                        <option value="unassigned">Nicht zugewiesen</option>
+                        {users.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name || u.email}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* Filter-Info */}
+                    {(subtaskSearch || subtaskStatusFilter !== 'all' || subtaskAssigneeFilter !== 'all') && (
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>
+                          {filteredSubTasks.length} von {subtaskStats.total} Sub-Tasks angezeigt
+                        </span>
+                        <button
+                          onClick={() => {
+                            setSubtaskSearch('');
+                            setSubtaskStatusFilter('all');
+                            setSubtaskAssigneeFilter('all');
+                          }}
+                          className="text-blue-600 hover:underline"
+                        >
+                          Filter zurücksetzen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Keine Ergebnisse */}
+                {filteredSubTasks.length === 0 && subtaskStats.total > 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <Filter className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Keine Sub-Tasks gefunden</p>
+                    <button
+                      onClick={() => {
+                        setSubtaskSearch('');
+                        setSubtaskStatusFilter('all');
+                        setSubtaskAssigneeFilter('all');
+                      }}
+                      className="text-blue-600 hover:underline text-sm mt-1"
+                    >
+                      Filter zurücksetzen
+                    </button>
+                  </div>
+                )}
+
+                {filteredSubTasks.map((subTask: SubTask) => {
                   const isOverdue = subTask.dueDate && new Date(subTask.dueDate) < new Date() && !subTask.completed;
                   const isUpcoming = subTask.dueDate && !isOverdue && 
                     new Date(subTask.dueDate) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) && !subTask.completed;
