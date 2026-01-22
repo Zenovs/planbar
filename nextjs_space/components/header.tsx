@@ -26,13 +26,15 @@ export function Header() {
   }
 
   const isAdmin = session?.user?.role === 'admin';
+  const isMitglied = session?.user?.role === 'Mitglied';
   
   const navItems = [
     // Dashboard nur für Admins sichtbar
     ...(isAdmin ? [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] : []),
     { href: '/tasks', label: 'Tasks', icon: CheckSquare },
     { href: '/tickets', label: 'Projekte', icon: Ticket },
-    { href: '/team', label: 'Team', icon: Users },
+    // Team nicht für Mitglieder sichtbar
+    ...(!isMitglied ? [{ href: '/team', label: 'Team', icon: Users }] : []),
     // Kalender nur für Admins sichtbar
     ...(isAdmin ? [{ href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays }] : []),
   ];

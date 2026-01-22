@@ -12,5 +12,10 @@ export default async function TeamPage() {
     redirect('/');
   }
 
+  // Mitglieder dürfen die Team-Seite nicht sehen
+  if (session.user.role === 'Mitglied') {
+    redirect('/tasks');
+  }
+
   return <TeamClient />;
 }
