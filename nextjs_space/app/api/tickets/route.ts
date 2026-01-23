@@ -222,6 +222,7 @@ export async function POST(req: NextRequest) {
       ticketData.subTasks = {
         create: subTasksData.map((st: any, index: number) => ({
           title: st.title,
+          description: st.description || null,
           position: index,
           completed: false,
           dueDate: st.dueDate ? new Date(st.dueDate) : null,
@@ -243,6 +244,7 @@ export async function POST(req: NextRequest) {
             completed: true,
             estimatedHours: true,
             title: true,
+            description: true,
             dueDate: true,
             position: true,
             assigneeId: true,

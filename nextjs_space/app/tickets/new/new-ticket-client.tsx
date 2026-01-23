@@ -43,6 +43,7 @@ interface ResourceInfo {
 
 interface SubTaskForm {
   title: string;
+  description?: string;
   dueDate?: string;
   assigneeId?: string;
   estimatedHours?: number;
@@ -73,6 +74,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     subTasks: [] as SubTaskForm[],
   });
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
+  const [newSubTaskDescription, setNewSubTaskDescription] = useState('');
   const [newSubTaskDueDate, setNewSubTaskDueDate] = useState('');
   const [newSubTaskAssignee, setNewSubTaskAssignee] = useState('');
   const [newSubTaskHours, setNewSubTaskHours] = useState('');
@@ -154,12 +156,14 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
       ...formData,
       subTasks: [...formData.subTasks, { 
         title: newSubTaskTitle.trim(),
+        description: newSubTaskDescription.trim() || undefined,
         dueDate: newSubTaskDueDate || undefined,
         assigneeId: newSubTaskAssignee || undefined,
         estimatedHours: !isNaN(hours) ? hours : undefined
       }]
     });
     setNewSubTaskTitle('');
+    setNewSubTaskDescription('');
     setNewSubTaskDueDate('');
     setNewSubTaskAssignee('');
     setNewSubTaskHours('');
@@ -586,6 +590,18 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                       </motion.button>
                     </div>
                   </div>
+                  
+                  {/* Beschreibung */}
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Beschreibung (optional)</label>
+                    <textarea
+                      value={newSubTaskDescription}
+                      onChange={(e) => setNewSubTaskDescription(e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-all resize-none"
+                      placeholder="Detaillierte Beschreibung der Aufgabe..."
+                    />
+                  </div>
                 </div>
 
                 {/* Sub-Tasks Liste - Modern Cards */}
@@ -608,39 +624,46 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                             key={index}
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
-                            className="group flex items-center justify-between bg-white border border-slate-200 p-3 rounded-lg hover:shadow-md hover:border-slate-300 transition-all"
+                            className="group bg-white border border-slate-200 p-3 rounded-lg hover:shadow-md hover:border-slate-300 transition-all"
                           >
-                            <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
-                              <span className="text-sm font-medium text-slate-800 truncate">{subTask.title}</span>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {assignee && (
-                                  <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">
-                                    <Users className="w-3 h-3" />
-                                    {assignee.name}
-                                  </span>
-                                )}
-                                {subTask.estimatedHours && (
-                                  <span className="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full font-medium">
-                                    <Clock className="w-3 h-3" />
-                                    {subTask.estimatedHours}h
-                                  </span>
-                                )}
-                                {subTask.dueDate && (
-                                  <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full font-medium">
-                                    📅 {new Date(subTask.dueDate).toLocaleDateString('de-CH')}
-                                  </span>
-                                )}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
+                                <span className="text-sm font-medium text-slate-800 truncate">{subTask.title}</span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {assignee && (
+                                    <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+                                      <Users className="w-3 h-3" />
+                                      {assignee.name}
+                                    </span>
+                                  )}
+                                  {subTask.estimatedHours && (
+                                    <span className="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full font-medium">
+                                      <Clock className="w-3 h-3" />
+                                      {subTask.estimatedHours}h
+                                    </span>
+                                  )}
+                                  {subTask.dueDate && (
+                                    <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full font-medium">
+                                      📅 {new Date(subTask.dueDate).toLocaleDateString('de-CH')}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                type="button"
+                                onClick={() => removeSubTask(index)}
+                                className="ml-2 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <X className="w-4 h-4" />
+                              </motion.button>
                             </div>
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              type="button"
-                              onClick={() => removeSubTask(index)}
-                              className="ml-2 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              <X className="w-4 h-4" />
-                            </motion.button>
+                            {subTask.description && (
+                              <div className="mt-2 pt-2 border-t border-slate-100">
+                                <p className="text-xs text-slate-500 whitespace-pre-wrap">{subTask.description}</p>
+                              </div>
+                            )}
                           </motion.div>
                         );
                       })}
