@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Sende E-Mail
-    const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    const resetUrl = `${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/auth/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
     
     await sendEmail({
       to: email,

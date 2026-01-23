@@ -122,7 +122,7 @@ export async function sendTicketAssignedEmail(
           <h3 style="margin: 0 0 10px 0; color: #1f2937;">${ticketTitle}</h3>
           <p style="color: #6b7280; margin: 0;">Zugewiesen von: ${assignedBy}</p>
         </div>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+        <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/tickets/${ticketId}" 
            style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
           Ticket anzeigen
         </a>
@@ -186,7 +186,7 @@ export async function sendTicketStatusChangedEmail(
           </div>
           <p style="color: #6b7280; margin: 10px 0 0 0;">Geändert von: ${changedBy}</p>
         </div>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+        <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/tickets/${ticketId}" 
            style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
           Ticket anzeigen
         </a>
@@ -232,7 +232,7 @@ export async function sendTicketCreatedEmail(
           <h3 style="margin: 0 0 10px 0; color: #1f2937;">${ticketTitle}</h3>
           <p style="color: #6b7280; margin: 0;">Erstellt von: ${createdBy}</p>
         </div>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+        <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/tickets/${ticketId}" 
            style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
           Ticket anzeigen
         </a>
@@ -290,7 +290,7 @@ export async function sendSubTaskAssignedEmail(
           <p style="color: #6b7280; margin: 5px 0 0 0;">Zugewiesen von: ${assignedBy}</p>
           ${dueDateText}
         </div>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+        <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/tickets/${ticketId}" 
            style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
           Projekt anzeigen
         </a>
@@ -338,7 +338,7 @@ export async function sendSubTaskCompletedEmail(
           <p style="color: #6b7280; margin: 5px 0 0 0;">Projekt: ${ticketTitle}</p>
           <p style="color: #6b7280; margin: 5px 0 0 0;">Erledigt von: ${completedBy}</p>
         </div>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+        <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/tickets/${ticketId}" 
            style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
           Projekt anzeigen
         </a>
@@ -399,7 +399,7 @@ export async function sendSubTaskReminderEmail(
             ⚡ Diese Aufgabe benötigt Ihre Aufmerksamkeit!
           </p>
         </div>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${ticketId}" 
+        <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/tickets/${ticketId}" 
            style="display: inline-block; background: linear-gradient(to right, #f59e0b, #f97316); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
           Projekt öffnen
         </a>
@@ -459,7 +459,7 @@ export async function sendLoginNotificationEmail(
             Falls Sie sich nicht angemeldet haben, ändern Sie bitte sofort Ihr Passwort und kontaktieren Sie den Administrator.
           </p>
         </div>
-        <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/profile" 
+        <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/profile" 
            style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
           Profil anzeigen
         </a>
@@ -520,7 +520,7 @@ export async function sendTaskUpdateEmail(
           <p style="margin: 5px 0 0 0; color: #f59e0b; font-size: 14px;">
             Fällig: ${new Date(task.dueDate).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}
           </p>
-          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${task.ticketId}" 
+          <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/tickets/${task.ticketId}" 
              style="color: ${primaryColor}; text-decoration: none; font-size: 14px;">→ Zum Projekt</a>
         </div>
       `).join('')}
@@ -536,7 +536,7 @@ export async function sendTaskUpdateEmail(
           <p style="margin: 0; color: #1f2937; font-weight: bold;">${item.title}</p>
           ${item.ticketTitle ? `<p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px;">Projekt: ${item.ticketTitle}</p>` : ''}
           <p style="margin: 5px 0 0 0; color: #6b7280; font-size: 14px;">Zugewiesen von: ${item.assignedBy}</p>
-          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tickets/${item.ticketId}" 
+          <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/tickets/${item.ticketId}" 
              style="color: ${primaryColor}; text-decoration: none; font-size: 14px;">→ Zum Projekt</a>
         </div>
       `).join('')}
@@ -575,7 +575,7 @@ export async function sendTaskUpdateEmail(
         ${assignmentsHtml}
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard" 
+          <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/dashboard" 
              style="display: inline-block; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
             Dashboard öffnen
           </a>
@@ -585,7 +585,7 @@ export async function sendTaskUpdateEmail(
         <p>${companyName} - ${titleText}</p>
         <p style="margin-top: 10px; font-size: 12px;">
           Diese E-Mail wurde automatisch versendet. Sie können die Häufigkeit in Ihren 
-          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/profile" style="color: ${primaryColor};">Profileinstellungen</a> ändern.
+          <a href="${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/profile" style="color: ${primaryColor};">Profileinstellungen</a> ändern.
         </p>
       </div>
     </div>

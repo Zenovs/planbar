@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       shareEnabled: true,
       shareToken: updatedTicket.shareToken,
-      shareUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/share/${updatedTicket.shareToken}`
+      shareUrl: `${process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app'}/share/${updatedTicket.shareToken}`
     });
   } catch (error) {
     console.error('POST /api/share error:', error);
