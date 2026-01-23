@@ -218,13 +218,14 @@ export default function TeamClient() {
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/users?id=${userId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+      const data = await res.json();
       if (res.ok) {
         toast.success('Benutzer gelöscht');
         loadUsers();
         loadTeams();
       } else {
-        toast.error('Fehler beim Löschen');
+        toast.error(data.error || 'Fehler beim Löschen');
       }
     } catch (error) {
       toast.error('Fehler beim Löschen des Benutzers');

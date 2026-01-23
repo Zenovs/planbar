@@ -87,6 +87,61 @@ export async function DELETE(
       );
     }
 
+    // Prüfen ob User Tickets erstellt hat
+    const userWithTickets = await prisma.user.findUnique({
+      where: { id: params.id },
+      include: {
+        _count: {
+          select: { createdTickets: true }
+        }
+      }
+    });
+
+    if (!userWithTickets) {
+      return NextResponse.json(
+        { error: 'Benutzer nicht gefunden' },
+        { status: 404 }
+      );
+    }
+
+    // Vor dem Löschen: Zuweisungen entfernen
+    await prisma.$transaction([
+      // Ticket-Zuweisungen entfernen
+      prisma.ticket.updateMany({
+        where: { assignedToId: params.id },
+        data: { assignedToId: null }
+      }),
+      // SubTask-Zuweisungen entfernen
+      prisma.subTask.updateMany({
+        where: { assigneeId: params.id },
+        data: { assigneeId: null }
+      }),
+      // Team-Zuweisungen werden durch onDelete: Cascade automatisch entfernt
+    ]);
+
+    // Wenn User Tickets erstellt hat, diese einem anderen Admin zuweisen
+    if (userWithTickets._count.createdTickets > 0) {
+      // Finde einen anderen Admin
+      const otherAdmin = await prisma.user.findFirst({
+        where: {
+          id: { not: params.id },
+          role: { in: ['admin', 'Admin', 'administrator', 'Administrator'] }
+        }
+      });
+
+      if (otherAdmin) {
+        await prisma.ticket.updateMany({
+          where: { createdById: params.id },
+          data: { createdById: otherAdmin.id }
+        });
+      } else {
+        return NextResponse.json(
+          { error: 'Benutzer hat Projekte erstellt. Es muss mindestens ein anderer Admin existieren, um diese zu übernehmen.' },
+          { status: 400 }
+        );
+      }
+    }
+
     await prisma.user.delete({
       where: { id: params.id },
     });
