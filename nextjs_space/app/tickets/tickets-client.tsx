@@ -9,11 +9,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { ProjektWithRelations, STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser } from '@/lib/types';
 
-interface ProjektsClientProps {
-  users: SimpleUser[];
+interface Team {
+  id: string;
+  name: string;
+  color: string;
 }
 
-export function ProjektsClient({ users }: ProjektsClientProps) {
+interface ProjektsClientProps {
+  users: SimpleUser[];
+  teams: Team[];
+}
+
+export function ProjektsClient({ users, teams }: ProjektsClientProps) {
   const [tickets, setTickets] = useState<ProjektWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -45,6 +52,12 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
   const [projectManagerFilter, setProjectManagerFilter] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('tickets_projectManagerFilter') || 'all';
+    }
+    return 'all';
+  });
+  const [teamFilter, setTeamFilter] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tickets_teamFilter') || 'all';
     }
     return 'all';
   });
@@ -97,6 +110,12 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      localStorage.setItem('tickets_teamFilter', teamFilter);
+    }
+  }, [teamFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('tickets_sortBy', sortBy);
     }
   }, [sortBy]);
@@ -109,7 +128,7 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
 
   useEffect(() => {
     fetchTickets();
-  }, [search, statusFilter, priorityFilter, assigneeFilter, projectManagerFilter, sortBy, sortOrder]);
+  }, [search, statusFilter, priorityFilter, assigneeFilter, projectManagerFilter, teamFilter, sortBy, sortOrder]);
 
   const fetchTickets = async () => {
     try {
@@ -120,6 +139,7 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
       if (priorityFilter !== 'all') params.append('priority', priorityFilter);
       if (assigneeFilter !== 'all') params.append('assignedTo', assigneeFilter);
       if (projectManagerFilter !== 'all') params.append('projectManagerId', projectManagerFilter);
+      if (teamFilter !== 'all') params.append('teamId', teamFilter);
       params.append('sortBy', sortBy);
       params.append('sortOrder', sortOrder);
 
@@ -134,7 +154,7 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
     }
   };
 
-  const activeFiltersCount = [statusFilter, priorityFilter, assigneeFilter, projectManagerFilter].filter(f => f !== 'all').length;
+  const activeFiltersCount = [statusFilter, priorityFilter, assigneeFilter, projectManagerFilter, teamFilter].filter(f => f !== 'all').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
@@ -214,7 +234,7 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4 sm:mt-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 sm:mt-0">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Status
@@ -250,6 +270,26 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
                     ))}
                   </select>
                 </div>
+
+                {teams.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      🏢 Team
+                    </label>
+                    <select
+                      value={teamFilter}
+                      onChange={(e) => setTeamFilter(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base min-h-[48px]"
+                    >
+                      <option value="all">Alle Teams</option>
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
