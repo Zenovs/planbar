@@ -1,50 +1,108 @@
-# 🎫 planbar - Ticket-Management-System
+# 🎫 planbar - Projekt- & Ressourcenmanagement
 
-**Modernes Ticket-Management für kleine Teams**
+**Umfassendes Projektmanagement-System für Teams**
 
-Ein vollständiges, produktionsreifes Ticket-Management-System gebaut mit Next.js 14, React 18, TypeScript, PostgreSQL und Tailwind CSS.
+Ein vollständiges, produktionsreifes Projektmanagement-System mit Ressourcenplanung, Kanban-Board, Team-Verwaltung und Kalenderplanung. Gebaut mit Next.js 14, React 18, TypeScript, PostgreSQL und Tailwind CSS.
 
-![planbar Preview](nextjs_space/public/og-image.png)
+🌐 **Live Demo**: [planbar-one.vercel.app](https://planbar-one.vercel.app)
 
 ---
 
 ## ✨ Features
 
-### 🎯 Kern-Features
+### 🎯 Projekt-Management
 
-- **📊 Dashboard**: Übersichtliche Statistiken und schneller Zugriff auf wichtige Informationen
-- **🎫 Ticket-Verwaltung**
-  - Tickets erstellen, bearbeiten, löschen
+- **📊 Dashboard**: Übersichtliche Statistiken, Workload-Anzeige und schneller Zugriff auf wichtige Informationen
+- **🎫 Projekt-Verwaltung**
+  - Projekte erstellen, bearbeiten, löschen
   - Status: Offen, In Bearbeitung, Erledigt, Geschlossen
   - Prioritäten: Niedrig, Mittel, Hoch, Kritisch
   - Deadline-Management mit visueller Überfälligkeits-Anzeige
+  - Projektleiter/in zuweisen und bearbeiten
+  - Kategorien mit Farbcodierung
+  - Team-Zuweisung für Projekte
+
+- **✅ Teilaufgaben (Subtasks)**
+  - Unbegrenzte Teilaufgaben pro Projekt
+  - Eigener Status, Beschreibung und Deadline pro Teilaufgabe
+  - Geschätzte Stunden für Ressourcenplanung
   - Zuweisung an Team-Mitglieder
+  - Rich-Text Beschreibungen
+
+### 📋 Ansichten
 
 - **🔍 Listen-Ansicht**
-  - Filterung nach Status, Priorität, zugewiesener Person
+  - Filterung nach Status, Priorität, Kategorie, Team, Projektleiter
   - Volltext-Suche in Titel und Beschreibung
   - Sortierung nach verschiedenen Kriterien
+  - Inline-Bearbeitung von Teilaufgaben
   - Responsive Kartenansicht
 
-- **👥 Team-Verwaltung**
-  - Benutzer hinzufügen, bearbeiten, löschen
-  - Rollen-System (Admin/Mitglied)
-  - Übersicht über offene Tickets pro Person
-  - Passwort-Management
+- **📌 Kanban-Board**
+  - Drag & Drop Funktionalität
+  - Spalten nach Status (Offen, In Bearbeitung, Erledigt)
+  - Detail-Popup beim Klick auf Teilaufgaben
+  - Schnelle Status-Änderungen
+  - Erinnerungs-Funktion mit E-Mail-Benachrichtigung
 
-- **🔐 Authentifizierung**
-  - Email/Passwort-Login
-  - Sichere Passwort-Verschlüsselung mit bcrypt
-  - Session-Management mit NextAuth.js
-  - Geschützte Routen und API-Endpoints
+### 📊 Ressourcenplanung
+
+- **📈 Workload-Übersicht**
+  - Auslastung pro Team-Mitglied in Prozent
+  - Wochenarbeitszeit-Konfiguration pro Benutzer
+  - Berücksichtigung von Abwesenheiten
+  - Überfällige Tasks werden automatisch auf "heute" gerechnet
+  - Visuelle Kapazitätsanzeige (grün/gelb/rot)
+
+- **🏖️ Abwesenheits-Management**
+  - Urlaub, Krankheit, Home-Office etc.
+  - Automatische Anpassung der Kapazität
+  - Übersicht im Ressourcen-Dashboard
+
+### 📅 Kalenderplanung (Admin)
+
+- **Monats- und Wochenansicht**
+- **Deadlines visuell dargestellt**
+- **Nur für Administratoren zugänglich**
+
+### 👥 Team-Verwaltung
+
+- **Teams erstellen und verwalten**
+- **Team-Mitglieder zuweisen**
+- **Team-basierte Filterung in Projektübersicht**
+- **Benutzer mit Rollen (Admin/Mitglied)**
+- **Wochenarbeitszeit pro Benutzer konfigurieren**
+
+### 🔐 Authentifizierung & Berechtigungen
+
+- **Email/Passwort-Login**
+- **Rollenbasierte Zugriffskontrolle (RBAC)**
+  - **Admin**: Vollzugriff auf alle Bereiche (Dashboard, Kalender, Team, Ressourcen)
+  - **Mitglied**: Eingeschränkter Zugriff (nur Projekte und zugewiesene Aufgaben)
+- **Session-Management mit NextAuth.js**
+- **Geschützte Routen und API-Endpoints**
+
+### 📧 E-Mail-Benachrichtigungen
+
+- **Erinnerungs-Funktion für Teilaufgaben**
+- **Automatische Benachrichtigung an zugewiesene Person**
+- **Cooldown-System (10 Minuten) gegen Spam**
+- **Konfigurierbar via SMTP**
+
+### 🔗 Teilen-Funktion
+
+- **Projekte mit externen Personen teilen**
+- **Automatische Link-Generierung**
+- **Kopieren in Zwischenablage**
 
 ### 🎨 Design
 
-- **Modern & Responsiv**: Funktioniert perfekt auf Desktop, Tablet und Mobile
-- **Animationen**: Smooth Framer Motion Animationen für bessere UX
+- **Modern & Responsiv**: Optimiert für Desktop, Tablet und Mobile
+- **Mobile-First**: Spezieller xs-Breakpoint (375px) für kleine Smartphones
+- **Touch-optimiert**: Alle Buttons mindestens 44px für einfache Bedienung
+- **Bottom-Sheets**: Mobile-freundliche Popups auf kleinen Bildschirmen
+- **Animationen**: Smooth Framer Motion Animationen
 - **Gradients & Shadows**: Ansprechendes Design mit Farbverläufen
-- **Intuitive Navigation**: Sticky Header mit schnellem Zugriff auf alle Bereiche
-- **Dark Mode Ready**: Theme-System vorbereitet
 
 ---
 
@@ -120,24 +178,33 @@ planbar/
     ├── app/                      # Next.js App Router
     │   ├── api/                  # API Routes
     │   │   ├── auth/             # NextAuth Endpoints
-    │   │   ├── tickets/          # Ticket CRUD
+    │   │   ├── tickets/          # Projekt CRUD
+    │   │   ├── subtasks/         # Teilaufgaben CRUD
+    │   │   ├── teams/            # Team Management
+    │   │   ├── categories/       # Kategorien CRUD
+    │   │   ├── absences/         # Abwesenheiten CRUD
     │   │   └── users/            # User Management
     │   ├── dashboard/            # Dashboard Seite
-    │   ├── tickets/              # Ticket Pages
-    │   │   ├── [id]/             # Ticket Detail/Edit
-    │   │   └── new/              # Neues Ticket
+    │   ├── tickets/              # Projekt Pages
+    │   │   ├── [id]/             # Projekt Detail/Edit
+    │   │   └── new/              # Neues Projekt
     │   ├── team/                 # Team-Verwaltung
+    │   ├── ressourcen/           # Ressourcenplanung
+    │   ├── kalenderplanung/      # Kalender (Admin)
+    │   ├── settings/             # Einstellungen
     │   ├── layout.tsx            # Root Layout
     │   └── page.tsx              # Landing/Login
     ├── components/               # React Components
     │   ├── ui/                   # shadcn/ui Components
-    │   ├── header.tsx            # Sticky Navigation
-    │   ├── ticket-card.tsx       # Ticket Karte
+    │   ├── header.tsx            # Sticky Navigation (RBAC)
+    │   ├── ticket-card.tsx       # Projekt Karte
+    │   ├── subtask-detail-popup.tsx  # Teilaufgaben-Detail
     │   ├── status-badge.tsx      # Status Badge
     │   └── priority-badge.tsx    # Priorität Badge
     ├── lib/                      # Utilities
     │   ├── auth.ts               # NextAuth Config
     │   ├── db.ts                 # Prisma Client
+    │   ├── email.ts              # E-Mail Service
     │   └── types.ts              # TypeScript Types
     ├── prisma/
     │   └── schema.prisma         # Datenbank Schema
@@ -154,20 +221,58 @@ planbar/
 - `email`: E-Mail-Adresse (unique)
 - `password`: Verschlüsseltes Passwort
 - `name`: Benutzername
-- `role`: Rolle (admin/member)
+- `role`: Rolle (admin/Mitglied)
+- `weeklyHours`: Wochenarbeitszeit (Standard: 40)
 - `createdAt`: Erstellungsdatum
 
-### Ticket
+### Ticket (Projekt)
 - `id`: Eindeutige ID
-- `title`: Ticket-Titel
+- `title`: Projekt-Titel
 - `description`: Detaillierte Beschreibung
 - `status`: Status (open/in_progress/done/closed)
 - `priority`: Priorität (low/medium/high/critical)
 - `deadline`: Fälligkeitsdatum (optional)
 - `assignedToId`: Zugewiesener Benutzer (optional)
+- `projectManagerId`: Projektleiter/in
+- `categoryId`: Kategorie
+- `teamId`: Zugewiesenes Team
 - `createdById`: Ersteller
 - `createdAt`: Erstellungsdatum
 - `updatedAt`: Letzte Änderung
+
+### SubTask (Teilaufgabe)
+- `id`: Eindeutige ID
+- `title`: Teilaufgaben-Titel
+- `description`: Beschreibung
+- `status`: Status (open/in_progress/done)
+- `dueDate`: Fälligkeitsdatum
+- `estimatedHours`: Geschätzte Stunden
+- `assignedToId`: Zugewiesener Benutzer
+- `ticketId`: Zugehöriges Projekt
+
+### Team
+- `id`: Eindeutige ID
+- `name`: Team-Name
+- `color`: Team-Farbe (Hex)
+- `createdAt`: Erstellungsdatum
+
+### TeamMember
+- `id`: Eindeutige ID
+- `userId`: Benutzer-ID
+- `teamId`: Team-ID
+
+### Category (Kategorie)
+- `id`: Eindeutige ID
+- `name`: Kategorie-Name
+- `color`: Farbe (Hex)
+
+### Absence (Abwesenheit)
+- `id`: Eindeutige ID
+- `userId`: Benutzer-ID
+- `startDate`: Startdatum
+- `endDate`: Enddatum
+- `type`: Typ (vacation/sick/other)
+- `description`: Beschreibung
 
 ---
 
@@ -199,42 +304,73 @@ planbar/
 
 ## 📝 Verwendung
 
-### Tickets erstellen
+### Projekte erstellen
 
-1. Navigiere zu "Tickets" im Header
-2. Klicke auf "Neues Ticket"
+1. Navigiere zu "Projekte" im Header
+2. Klicke auf "Neues Projekt"
 3. Fülle das Formular aus:
-   - **Titel**: Kurze Beschreibung des Problems
+   - **Titel**: Kurze Beschreibung des Projekts
    - **Beschreibung**: Detaillierte Information (optional)
-   - **Status**: Aktueller Status des Tickets
-   - **Priorität**: Wichtigkeit des Tickets
-   - **Zugewiesen an**: Team-Mitglied (optional)
+   - **Status**: Aktueller Status
+   - **Priorität**: Wichtigkeit des Projekts
+   - **Projektleiter/in**: Verantwortliche Person
+   - **Team**: Zugewiesenes Team
+   - **Kategorie**: Projekt-Kategorie
    - **Deadline**: Fälligkeitsdatum (optional)
-4. Klicke auf "Ticket erstellen"
+4. **Teilaufgaben hinzufügen** (optional):
+   - Klicke auf "Teilaufgabe hinzufügen"
+   - Gib Titel, Beschreibung, zugewiesene Person und geschätzte Stunden ein
+5. Klicke auf "Projekt erstellen"
 
-### Tickets filtern und suchen
+### Projekte filtern und suchen
 
-1. Gehe zur Tickets-Übersicht
+1. Gehe zur Projekt-Übersicht
 2. Nutze die Filter-Optionen:
    - **Suche**: Volltextsuche in Titel/Beschreibung
-   - **Status**: Filtere nach Ticket-Status
+   - **Status**: Filtere nach Projekt-Status
    - **Priorität**: Filtere nach Priorität
-   - **Zugewiesen an**: Filtere nach Person
+   - **Kategorie**: Filtere nach Kategorie
+   - **Team**: Filtere nach Team (für Mitglieder nur eigene Teams)
+   - **Projektleiter**: Filtere nach Projektleiter/in
    - **Sortierung**: Sortiere nach verschiedenen Kriterien
+
+### Kanban-Board nutzen
+
+1. Öffne ein Projekt und wechsle zur Kanban-Ansicht
+2. **Status ändern**: Ziehe Teilaufgaben zwischen Spalten
+3. **Details anzeigen**: Klicke auf eine Teilaufgabe für das Detail-Popup
+4. **Erinnerung senden**: Klicke auf das Glocken-Icon im Popup
+5. **Bearbeiten**: Klicke auf "Bearbeiten" um zur Listen-Ansicht zu wechseln
+
+### Ressourcen planen
+
+1. Navigiere zu "Ressourcen"
+2. Sieh die Auslastung pro Team-Mitglied
+3. **Auslastungsanzeige**:
+   - Grün: < 80% Auslastung
+   - Gelb: 80-100% Auslastung
+   - Rot: > 100% Überauslastung
+4. Überfällige Aufgaben werden automatisch auf "heute" gerechnet
 
 ### Team verwalten (Admin)
 
 1. Navigiere zu "Team"
-2. **Mitglied hinzufügen**:
+2. **Team erstellen**:
+   - Klicke auf "Neues Team"
+   - Gib Namen und Farbe ein
+3. **Mitglieder verwalten**:
+   - Klicke auf ein Team
+   - Füge Benutzer hinzu oder entferne sie
+4. **Benutzer verwalten**:
    - Klicke auf "Mitglied hinzufügen"
-   - Gib Name, E-Mail und Passwort ein
+   - Gib Name, E-Mail, Passwort und Wochenarbeitszeit ein
    - Wähle Rolle (Mitglied/Admin)
-3. **Mitglied bearbeiten**:
-   - Klicke auf das Edit-Icon
-   - Ändere Name, Rolle oder Passwort
-4. **Mitglied löschen**:
-   - Klicke auf das Papierkorb-Icon
-   - Bestätige die Aktion
+
+### Abwesenheiten verwalten (Admin)
+
+1. Navigiere zu "Ressourcen"
+2. Klicke auf "Abwesenheit hinzufügen"
+3. Wähle Mitarbeiter, Datum und Typ (Urlaub/Krank/Sonstiges)
 
 ---
 
@@ -255,18 +391,48 @@ planbar/
 - `POST /api/auth/signout` - Logout
 - `POST /api/signup` - Registrierung
 
-### Tickets
-- `GET /api/tickets` - Liste aller Tickets (mit Filtern)
-- `POST /api/tickets` - Neues Ticket erstellen
-- `GET /api/tickets/[id]` - Ticket Details
-- `PATCH /api/tickets/[id]` - Ticket aktualisieren
-- `DELETE /api/tickets/[id]` - Ticket löschen
+### Tickets (Projekte)
+- `GET /api/tickets` - Liste aller Projekte (mit Filtern: status, priority, category, team, projectManager)
+- `POST /api/tickets` - Neues Projekt erstellen (inkl. Teilaufgaben)
+- `GET /api/tickets/[id]` - Projekt Details
+- `PATCH /api/tickets/[id]` - Projekt aktualisieren (inkl. Projektleiter)
+- `DELETE /api/tickets/[id]` - Projekt löschen
 
-### Users
+### SubTasks (Teilaufgaben)
+- `GET /api/subtasks` - Liste aller Teilaufgaben
+- `POST /api/subtasks` - Neue Teilaufgabe erstellen
+- `PATCH /api/subtasks/[id]` - Teilaufgabe aktualisieren
+- `DELETE /api/subtasks/[id]` - Teilaufgabe löschen
+- `POST /api/subtasks/[id]/reminder` - E-Mail-Erinnerung senden
+
+### Users (Benutzer)
 - `GET /api/users` - Liste aller Benutzer
 - `POST /api/users` - Neuen Benutzer erstellen (Admin)
 - `PATCH /api/users/[id]` - Benutzer aktualisieren (Admin)
 - `DELETE /api/users/[id]` - Benutzer löschen (Admin)
+
+### Teams
+- `GET /api/teams` - Liste aller Teams
+- `POST /api/teams` - Neues Team erstellen
+- `PATCH /api/teams/[id]` - Team aktualisieren
+- `DELETE /api/teams/[id]` - Team löschen
+- `POST /api/teams/[id]/members` - Mitglied hinzufügen
+- `DELETE /api/teams/[id]/members/[userId]` - Mitglied entfernen
+
+### Categories (Kategorien)
+- `GET /api/categories` - Liste aller Kategorien
+- `POST /api/categories` - Neue Kategorie erstellen
+- `PATCH /api/categories/[id]` - Kategorie aktualisieren
+- `DELETE /api/categories/[id]` - Kategorie löschen
+
+### Absences (Abwesenheiten)
+- `GET /api/absences` - Liste aller Abwesenheiten
+- `POST /api/absences` - Neue Abwesenheit erstellen
+- `PATCH /api/absences/[id]` - Abwesenheit aktualisieren
+- `DELETE /api/absences/[id]` - Abwesenheit löschen
+
+### Resources (Ressourcen)
+- `GET /api/resources` - Workload-Daten pro Benutzer
 
 ---
 
