@@ -1,3 +1,4 @@
 {
-  "version": 2
+  "version": 2,
+  "buildCommand": "cd nextjs_space && prisma generate && (prisma db push --accept-data-loss || true) && node scripts/setup-organizations.js && next build"
 }
