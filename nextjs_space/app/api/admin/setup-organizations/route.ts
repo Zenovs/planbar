@@ -6,27 +6,16 @@ import prisma from '@/lib/db';
 // POST: Organisationen erstellen und Teams zuordnen
 export async function POST(request: NextRequest) {
   try {
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      body = {};
-    }
-    const { action, setupToken } = body;
-    
-    // Auth: entweder Admin-Session oder einmaliges Setup-Token
-    // TEMP: Token-basierter Zugang für einmalige Migration
     const session = await getServerSession(authOptions);
-    const isAdmin = session?.user?.role?.toLowerCase() === 'admin';
-    const hasValidToken = setupToken === 'wireon-schnyder-setup-2024-secure';
     
-    // Für einmaliges Setup: Token erlauben
-    if (!isAdmin && !hasValidToken) {
-      return NextResponse.json({ error: 'Nicht autorisiert - Token: wireon-schnyder-setup-2024-secure erforderlich' }, { status: 401 });
+    // Nur Admin darf das ausführen
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+      return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
     
-    // Bei Token-Zugang: action nicht prüfen
-    if (!hasValidToken && action !== 'setup') {
+    const { action } = await request.json();
+    
+    if (action !== 'setup') {
       return NextResponse.json({ error: 'Ungültige Aktion' }, { status: 400 });
     }
     
@@ -153,14 +142,9 @@ export async function POST(request: NextRequest) {
 // GET: Status der Organisationen abrufen
 export async function GET(request: NextRequest) {
   try {
-    // Token-basierter Zugang für einmalige Migration
-    const token = request.nextUrl.searchParams.get('token');
-    const hasValidToken = token === 'wireon-schnyder-setup-2024-secure';
-    
     const session = await getServerSession(authOptions);
-    const isAdmin = session?.user?.role?.toLowerCase() === 'admin';
     
-    if (!isAdmin && !hasValidToken) {
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
     
