@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Ticket, LogOut, Users, LayoutDashboard, User, Settings, Sparkles, Menu, X, CalendarDays, CheckSquare, Wallet } from 'lucide-react';
+import { Ticket, LogOut, Users, LayoutDashboard, User, Settings, Sparkles, Menu, X, CalendarDays, CheckSquare, Wallet, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   DropdownMenu,
@@ -112,6 +112,12 @@ export function Header() {
                     Profil bearbeiten
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/organisation" className="cursor-pointer">
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Organisation
+                  </Link>
+                </DropdownMenuItem>
                 {['admin', 'Administrator', 'ADMIN', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="cursor-pointer">
@@ -190,6 +196,14 @@ export function Header() {
                 >
                   <User className="w-5 h-5" />
                   <span className="text-base">Profil bearbeiten</span>
+                </Link>
+                <Link 
+                  href="/organisation" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 min-h-[48px]"
+                >
+                  <Building2 className="w-5 h-5" />
+                  <span className="text-base">Organisation</span>
                 </Link>
                 {['admin', 'Administrator', 'ADMIN', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
                   <Link 

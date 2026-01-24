@@ -8,12 +8,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Organisation (Multi-Tenant)
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique  // URL-freundlicher Name
+  description String?
+  logo        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Beziehungen
+  users       User[]
+  teams       Team[]
+  invites     OrgInvite[]
+
+  @@map("organizations")
+}
+
+// Einladungen zu einer Organisation
+model OrgInvite {
+  id             String   @id @default(cuid())
+  email          String
+  token          String   @unique
+  role           String   @default("member")  // Rolle nach Beitritt
+  expiresAt      DateTime
+  accepted       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  invitedById    String?
+  invitedBy      User?    @relation("InvitedUsers", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([email, organizationId])
+  @@map("org_invites")
+}
+
 model User {
   id                 String    @id @default(cuid())
   name               String?
   email              String    @unique
   password           String
   role               String    @default("member")
+  orgRole            String    @default("member")  // Rolle innerhalb der Organisation: "org_admin", "projektleiter", "koordinator", "member"
   emailVerified      Boolean   @default(false)  // E-Mail-Verifizierung
   verificationCode   String?                     // 6-stelliger Verifizierungscode
   verificationExpires DateTime?                  // Ablaufzeit des Codes
@@ -24,6 +63,11 @@ model User {
   emailNotifications Boolean   @default(true)
   emailReportFrequency String? @default("none") // "none", "daily", "weekly"
   desktopNotifications Boolean @default(false)
+  
+  // Organisation
+  organizationId     String?
+  organization       Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  sentInvites        OrgInvite[]   @relation("InvitedUsers")
   
   // Subscription / Bezahlung
   subscriptionType     String    @default("free")    // "free" oder "pay"
@@ -110,6 +154,10 @@ model Team {
   color       String   @default("#3b82f6")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  // Organisation
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   members     User[]
   teamMembers TeamMember[]

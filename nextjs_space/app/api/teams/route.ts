@@ -19,15 +19,25 @@ export async function GET(req: NextRequest) {
     });
     const userIsAdmin = isAdmin(currentUser?.role);
 
-    // Non-admins only see teams they are members of
-    const teams = await prisma.team.findMany({
-      where: userIsAdmin ? {} : {
-        teamMembers: {
-          some: {
-            userId: session.user.id,
-          },
+    // Build where clause: Filter by organization first, then by role
+    const whereClause: any = {};
+    
+    // Filter by organization if user has one
+    if (currentUser?.organizationId) {
+      whereClause.organizationId = currentUser.organizationId;
+    }
+
+    // Non-admins only see teams they are members of (within their org)
+    if (!userIsAdmin) {
+      whereClause.teamMembers = {
+        some: {
+          userId: session.user.id,
         },
-      },
+      };
+    }
+
+    const teams = await prisma.team.findMany({
+      where: whereClause,
       include: {
         members: {
           select: {
@@ -104,6 +114,8 @@ export async function POST(req: NextRequest) {
         name,
         description,
         color: color || '#3b82f6',
+        // Team automatisch der Organisation des Users zuordnen
+        ...(user?.organizationId && { organizationId: user.organizationId }),
       },
       include: {
         members: true,
