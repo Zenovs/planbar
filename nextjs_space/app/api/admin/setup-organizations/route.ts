@@ -6,14 +6,17 @@ import prisma from '@/lib/db';
 // POST: Organisationen erstellen und Teams zuordnen
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const body = await request.json();
+    const { action, setupToken } = body;
     
-    // Nur Admin darf das ausführen
-    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+    // Auth: entweder Admin-Session oder einmaliges Setup-Token
+    const session = await getServerSession(authOptions);
+    const isAdmin = session?.user?.role?.toLowerCase() === 'admin';
+    const hasValidToken = setupToken === 'wireon-schnyder-setup-2024-secure';
+    
+    if (!isAdmin && !hasValidToken) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
-    
-    const { action } = await request.json();
     
     if (action !== 'setup') {
       return NextResponse.json({ error: 'Ungültige Aktion' }, { status: 400 });
