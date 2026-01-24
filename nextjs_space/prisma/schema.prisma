@@ -32,7 +32,7 @@ model User {
   stripeCustomerId     String?                        // Stripe Customer ID
   stripeSubscriptionId String?                        // Stripe Subscription ID
   subscriptionStatus   String    @default("active")  // "active", "trialing", "expired", "canceled"
-  dailyRate            Float     @default(0.5)       // CHF pro Tag (Standard: 0.5 CHF)
+  dailyRate            Float     @default(0.15)      // CHF pro Monat pro User (Standard: 0.15 CHF)
   
   // Pensum / Arbeitszeit
   weeklyHours        Float     @default(42)    // Soll-Stunden pro Woche

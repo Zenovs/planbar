@@ -184,7 +184,7 @@ export default function KostenClient() {
       const res = await fetch('/api/admin/subscriptions', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, subscriptionType, dailyRate: 0.5 }),
+        body: JSON.stringify({ userId, subscriptionType, dailyRate: 0.15 }),
       });
 
       if (res.ok) {

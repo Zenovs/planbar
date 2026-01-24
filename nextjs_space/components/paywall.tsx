@@ -173,12 +173,12 @@ export default function Paywall({ children }: PaywallProps) {
           <div className="text-center">
             <div className="flex items-baseline justify-center gap-1">
               <span className="text-4xl font-bold text-gray-900">
-                CHF {subscriptionStatus?.dailyRate?.toFixed(2) || '0.50'}
+                CHF {subscriptionStatus?.dailyRate?.toFixed(2) || '0.15'}
               </span>
-              <span className="text-gray-500">/Tag</span>
+              <span className="text-gray-500">/Monat</span>
             </div>
             <p className="text-gray-500 mt-1">
-              = CHF {subscriptionStatus?.monthlyRate?.toFixed(2) || '15.00'} pro Monat
+              pro User
             </p>
           </div>
 

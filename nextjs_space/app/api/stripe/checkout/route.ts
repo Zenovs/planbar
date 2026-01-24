@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Monatspreis berechnen (dailyRate * 30 Tage)
-    const monthlyPriceInCents = calculateMonthlyPrice(user.dailyRate || 0.5);
+    // Monatspreis berechnen (monthlyRate direkt)
+    const monthlyPriceInCents = calculateMonthlyPrice(user.dailyRate || 0.15);
 
     // Checkout Session erstellen
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
             currency: 'chf',
             product_data: {
               name: 'Planbar Pro',
-              description: `Monatliches Abonnement (CHF ${user.dailyRate || 0.5}/Tag)`,
+              description: `Monatliches Abonnement (CHF ${user.dailyRate || 0.15}/Monat)`,
             },
             unit_amount: monthlyPriceInCents,
             recurring: {

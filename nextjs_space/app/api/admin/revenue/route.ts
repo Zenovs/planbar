@@ -48,12 +48,12 @@ export async function GET(request: NextRequest) {
 
     const freeUsers = users.filter(u => u.subscriptionType === 'free');
 
-    // Monatliche Einnahmen berechnen (dailyRate * 30)
-    const monthlyRevenue = payingUsers.reduce((sum, u) => sum + (u.dailyRate || 0.5) * 30, 0);
+    // Monatliche Einnahmen berechnen (monthlyRate direkt, Standard: 0.15 CHF/Monat)
+    const monthlyRevenue = payingUsers.reduce((sum, u) => sum + (u.dailyRate || 0.15), 0);
     const yearlyRevenue = monthlyRevenue * 12;
 
     // Potenzielle Einnahmen (Trial-User)
-    const potentialMonthly = trialUsers.reduce((sum, u) => sum + (u.dailyRate || 0.5) * 30, 0);
+    const potentialMonthly = trialUsers.reduce((sum, u) => sum + (u.dailyRate || 0.15), 0);
 
     return NextResponse.json({
       totalUsers: users.length,
@@ -63,9 +63,9 @@ export async function GET(request: NextRequest) {
       monthlyRevenue,
       yearlyRevenue,
       potentialMonthly,
-      averageDailyRate: payingUsers.length > 0 
-        ? payingUsers.reduce((sum, u) => sum + (u.dailyRate || 0.5), 0) / payingUsers.length 
-        : 0.5,
+      averageMonthlyRate: payingUsers.length > 0 
+        ? payingUsers.reduce((sum, u) => sum + (u.dailyRate || 0.15), 0) / payingUsers.length 
+        : 0.15,
     });
   } catch (error) {
     console.error('Error fetching revenue:', error);

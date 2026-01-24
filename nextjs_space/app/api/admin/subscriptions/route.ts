@@ -74,7 +74,7 @@ export async function PUT(request: NextRequest) {
     // Update-Daten vorbereiten
     const updateData: any = {
       subscriptionType,
-      dailyRate: dailyRate || 0.5,
+      dailyRate: dailyRate || 0.15,
     };
 
     // Wenn auf "pay" gewechselt wird, Trial starten (falls nicht schon gestartet)

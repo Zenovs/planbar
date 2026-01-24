@@ -18,15 +18,14 @@ export function isStripeConfigured(): boolean {
 // Product & Price configuration for Planbar
 export const PLANBAR_CONFIG = {
   productName: 'Planbar Pro',
-  dailyRate: 0.5, // CHF pro Tag (Standard)
+  monthlyRate: 0.15, // CHF pro Monat pro User (Standard)
   trialDays: 14, // 14-Tage Trial
   currency: 'chf',
 };
 
-// Calculate monthly price based on daily rate
-export function calculateMonthlyPrice(dailyRate: number): number {
-  // ~30 Tage pro Monat
-  return Math.round(dailyRate * 30 * 100); // in Rappen/Cents
+// Calculate monthly price in Rappen/Cents for Stripe
+export function calculateMonthlyPrice(monthlyRate: number): number {
+  return Math.round(monthlyRate * 100); // in Rappen/Cents
 }
 
 // Check if trial has expired

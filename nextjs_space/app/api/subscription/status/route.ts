@@ -60,8 +60,8 @@ export async function GET(request: NextRequest) {
       remainingTrialDays,
       hasActiveSubscription: !!user.stripeSubscriptionId,
       requiresPayment,
-      dailyRate: user.dailyRate,
-      monthlyRate: (user.dailyRate || 0.5) * 30,
+      dailyRate: user.dailyRate, // Note: This is now actually the monthly rate
+      monthlyRate: user.dailyRate || 0.15,
     });
   } catch (error) {
     console.error('Error fetching subscription status:', error);
