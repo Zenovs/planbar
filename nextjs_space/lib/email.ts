@@ -94,6 +94,101 @@ export async function sendEmail({
 }
 
 // Email templates
+
+// Verifizierungs-E-Mail bei Registrierung
+export async function sendVerificationEmail(
+  userEmail: string,
+  userName: string,
+  verificationCode: string
+) {
+  const companyName = process.env.COMPANY_NAME || 'planbar';
+  const primaryColor = process.env.PRIMARY_COLOR || '#3b82f6';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(to right, ${primaryColor}, #8b5cf6); padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">${companyName}</h1>
+      </div>
+      <div style="padding: 30px; background-color: #f9fafb;">
+        <h2 style="color: #1f2937;">E-Mail-Adresse bestätigen</h2>
+        <p style="color: #4b5563; font-size: 16px;">
+          Hallo ${userName},
+        </p>
+        <p style="color: #4b5563; font-size: 16px;">
+          Vielen Dank für Ihre Registrierung bei ${companyName}! Um Ihren Account zu aktivieren, 
+          geben Sie bitte den folgenden Verifizierungscode ein:
+        </p>
+        <div style="background-color: white; padding: 30px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px dashed ${primaryColor};">
+          <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">Ihr Verifizierungscode:</p>
+          <h1 style="margin: 0; color: ${primaryColor}; font-size: 42px; letter-spacing: 8px; font-family: monospace;">${verificationCode}</h1>
+        </div>
+        <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="color: #92400e; margin: 0; font-size: 14px;">
+            ⏰ Dieser Code ist <strong>15 Minuten</strong> gültig.
+          </p>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">
+          Falls Sie sich nicht bei ${companyName} registriert haben, können Sie diese E-Mail ignorieren.
+        </p>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9ca3af; font-size: 14px;">
+        <p>${companyName} - Sichere Registrierung</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: userEmail,
+    subject: `${companyName} - Verifizierungscode: ${verificationCode}`,
+    html,
+  });
+}
+
+// Code erneut senden
+export async function sendVerificationResendEmail(
+  userEmail: string,
+  userName: string,
+  verificationCode: string
+) {
+  const companyName = process.env.COMPANY_NAME || 'planbar';
+  const primaryColor = process.env.PRIMARY_COLOR || '#3b82f6';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(to right, ${primaryColor}, #8b5cf6); padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">${companyName}</h1>
+      </div>
+      <div style="padding: 30px; background-color: #f9fafb;">
+        <h2 style="color: #1f2937;">Neuer Verifizierungscode</h2>
+        <p style="color: #4b5563; font-size: 16px;">
+          Hallo ${userName},
+        </p>
+        <p style="color: #4b5563; font-size: 16px;">
+          Sie haben einen neuen Verifizierungscode angefordert. Hier ist er:
+        </p>
+        <div style="background-color: white; padding: 30px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px dashed ${primaryColor};">
+          <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">Ihr neuer Verifizierungscode:</p>
+          <h1 style="margin: 0; color: ${primaryColor}; font-size: 42px; letter-spacing: 8px; font-family: monospace;">${verificationCode}</h1>
+        </div>
+        <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="color: #92400e; margin: 0; font-size: 14px;">
+            ⏰ Dieser Code ist <strong>15 Minuten</strong> gültig. Ihr alter Code ist ungültig.
+          </p>
+        </div>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9ca3af; font-size: 14px;">
+        <p>${companyName} - Sichere Registrierung</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: userEmail,
+    subject: `${companyName} - Neuer Verifizierungscode: ${verificationCode}`,
+    html,
+  });
+}
+
 export async function sendTicketAssignedEmail(
   assigneeEmail: string,
   assigneeName: string,

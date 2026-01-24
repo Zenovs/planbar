@@ -21,7 +21,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: credentials.email.toLowerCase().trim() },
         });
 
         if (!user?.password) {
@@ -32,6 +32,20 @@ export const authOptions: NextAuthOptions = {
 
         if (!isValid) {
           throw new Error('Falsches Passwort');
+        }
+
+        // Prüfen ob E-Mail verifiziert ist
+        // Bestehende Benutzer (ohne verificationCode) werden automatisch als verifiziert betrachtet
+        if (!user.emailVerified && user.verificationCode) {
+          throw new Error('E-Mail nicht verifiziert. Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.');
+        }
+        
+        // Wenn Benutzer nicht verifiziert ist aber keinen Code hat (Altbestand), automatisch verifizieren
+        if (!user.emailVerified && !user.verificationCode) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { emailVerified: true },
+          });
         }
 
         return {
