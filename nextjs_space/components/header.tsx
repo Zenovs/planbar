@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Ticket, LogOut, Users, LayoutDashboard, User, Settings, Sparkles, Menu, X, CalendarDays, CheckSquare } from 'lucide-react';
+import { Ticket, LogOut, Users, LayoutDashboard, User, Settings, Sparkles, Menu, X, CalendarDays, CheckSquare, Wallet } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   DropdownMenu,
@@ -37,6 +37,8 @@ export function Header() {
     ...(!isMitglied ? [{ href: '/team', label: 'Team', icon: Users }] : []),
     // Kalender nur für Admins sichtbar
     ...(isAdmin ? [{ href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays }] : []),
+    // Kosten nur für Admins sichtbar
+    ...(isAdmin ? [{ href: '/kosten', label: 'Kosten', icon: Wallet }] : []),
   ];
 
   return (

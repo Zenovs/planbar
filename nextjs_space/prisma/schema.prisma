@@ -310,3 +310,32 @@ model Absence {
 
   @@map("absences")
 }
+
+// Ausgaben für Kosten-Dashboard
+model Expense {
+  id          String   @id @default(cuid())
+  title       String
+  amount      Float                          // Betrag in CHF
+  type        String                         // "domain", "server", "software", "other"
+  recurring   Boolean  @default(false)       // Wiederkehrende Kosten?
+  interval    String?                        // "monthly", "yearly"
+  startDate   DateTime @default(now())       // Ab wann
+  endDate     DateTime?                      // Bis wann (null = laufend)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("expenses")
+}
+
+// App-Einstellungen (z.B. Stripe-Konfiguration)
+model AppSettings {
+  id                      String   @id @default(cuid())
+  stripeConfigured        Boolean  @default(false)
+  stripePublishableKey    String?
+  stripeWebhookConfigured Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@map("app_settings")
+}

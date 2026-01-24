@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import SubscriptionManager from '@/components/subscription-manager';
 
 const ROLES = [
   { name: 'Mitglied', value: 'member', description: 'Kann eigene Tasks sehen und bearbeiten' },
@@ -350,12 +349,7 @@ export default function SettingsClient({ isAdmin = true }: SettingsClientProps) 
               )}
             </div>
 
-            {/* Subscription Manager - nur für Admins */}
-            {isAdmin && (
-              <div className="mt-8">
-                <SubscriptionManager />
-              </div>
-            )}
+
         </div>
       </motion.div>
     </div>
