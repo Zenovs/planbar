@@ -120,15 +120,28 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
   const goToToday = () => setCurrentDate(new Date());
 
   // Berechne Stunden pro Tag für einen SubTask
-  const calculateHoursPerDay = (task: SubTask): { hoursPerDay: number; startDate: Date; endDate: Date } => {
+  const calculateHoursPerDay = (task: SubTask): { hoursPerDay: number; startDate: Date; endDate: Date; isOverdue: boolean } => {
     if (!task.dueDate || !task.estimatedHours) {
-      return { hoursPerDay: 0, startDate: new Date(), endDate: new Date() };
+      return { hoursPerDay: 0, startDate: new Date(), endDate: new Date(), isOverdue: false };
     }
     
     const today = startOfDay(new Date());
     const dueDate = startOfDay(new Date(task.dueDate));
     
-    // Start ist heute oder früher wenn deadline schon begonnen
+    // Wenn Task überfällig ist (dueDate liegt vor heute)
+    const isOverdue = dueDate < today;
+    
+    if (isOverdue) {
+      // Überfällige Tasks: Alle Stunden werden auf HEUTE verrechnet
+      return { 
+        hoursPerDay: task.estimatedHours, 
+        startDate: today, 
+        endDate: today,
+        isOverdue: true 
+      };
+    }
+    
+    // Normale Tasks: Start ist heute, Ende ist dueDate
     const startDate = today;
     const endDate = dueDate;
     
@@ -148,7 +161,7 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
     
     const hoursPerDay = task.estimatedHours / workDays;
     
-    return { hoursPerDay, startDate, endDate };
+    return { hoursPerDay, startDate, endDate, isOverdue: false };
   };
 
   // Berechne Stunden für eine bestimmte Woche
