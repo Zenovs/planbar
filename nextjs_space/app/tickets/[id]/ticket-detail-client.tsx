@@ -96,12 +96,14 @@ interface Projekt {
   priority: string;
   assignedToId: string | null;
   teamId: string | null;
+  projectManagerId: string | null;
   shareToken: string | null;
   shareEnabled: boolean;
   estimatedHours?: number | null;
   assignedTo?: User | null;
   createdBy?: User | null;
   team?: Team | null;
+  projectManager?: User | null;
   subTasks?: SubTask[];
 }
 
@@ -308,6 +310,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
     priority: ticket.priority,
     assignedToId: ticket.assignedToId || 'none',
     teamId: ticket.teamId || 'none',
+    projectManagerId: ticket.projectManagerId || 'none',
     estimatedHours: ticket.estimatedHours?.toString() || '',
   });
 
@@ -349,6 +352,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
           priority: formData.priority,
           assignedToId: formData.assignedToId === 'none' ? null : formData.assignedToId,
           teamId: formData.teamId === 'none' ? null : formData.teamId,
+          projectManagerId: formData.projectManagerId === 'none' ? null : formData.projectManagerId,
           estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : null,
         }),
       });
@@ -1515,6 +1519,33 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                   {isEditing && (
                     <p className="text-xs text-muted-foreground mt-1">
                       Teammitglieder können das Projekt sehen
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-sm flex items-center gap-1">
+                    👤 Projektleiter/in
+                  </Label>
+                  {isEditing ? (
+                    <Select
+                      value={formData.projectManagerId}
+                      onValueChange={(value) => setFormData({ ...formData, projectManagerId: value })}
+                    >
+                      <SelectTrigger className="mt-1 min-h-[44px]">
+                        <SelectValue placeholder="Kein Projektleiter" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Kein Projektleiter</SelectItem>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name || user.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="mt-1 text-sm">
+                      {ticket.projectManager?.name || ticket.projectManager?.email || 'Kein Projektleiter'}
                     </p>
                   )}
                 </div>
