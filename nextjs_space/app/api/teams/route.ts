@@ -13,6 +13,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const filterOrgId = searchParams.get('organizationId');
+
     // Check if user is admin - only admins see all teams
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -22,8 +25,11 @@ export async function GET(req: NextRequest) {
     // Build where clause: Filter by organization first, then by role
     const whereClause: any = {};
     
-    // Filter by organization if user has one
-    if (currentUser?.organizationId) {
+    // Admin kann nach beliebiger Organisation filtern
+    if (userIsAdmin && filterOrgId) {
+      whereClause.organizationId = filterOrgId;
+    } else if (currentUser?.organizationId) {
+      // Normaler User sieht nur seine eigene Organisation
       whereClause.organizationId = currentUser.organizationId;
     }
 

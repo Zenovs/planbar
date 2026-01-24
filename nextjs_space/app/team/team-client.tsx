@@ -18,6 +18,7 @@ import {
   Clock,
   Percent,
   Building2,
+  Crown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -83,10 +84,37 @@ interface Team {
   };
 }
 
+interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  users: {
+    id: string;
+    name: string | null;
+    email: string;
+    orgRole: string;
+    role: string;
+    image: string | null;
+  }[];
+  teams: {
+    id: string;
+    name: string;
+    color: string;
+    _count: { members: number };
+  }[];
+  _count: {
+    users: number;
+    teams: number;
+  };
+}
+
 export default function TeamClient() {
   const { data: session, status } = useSession();
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Modals
@@ -151,9 +179,25 @@ export default function TeamClient() {
     loadTeams();
   }, []);
 
-  const loadUsers = async () => {
+  // Lade Organisationen nur für Admins
+  useEffect(() => {
+    if (isAdmin) {
+      loadOrganizations();
+    }
+  }, [isAdmin]);
+
+  // Wenn sich die ausgewählte Organisation ändert, Teams und Users neu laden
+  useEffect(() => {
+    if (isAdmin && selectedOrgId) {
+      loadTeams(selectedOrgId);
+      loadUsers(selectedOrgId);
+    }
+  }, [selectedOrgId, isAdmin]);
+
+  const loadUsers = async (orgId?: string) => {
     try {
-      const res = await fetch('/api/users');
+      const url = orgId ? `/api/users?organizationId=${orgId}` : '/api/users';
+      const res = await fetch(url);
       const data = await res.json();
       if (res.ok) {
         setUsers(data.users || []);
@@ -163,15 +207,32 @@ export default function TeamClient() {
     }
   };
 
-  const loadTeams = async () => {
+  const loadTeams = async (orgId?: string) => {
     try {
-      const res = await fetch('/api/teams');
+      const url = orgId ? `/api/teams?organizationId=${orgId}` : '/api/teams';
+      const res = await fetch(url);
       const data = await res.json();
       if (res.ok) {
         setTeams(data.teams || []);
       }
     } catch (error) {
       console.error('Error loading teams:', error);
+    }
+  };
+
+  const loadOrganizations = async () => {
+    try {
+      const res = await fetch('/api/organizations?all=true');
+      const data = await res.json();
+      if (res.ok && data.organizations) {
+        setOrganizations(data.organizations);
+        // Automatisch die erste Organisation auswählen wenn verfügbar
+        if (data.organizations.length > 0 && !selectedOrgId) {
+          setSelectedOrgId(data.organizations[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading organizations:', error);
     }
   };
 
@@ -463,6 +524,64 @@ export default function TeamClient() {
               </div>
             )}
           </div>
+
+          {/* Organisation Auswahl - nur für Admins */}
+          {isAdmin && organizations.length > 0 && (
+            <div className="mb-6 sm:mb-8">
+              <Card className="border-l-4 border-l-yellow-500">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Crown className="w-5 h-5 text-yellow-600" />
+                      <Label className="text-base font-semibold">Organisation:</Label>
+                    </div>
+                    <Select
+                      value={selectedOrgId || ''}
+                      onValueChange={(value) => setSelectedOrgId(value)}
+                    >
+                      <SelectTrigger className="w-full sm:w-[300px] min-h-[44px]">
+                        <SelectValue placeholder="Organisation auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {organizations.map((org) => (
+                          <SelectItem key={org.id} value={org.id}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white text-xs font-bold">
+                                {org.name.charAt(0).toUpperCase()}
+                              </div>
+                              <span>{org.name}</span>
+                              <span className="text-gray-400 text-sm">
+                                ({org._count.teams} Teams, {org._count.users} Mitglieder)
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedOrgId && (
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        {(() => {
+                          const selectedOrg = organizations.find(o => o.id === selectedOrgId);
+                          return selectedOrg ? (
+                            <>
+                              <span className="flex items-center gap-1">
+                                <Building2 className="w-4 h-4 text-orange-500" />
+                                <strong>{selectedOrg._count.teams}</strong> Teams
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Users className="w-4 h-4 text-yellow-600" />
+                                <strong>{selectedOrg._count.users}</strong> Mitglieder
+                              </span>
+                            </>
+                          ) : null;
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* Teams Section */}
           {teams.length > 0 && (
@@ -940,3 +1059,4 @@ export default function TeamClient() {
     </div>
   );
 }
+

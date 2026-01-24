@@ -12,7 +12,7 @@ function createSlug(name: string): string {
     .substring(0, 50);
 }
 
-// GET: Organisation des aktuellen Users abrufen
+// GET: Organisation des aktuellen Users abrufen (oder alle für Admins)
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -22,6 +22,56 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const fetchAll = searchParams.get('all') === 'true';
+
+    // Admin kann alle Organisationen abrufen
+    if (fetchAll && user.role === 'admin') {
+      const organizations = await prisma.organization.findMany({
+        include: {
+          users: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              orgRole: true,
+              role: true,
+              image: true,
+            },
+          },
+          teams: {
+            select: {
+              id: true,
+              name: true,
+              color: true,
+              _count: { select: { members: true } },
+            },
+          },
+          _count: {
+            select: {
+              users: true,
+              teams: true,
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+      });
+
+      return NextResponse.json({
+        organizations,
+        isAdmin: true,
+      });
+    }
+
+    // Standard: Nur eigene Organisation
+    const userWithOrg = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: {
         organization: {
@@ -59,14 +109,10 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
-    }
-
     return NextResponse.json({
-      organization: user.organization,
-      orgRole: user.orgRole,
-      isOrgAdmin: user.orgRole === 'org_admin' || user.role === 'admin',
+      organization: userWithOrg?.organization,
+      orgRole: userWithOrg?.orgRole,
+      isOrgAdmin: userWithOrg?.orgRole === 'org_admin' || userWithOrg?.role === 'admin',
     });
   } catch (error) {
     console.error('Error fetching organization:', error);

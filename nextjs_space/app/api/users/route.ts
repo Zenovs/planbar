@@ -14,18 +14,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const filterOrgId = searchParams.get('organizationId');
+
     // Hole den aktuellen User mit Team-Info
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { role: true, teamId: true },
+      select: { role: true, teamId: true, organizationId: true },
     });
+
+    const userIsAdmin = isAdmin(currentUser?.role);
 
     // Admins und Projektleiter sehen alle User
     // User ohne Team sehen nur sich selbst
     // User mit Team sehen nur Teammitglieder
-    let whereClause = {};
+    let whereClause: any = {};
     
-    if (!canManageUsers(currentUser?.role)) {
+    // Admin kann nach beliebiger Organisation filtern
+    if (userIsAdmin && filterOrgId) {
+      whereClause.organizationId = filterOrgId;
+    } else if (!canManageUsers(currentUser?.role)) {
       if (!currentUser?.teamId) {
         // User ohne Team sieht nur sich selbst
         whereClause = { id: session.user.id };
@@ -33,6 +41,9 @@ export async function GET(req: NextRequest) {
         // User mit Team sieht nur Teammitglieder
         whereClause = { teamId: currentUser.teamId };
       }
+    } else if (currentUser?.organizationId) {
+      // Nicht-Admin Projektleiter sieht nur seine Organisation
+      whereClause.organizationId = currentUser.organizationId;
     }
 
     const users = await prisma.user.findMany({
