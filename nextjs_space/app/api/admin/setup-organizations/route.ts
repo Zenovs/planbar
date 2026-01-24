@@ -145,9 +145,14 @@ export async function POST(request: NextRequest) {
 // GET: Status der Organisationen abrufen
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    // Token-basierter Zugang für einmalige Migration
+    const token = request.nextUrl.searchParams.get('token');
+    const hasValidToken = token === 'wireon-schnyder-setup-2024-secure';
     
-    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+    const session = await getServerSession(authOptions);
+    const isAdmin = session?.user?.role?.toLowerCase() === 'admin';
+    
+    if (!isAdmin && !hasValidToken) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
     
