@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, Trash2, Save, X, Users, Shield, Clock } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Users, Shield, Clock, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import SubscriptionManager from '@/components/subscription-manager';
 
 const ROLES = [
   { name: 'Mitglied', value: 'member', description: 'Kann eigene Tasks sehen und bearbeiten' },
@@ -39,17 +41,27 @@ interface SettingsClientProps {
 }
 
 export default function SettingsClient({ isAdmin = true }: SettingsClientProps) {
+  const searchParams = useSearchParams();
+  const paymentStatus = searchParams.get('payment');
+  
   // Users State
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editUserData, setEditUserData] = useState({ role: '', teamId: '', weeklyHours: 42, workloadPercent: 100 });
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
 
   // Load data
   useEffect(() => {
     loadUsers();
     loadTeams();
-  }, []);
+    
+    // Show payment success message
+    if (paymentStatus === 'success') {
+      setShowPaymentSuccess(true);
+      toast.success('Zahlung erfolgreich! Ihr Abonnement ist jetzt aktiv.');
+    }
+  }, [paymentStatus]);
 
   async function loadUsers() {
     try {
@@ -140,6 +152,27 @@ export default function SettingsClient({ isAdmin = true }: SettingsClientProps) 
       >
         <h1 className="text-3xl font-bold mb-2">Einstellungen</h1>
         <p className="text-muted-foreground mb-8">Benutzer und Teams verwalten</p>
+
+        {/* Payment Success Banner */}
+        {showPaymentSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-center gap-3"
+          >
+            <CheckCircle className="w-6 h-6 text-green-600" />
+            <div>
+              <p className="font-medium text-green-800">Zahlung erfolgreich!</p>
+              <p className="text-sm text-green-600">Ihr Planbar Pro Abonnement ist jetzt aktiv.</p>
+            </div>
+            <button
+              onClick={() => setShowPaymentSuccess(false)}
+              className="ml-auto text-green-600 hover:text-green-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </motion.div>
+        )}
 
         <div className="space-y-6">
             <Card>
@@ -316,6 +349,13 @@ export default function SettingsClient({ isAdmin = true }: SettingsClientProps) 
                 ))
               )}
             </div>
+
+            {/* Subscription Manager - nur für Admins */}
+            {isAdmin && (
+              <div className="mt-8">
+                <SubscriptionManager />
+              </div>
+            )}
         </div>
       </motion.div>
     </div>

@@ -3,6 +3,7 @@
 import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider } from '@/components/theme-provider';
 import { useEffect, useState } from 'react';
+import Paywall from '@/components/paywall';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -23,7 +24,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        {children}
+        <Paywall>
+          {children}
+        </Paywall>
       </ThemeProvider>
     </SessionProvider>
   );

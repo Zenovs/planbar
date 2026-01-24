@@ -25,6 +25,15 @@ model User {
   emailReportFrequency String? @default("none") // "none", "daily", "weekly"
   desktopNotifications Boolean @default(false)
   
+  // Subscription / Bezahlung
+  subscriptionType     String    @default("free")    // "free" oder "pay"
+  trialStartDate       DateTime?                      // Beginn der 14-Tage Trial
+  trialEndDate         DateTime?                      // Ende der Trial
+  stripeCustomerId     String?                        // Stripe Customer ID
+  stripeSubscriptionId String?                        // Stripe Subscription ID
+  subscriptionStatus   String    @default("active")  // "active", "trialing", "expired", "canceled"
+  dailyRate            Float     @default(0.5)       // CHF pro Tag (Standard: 0.5 CHF)
+  
   // Pensum / Arbeitszeit
   weeklyHours        Float     @default(42)    // Soll-Stunden pro Woche
   workloadPercent    Int       @default(100)   // Pensum in Prozent (z.B. 80% = 33.6h)
