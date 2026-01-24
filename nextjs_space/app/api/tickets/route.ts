@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status');
     const priority = searchParams.get('priority');
     const assignedToId = searchParams.get('assignedTo');
+    const projectManagerId = searchParams.get('projectManagerId');
     const teamId = searchParams.get('teamId');
     const search = searchParams.get('search');
     const sortBy = searchParams.get('sortBy') || 'createdAt';
@@ -76,6 +77,10 @@ export async function GET(req: NextRequest) {
       where.assignedToId = assignedToId;
     }
 
+    if (projectManagerId && projectManagerId !== 'all') {
+      where.projectManagerId = projectManagerId;
+    }
+
     if (search) {
       // Wenn bereits eine OR-Bedingung existiert (für Team-Filterung),
       // muss die Suche mit AND verknüpft werden
@@ -113,6 +118,13 @@ export async function GET(req: NextRequest) {
           },
         },
         createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        projectManager: {
           select: {
             id: true,
             name: true,
@@ -164,7 +176,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, status, priority, assignedToId, teamId, templateId, subTasks, estimatedHours } = body;
+    const { title, description, status, priority, assignedToId, projectManagerId, teamId, templateId, subTasks, estimatedHours } = body;
     
     if (!title) {
       return NextResponse.json(
@@ -205,6 +217,7 @@ export async function POST(req: NextRequest) {
       status: status || 'open',
       priority: priority || 'medium',
       assignedToId: assignedToId || null,
+      projectManagerId: projectManagerId || null,
       teamId: finalTeamId || null,
       createdById: session.user.id,
       estimatedHours: estimatedHours || null,

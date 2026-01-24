@@ -42,6 +42,12 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
     }
     return 'all';
   });
+  const [projectManagerFilter, setProjectManagerFilter] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tickets_projectManagerFilter') || 'all';
+    }
+    return 'all';
+  });
   const [sortBy, setSortBy] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('tickets_sortBy') || 'createdAt';
@@ -85,6 +91,12 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      localStorage.setItem('tickets_projectManagerFilter', projectManagerFilter);
+    }
+  }, [projectManagerFilter]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('tickets_sortBy', sortBy);
     }
   }, [sortBy]);
@@ -97,7 +109,7 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
 
   useEffect(() => {
     fetchTickets();
-  }, [search, statusFilter, priorityFilter, assigneeFilter, sortBy, sortOrder]);
+  }, [search, statusFilter, priorityFilter, assigneeFilter, projectManagerFilter, sortBy, sortOrder]);
 
   const fetchTickets = async () => {
     try {
@@ -107,6 +119,7 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (priorityFilter !== 'all') params.append('priority', priorityFilter);
       if (assigneeFilter !== 'all') params.append('assignedTo', assigneeFilter);
+      if (projectManagerFilter !== 'all') params.append('projectManagerId', projectManagerFilter);
       params.append('sortBy', sortBy);
       params.append('sortOrder', sortOrder);
 
@@ -121,7 +134,7 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
     }
   };
 
-  const activeFiltersCount = [statusFilter, priorityFilter, assigneeFilter].filter(f => f !== 'all').length;
+  const activeFiltersCount = [statusFilter, priorityFilter, assigneeFilter, projectManagerFilter].filter(f => f !== 'all').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
@@ -201,7 +214,7 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 sm:mt-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4 sm:mt-0">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Status
@@ -233,6 +246,24 @@ export function ProjektsClient({ users }: ProjektsClientProps) {
                     {PRIORITY_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    👤 Projektleiter/in
+                  </label>
+                  <select
+                    value={projectManagerFilter}
+                    onChange={(e) => setProjectManagerFilter(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base min-h-[48px]"
+                  >
+                    <option value="all">Alle</option>
+                    {users?.map((user) => (
+                      <option key={user?.id} value={user?.id || ''}>
+                        {user?.name || user?.email}
                       </option>
                     ))}
                   </select>

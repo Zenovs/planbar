@@ -39,6 +39,7 @@ model User {
   sessions         Session[]
   createdTickets   Ticket[]  @relation("CreatedTickets")
   assignedTickets  Ticket[]  @relation("AssignedTickets")
+  managedTickets   Ticket[]  @relation("ManagedTickets")
   assignedSubTasks SubTask[] @relation("AssignedSubTasks")
   ticketAssignees  TicketAssignee[]
   subTaskAssignees SubTaskAssignee[]
@@ -139,6 +140,9 @@ model Ticket {
 
   assignedToId String?
   assignedTo   User?   @relation("AssignedTickets", fields: [assignedToId], references: [id])
+
+  projectManagerId String?
+  projectManager   User?   @relation("ManagedTickets", fields: [projectManagerId], references: [id])
 
   teamId String?
   team   Team?   @relation(fields: [teamId], references: [id])

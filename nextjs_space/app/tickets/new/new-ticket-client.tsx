@@ -69,6 +69,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     status: 'open',
     priority: 'medium',
     assignedToId: '',
+    projectManagerId: '',
     teamId: '',
     estimatedHours: '',
     subTasks: [] as SubTaskForm[],
@@ -222,6 +223,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
         body: JSON.stringify({
           ...formData,
           assignedToId: formData.assignedToId || null,
+          projectManagerId: formData.projectManagerId || null,
           teamId: formData.teamId || null,
           templateId: selectedTemplateId || null,
           estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : null,
@@ -372,7 +374,28 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
 
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  👤 Projektleiter/in
+                </label>
+                <select
+                  value={formData.projectManagerId}
+                  onChange={(e) => setFormData({ ...formData, projectManagerId: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Keine/r zugewiesen</option>
+                  {users?.map((user) => (
+                    <option key={user?.id} value={user?.id || ''}>
+                      {user?.name || user?.email}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Verantwortliche Person für dieses Projekt
+                </p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Zugewiesen an
@@ -409,7 +432,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Alle Teammitglieder können das Projekt sehen und bearbeiten
+                  Alle Teammitglieder können das Projekt sehen
                 </p>
               </div>
             </div>
