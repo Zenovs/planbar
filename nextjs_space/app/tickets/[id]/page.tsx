@@ -45,6 +45,10 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
       },
     }),
     prisma.user.findMany({
+      where: {
+        // Admins aus Dropdown-Listen ausschließen
+        role: { notIn: ['admin', 'administrator'] }
+      },
       select: {
         id: true,
         name: true,

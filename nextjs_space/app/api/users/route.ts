@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const filterOrgId = searchParams.get('organizationId');
     const unassigned = searchParams.get('unassigned') === 'true';
+    const excludeAdmins = searchParams.get('excludeAdmins') === 'true';
 
     // Hole den aktuellen User mit Team-Info
     const currentUser = await prisma.user.findUnique({
@@ -73,6 +74,24 @@ export async function GET(req: NextRequest) {
     } else if (currentUser?.organizationId) {
       // Nicht-Admin Projektleiter sieht nur seine Organisation
       whereClause.organizationId = currentUser.organizationId;
+    }
+
+    // Admins aus Dropdown-Listen ausschließen wenn angefordert
+    if (excludeAdmins) {
+      const adminRoles = ['admin', 'administrator'];
+      if (whereClause.AND) {
+        whereClause.AND.push({ role: { notIn: adminRoles } });
+      } else if (whereClause.OR) {
+        whereClause = {
+          AND: [
+            { OR: whereClause.OR },
+            { role: { notIn: adminRoles } }
+          ]
+        };
+        delete whereClause.OR;
+      } else {
+        whereClause.role = { notIn: adminRoles };
+      }
     }
 
     const users = await prisma.user.findMany({

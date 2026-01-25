@@ -15,7 +15,12 @@ export default async function RessourcenPage() {
 
   // Alle User mit ihren zugewiesenen SubTasks laden
   // Wichtig: TeamMember-Zuordnungen enthalten die tatsächlichen Arbeitsstunden
+  // Admins werden ausgeschlossen
   const usersRaw = await prisma.user.findMany({
+    where: {
+      // Admins aus der Ressourcen-Übersicht ausschließen
+      role: { notIn: ['admin', 'administrator'] }
+    },
     select: {
       id: true,
       name: true,

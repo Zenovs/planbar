@@ -1172,7 +1172,9 @@ export default function TeamClient() {
                   <SelectValue placeholder="Benutzer auswählen" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map((user) => (
+                  {users
+                    .filter(u => !['admin', 'administrator'].includes((u.role || '').toLowerCase()))
+                    .map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.name || user.email}
                     </SelectItem>

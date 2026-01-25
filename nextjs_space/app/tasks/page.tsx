@@ -70,6 +70,17 @@ export default async function TasksPage() {
       const allMembers = [...teamMembers, ...directTeamUsers];
       teamMembers = allMembers.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
       
+      // Admins aus der Liste ausschließen (Datenschutz)
+      const adminRoles = ['admin', 'administrator'];
+      const nonAdminMembers = await prisma.user.findMany({
+        where: { 
+          id: { in: teamMembers.map(m => m.id) },
+          role: { notIn: adminRoles }
+        },
+        select: { id: true, name: true, email: true },
+      });
+      teamMembers = nonAdminMembers;
+      
       // Sort by name
       teamMembers.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
     }

@@ -57,9 +57,15 @@ export default async function CalendarPlanningPage() {
   if (isKoordinator && teamIds.length > 0) {
     teamMembers = await prisma.user.findMany({
       where: {
-        OR: [
-          { teamId: { in: teamIds } },
-          { teamMemberships: { some: { teamId: { in: teamIds } } } }
+        AND: [
+          {
+            OR: [
+              { teamId: { in: teamIds } },
+              { teamMemberships: { some: { teamId: { in: teamIds } } } }
+            ]
+          },
+          // Admins aus Dropdown-Listen ausschließen
+          { role: { notIn: ['admin', 'administrator'] } }
         ]
       },
       select: { id: true, name: true, email: true },
