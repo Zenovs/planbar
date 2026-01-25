@@ -21,6 +21,19 @@ interface Task {
   assignee: { id: string; name: string | null; email: string } | null;
 }
 
+interface TeamBreakdown {
+  teamId: string;
+  teamName: string;
+  weeklyHours: number;
+  workloadPercent: number;
+  availableHoursPerWeek: number;
+  periods: {
+    day: { assigned: number; capacity: number; percentage: number };
+    week: { assigned: number; capacity: number; percentage: number };
+    month: { assigned: number; capacity: number; percentage: number };
+  };
+}
+
 interface WorkloadData {
   userId: string;
   userName: string | null;
@@ -33,6 +46,7 @@ interface WorkloadData {
     week: { assigned: number; capacity: number; percentage: number; absenceDays?: number };
     month: { assigned: number; capacity: number; percentage: number; absenceDays?: number };
   };
+  teamBreakdown?: TeamBreakdown[];
 }
 
 interface CompareUser {
@@ -376,6 +390,7 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
     
     const periodData = data.periods[workloadPeriod];
     const hasAbsence = periodData.absenceDays && periodData.absenceDays > 0;
+    const hasMultipleTeams = data.teamBreakdown && data.teamBreakdown.length > 1;
     
     return (
       <div className="bg-white rounded-xl shadow-md p-4">
@@ -384,9 +399,11 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
             <TrendingUp className="w-4 h-4" />
             Auslastung ({getWorkloadLabel(workloadPeriod)})
           </h4>
-          <span className={`px-3 py-1 rounded-full text-white font-bold ${getWorkloadColor(periodData.percentage)}`}>
-            {periodData.percentage}%
-          </span>
+          {!hasMultipleTeams && (
+            <span className={`px-3 py-1 rounded-full text-white font-bold ${getWorkloadColor(periodData.percentage)}`}>
+              {periodData.percentage}%
+            </span>
+          )}
         </div>
         
         {/* Abwesenheits-Hinweis */}
@@ -399,25 +416,68 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
           </div>
         )}
         
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Zugewiesen:</span>
-            <span className="font-medium">{periodData.assigned.toFixed(1)}h</span>
+        {/* Wenn mehrere Teams: Pro Team einen Balken anzeigen */}
+        {hasMultipleTeams ? (
+          <div className="space-y-4">
+            {data.teamBreakdown!.map((team) => {
+              const teamPeriodData = team.periods[workloadPeriod];
+              return (
+                <div key={team.teamId} className="border-l-4 border-purple-400 pl-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-gray-700">{team.teamName}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-white text-xs font-bold ${getWorkloadColor(teamPeriodData.percentage)}`}>
+                      {teamPeriodData.percentage}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>{teamPeriodData.assigned.toFixed(1)}h / {teamPeriodData.capacity.toFixed(1)}h</span>
+                    <span>({team.workloadPercent}% • {team.availableHoursPerWeek.toFixed(1)}h/Wo)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full ${getWorkloadColor(teamPeriodData.percentage)}`}
+                      style={{ width: `${Math.min(teamPeriodData.percentage, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+            
+            {/* Gesamt-Zusammenfassung */}
+            <div className="pt-3 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-700">Gesamt</span>
+                <span className={`px-2 py-0.5 rounded-full text-white text-xs font-bold ${getWorkloadColor(periodData.percentage)}`}>
+                  {periodData.percentage}%
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">
+                {periodData.assigned.toFixed(1)}h / {periodData.capacity.toFixed(1)}h (Kapazität: {data.availableHoursPerWeek.toFixed(1)}h/Wo)
+              </div>
+            </div>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Kapazität:</span>
-            <span className="font-medium">{periodData.capacity.toFixed(1)}h</span>
+        ) : (
+          // Single Team oder kein Team: Standard-Anzeige
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Zugewiesen:</span>
+              <span className="font-medium">{periodData.assigned.toFixed(1)}h</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Kapazität:</span>
+              <span className="font-medium">{periodData.capacity.toFixed(1)}h</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+              <div
+                className={`h-2.5 rounded-full ${getWorkloadColor(periodData.percentage)}`}
+                style={{ width: `${Math.min(periodData.percentage, 100)}%` }}
+              ></div>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Kapazität: {data.availableHoursPerWeek.toFixed(1)}h/Woche
+            </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-            <div
-              className={`h-2.5 rounded-full ${getWorkloadColor(periodData.percentage)}`}
-              style={{ width: `${Math.min(periodData.percentage, 100)}%` }}
-            ></div>
-          </div>
-          <div className="text-xs text-gray-500 mt-1">
-            Kapazität: {data.availableHoursPerWeek.toFixed(1)}h/Woche
-          </div>
-        </div>
+        )}
       </div>
     );
   };

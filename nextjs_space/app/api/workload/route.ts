@@ -6,6 +6,19 @@ import { isAdmin as checkIsAdmin, isKoordinatorOrHigher } from '@/lib/auth-helpe
 
 export const dynamic = 'force-dynamic';
 
+interface TeamBreakdown {
+  teamId: string;
+  teamName: string;
+  weeklyHours: number;
+  workloadPercent: number;
+  availableHoursPerWeek: number;
+  periods: {
+    day: { assigned: number; capacity: number; percentage: number };
+    week: { assigned: number; capacity: number; percentage: number };
+    month: { assigned: number; capacity: number; percentage: number };
+  };
+}
+
 interface WorkloadResult {
   userId: string;
   userName: string | null;
@@ -18,6 +31,7 @@ interface WorkloadResult {
     week: { assigned: number; capacity: number; percentage: number; absenceDays: number };
     month: { assigned: number; capacity: number; percentage: number; absenceDays: number };
   };
+  teamBreakdown?: TeamBreakdown[];
 }
 
 // Hilfsfunktion: Finde den nächsten Arbeitstag (Mo-Fr)
@@ -189,8 +203,15 @@ export async function GET(req: NextRequest) {
           // TeamMember-Zuordnungen für die tatsächlichen Arbeitsstunden
           teamMemberships: {
             select: {
+              teamId: true,
               weeklyHours: true,
               workloadPercent: true,
+              team: {
+                select: {
+                  id: true,
+                  name: true,
+                }
+              }
             }
           }
         },
@@ -242,8 +263,7 @@ export async function GET(req: NextRequest) {
       const weekCapacity = Math.max(0, availableHoursPerWeek - (weekAbsenceDays * hoursPerDay));
       const monthCapacity = Math.max(0, (hoursPerDay * workdaysInMonth) - (monthAbsenceDays * hoursPerDay));
 
-      // Alle offenen Tasks des Users laden (mit Deadline oder überfällig)
-      // Beachte: Tasks können sowohl über assigneeId als auch über SubTaskAssignee zugewiesen sein
+      // Alle offenen Tasks des Users laden MIT Team-Zuordnung (über Ticket)
       const allOpenTasks = await prisma.subTask.findMany({
         where: {
           OR: [
@@ -257,14 +277,18 @@ export async function GET(req: NextRequest) {
           id: true,
           estimatedHours: true,
           dueDate: true,
+          ticket: {
+            select: {
+              teamId: true,
+            }
+          }
         },
       });
       
       // Deduplizieren (falls ein Task sowohl über assigneeId als auch SubTaskAssignee zugewiesen ist)
       const uniqueTasks = Array.from(new Map(allOpenTasks.map(t => [t.id, t])).values());
 
-      // Verteilte Stunden für jeden Zeitraum berechnen (mit deduplizierten Tasks)
-      // Verwende referenceDay statt today für konsistente Berechnung am Wochenende
+      // Verteilte Stunden für jeden Zeitraum berechnen (GESAMT)
       const dayHours = calculateHoursForPeriod(uniqueTasks, startOfDay, endOfDay, referenceDay);
       const weekHours = calculateHoursForPeriod(uniqueTasks, startOfWeek, endOfWeek, referenceDay);
       const monthHours = calculateHoursForPeriod(uniqueTasks, startOfMonth, endOfMonth, referenceDay);
@@ -273,6 +297,59 @@ export async function GET(req: NextRequest) {
       const dayPercentage = dayAbsenceDays >= 1 ? 100 : (dayCapacity > 0 ? Math.round((dayHours / dayCapacity) * 100) : 0);
       const weekPercentage = weekAbsenceDays >= 5 ? 100 : (weekCapacity > 0 ? Math.round((weekHours / weekCapacity) * 100) : 0);
       const monthPercentage = monthAbsenceDays >= workdaysInMonth ? 100 : (monthCapacity > 0 ? Math.round((monthHours / monthCapacity) * 100) : 0);
+
+      // TEAM BREAKDOWN: Pro Team separate Auslastung berechnen
+      const teamBreakdown: TeamBreakdown[] = [];
+      
+      if (user.teamMemberships && user.teamMemberships.length > 0) {
+        for (const membership of user.teamMemberships) {
+          const teamAvailableHours = (membership.weeklyHours * membership.workloadPercent) / 100;
+          const teamHoursPerDay = teamAvailableHours / 5;
+          
+          // Tasks nur für dieses Team filtern
+          const teamTasks = uniqueTasks.filter(t => t.ticket?.teamId === membership.teamId);
+          
+          // Stunden pro Zeitraum für dieses Team
+          const teamDayHours = calculateHoursForPeriod(teamTasks, startOfDay, endOfDay, referenceDay);
+          const teamWeekHours = calculateHoursForPeriod(teamTasks, startOfWeek, endOfWeek, referenceDay);
+          const teamMonthHours = calculateHoursForPeriod(teamTasks, startOfMonth, endOfMonth, referenceDay);
+          
+          // Kapazität für dieses Team (mit Abwesenheiten)
+          const teamDayCapacity = Math.max(0, teamHoursPerDay - (dayAbsenceDays * teamHoursPerDay));
+          const teamWeekCapacity = Math.max(0, teamAvailableHours - (weekAbsenceDays * teamHoursPerDay));
+          const teamMonthCapacity = Math.max(0, (teamHoursPerDay * workdaysInMonth) - (monthAbsenceDays * teamHoursPerDay));
+          
+          // Prozente
+          const teamDayPct = teamDayCapacity > 0 ? Math.round((teamDayHours / teamDayCapacity) * 100) : 0;
+          const teamWeekPct = teamWeekCapacity > 0 ? Math.round((teamWeekHours / teamWeekCapacity) * 100) : 0;
+          const teamMonthPct = teamMonthCapacity > 0 ? Math.round((teamMonthHours / teamMonthCapacity) * 100) : 0;
+          
+          teamBreakdown.push({
+            teamId: membership.teamId,
+            teamName: membership.team.name,
+            weeklyHours: membership.weeklyHours,
+            workloadPercent: membership.workloadPercent,
+            availableHoursPerWeek: teamAvailableHours,
+            periods: {
+              day: {
+                assigned: Math.round(teamDayHours * 10) / 10,
+                capacity: Math.round(teamDayCapacity * 10) / 10,
+                percentage: teamDayPct,
+              },
+              week: {
+                assigned: Math.round(teamWeekHours * 10) / 10,
+                capacity: Math.round(teamWeekCapacity * 10) / 10,
+                percentage: teamWeekPct,
+              },
+              month: {
+                assigned: Math.round(teamMonthHours * 10) / 10,
+                capacity: Math.round(teamMonthCapacity * 10) / 10,
+                percentage: teamMonthPct,
+              },
+            },
+          });
+        }
+      }
 
       results.push({
         userId: user.id,
@@ -301,6 +378,7 @@ export async function GET(req: NextRequest) {
             absenceDays: monthAbsenceDays,
           },
         },
+        teamBreakdown: teamBreakdown.length > 0 ? teamBreakdown : undefined,
       });
     }
 
