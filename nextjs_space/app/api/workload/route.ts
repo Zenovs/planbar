@@ -209,22 +209,30 @@ export async function GET(req: NextRequest) {
       const monthCapacity = Math.max(0, (hoursPerDay * workdaysInMonth) - (monthAbsenceDays * hoursPerDay));
 
       // Alle offenen Tasks des Users laden (mit Deadline oder überfällig)
+      // Beachte: Tasks können sowohl über assigneeId als auch über SubTaskAssignee zugewiesen sein
       const allOpenTasks = await prisma.subTask.findMany({
         where: {
-          assigneeId: userId,
+          OR: [
+            { assigneeId: userId },
+            { assignees: { some: { userId: userId } } }
+          ],
           completed: false,
           dueDate: { not: null },
         },
         select: { 
+          id: true,
           estimatedHours: true,
           dueDate: true,
         },
       });
+      
+      // Deduplizieren (falls ein Task sowohl über assigneeId als auch SubTaskAssignee zugewiesen ist)
+      const uniqueTasks = Array.from(new Map(allOpenTasks.map(t => [t.id, t])).values());
 
-      // Verteilte Stunden für jeden Zeitraum berechnen
-      const dayHours = calculateHoursForPeriod(allOpenTasks, startOfDay, endOfDay, today);
-      const weekHours = calculateHoursForPeriod(allOpenTasks, startOfWeek, endOfWeek, today);
-      const monthHours = calculateHoursForPeriod(allOpenTasks, startOfMonth, endOfMonth, today);
+      // Verteilte Stunden für jeden Zeitraum berechnen (mit deduplizierten Tasks)
+      const dayHours = calculateHoursForPeriod(uniqueTasks, startOfDay, endOfDay, today);
+      const weekHours = calculateHoursForPeriod(uniqueTasks, startOfWeek, endOfWeek, today);
+      const monthHours = calculateHoursForPeriod(uniqueTasks, startOfMonth, endOfMonth, today);
 
       // Wenn komplett abwesend, 100% Auslastung durch Abwesenheit
       const dayPercentage = dayAbsenceDays >= 1 ? 100 : (dayCapacity > 0 ? Math.round((dayHours / dayCapacity) * 100) : 0);
