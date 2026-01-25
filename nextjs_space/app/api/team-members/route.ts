@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
-import { isAdmin, isAdminOrProjektleiter } from '@/lib/auth-helpers';
+import { isAdmin, isAdminOrProjektleiter, isKoordinatorOrHigher } from '@/lib/auth-helpers';
 
 // Helper: Check if user can manage a specific team
 async function canManageTeam(userId: string, userRole: string, teamId: string): Promise<boolean> {
   if (isAdmin(userRole)) return true;
-  if (!isAdminOrProjektleiter(userRole)) return false;
   
-  // Projektleiter can only manage teams they are members of
+  // Projektleiter und Koordinatoren können ihre eigenen Teams verwalten
+  if (!isKoordinatorOrHigher(userRole)) return false;
+  
+  // Projektleiter/Koordinator can only manage teams they are members of
   const membership = await prisma.teamMember.findUnique({
     where: { userId_teamId: { userId, teamId } },
   });

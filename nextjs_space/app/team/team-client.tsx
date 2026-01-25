@@ -183,7 +183,8 @@ export default function TeamClient() {
   // Check if user can manage a specific team (Admin: all, Projektleiter: only own teams)
   const canManageTeam = (team: Team): boolean => {
     if (isAdmin) return true;
-    if (isProjektleiter) return isTeamMember(team);
+    // Projektleiter und Koordinatoren können ihre eigenen Teams verwalten
+    if (isProjektleiter || isKoordinator) return isTeamMember(team);
     return false;
   };
 
