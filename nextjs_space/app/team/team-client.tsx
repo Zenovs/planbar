@@ -72,6 +72,11 @@ interface Team {
   description: string | null;
   color: string;
   createdAt: string;
+  organizationId?: string | null;
+  organization?: {
+    id: string;
+    name: string;
+  } | null;
   members: User[];
   teamMembers?: {
     id: string;
@@ -165,6 +170,8 @@ export default function TeamClient() {
   const userRole = session?.user?.role?.toLowerCase() || '';
   const isAdmin = status === 'authenticated' && ['admin', 'administrator'].includes(userRole);
   const isProjektleiter = status === 'authenticated' && userRole === 'projektleiter';
+  const isKoordinator = status === 'authenticated' && userRole === 'koordinator';
+  const isMitglied = status === 'authenticated' && !isAdmin && !isProjektleiter && !isKoordinator;
   const canManageUsers = isAdmin || isProjektleiter;
 
   // Check if user is member of a specific team
@@ -548,8 +555,12 @@ export default function TeamClient() {
                 <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold">Team-Verwaltung</h1>
-                <p className="text-sm sm:text-base text-gray-600">Teams und Mitglieder mit individuellem Pensum verwalten</p>
+                <h1 className="text-2xl sm:text-3xl font-bold">
+                  {isMitglied ? 'Meine Teams' : 'Team-Verwaltung'}
+                </h1>
+                <p className="text-sm sm:text-base text-gray-600">
+                  {isMitglied ? 'Übersicht deiner Teams und Organisationen' : 'Teams und Mitglieder mit individuellem Pensum verwalten'}
+                </p>
               </div>
             </div>
             {canManageUsers && (
@@ -574,6 +585,116 @@ export default function TeamClient() {
               </div>
             )}
           </div>
+
+          {/* Mitglieder-Ansicht: Meine Teams gruppiert nach Organisation */}
+          {isMitglied && teams.length > 0 && (
+            <div className="mb-6 sm:mb-8">
+              {/* Gruppiere Teams nach Organisation */}
+              {(() => {
+                const teamsByOrg = teams.reduce((acc, team) => {
+                  const orgName = team.organization?.name || 'Ohne Organisation';
+                  const orgId = team.organization?.id || 'no-org';
+                  if (!acc[orgId]) {
+                    acc[orgId] = { name: orgName, teams: [] };
+                  }
+                  acc[orgId].teams.push(team);
+                  return acc;
+                }, {} as Record<string, { name: string; teams: Team[] }>);
+
+                return Object.entries(teamsByOrg).map(([orgId, orgData]) => (
+                  <div key={orgId} className="mb-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-8 h-8 rounded bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white text-sm font-bold">
+                        {orgData.name.charAt(0).toUpperCase()}
+                      </div>
+                      <h2 className="text-xl font-bold">{orgData.name}</h2>
+                      <Badge variant="outline" className="ml-2">
+                        {orgData.teams.length} {orgData.teams.length === 1 ? 'Team' : 'Teams'}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {orgData.teams.map((team) => {
+                        const resources = calculateTeamResources(team);
+                        return (
+                          <Card key={team.id} className="hover:shadow-lg transition-shadow">
+                            <CardHeader className="p-4 sm:p-6">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div
+                                    className="w-4 h-4 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: team.color }}
+                                  />
+                                  <CardTitle className="text-lg truncate">{team.name}</CardTitle>
+                                </div>
+                              </div>
+                              {team.description && (
+                                <CardDescription className="mt-2 line-clamp-2">
+                                  {team.description}
+                                </CardDescription>
+                              )}
+                            </CardHeader>
+                            <CardContent className="p-4 sm:p-6 pt-0">
+                              <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                                <span className="flex items-center gap-1">
+                                  <Users className="w-4 h-4" />
+                                  {resources.members} Mitglieder
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-4 h-4" />
+                                  {resources.hours.toFixed(1)}h/Woche
+                                </span>
+                              </div>
+                              {/* Team-Mitglieder anzeigen */}
+                              {team.teamMembers && team.teamMembers.length > 0 && (
+                                <div className="space-y-2">
+                                  <span className="text-xs text-gray-500">Team-Mitglieder:</span>
+                                  <div className="flex flex-wrap gap-2">
+                                    {team.teamMembers.slice(0, 5).map((member) => (
+                                      <div
+                                        key={member.id}
+                                        className="flex items-center gap-2 bg-gray-50 rounded-lg px-2 py-1"
+                                      >
+                                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+                                          {member.user.name?.[0]?.toUpperCase() || member.user.email[0].toUpperCase()}
+                                        </div>
+                                        <span className="text-sm truncate max-w-[100px]">
+                                          {member.user.name || member.user.email}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    {team.teamMembers.length > 5 && (
+                                      <span className="text-xs text-gray-500 self-center">
+                                        +{team.teamMembers.length - 5} weitere
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+
+          {/* Keine Teams für Mitglieder */}
+          {isMitglied && teams.length === 0 && (
+            <Card className="mb-6">
+              <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12">
+                <Users className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mb-4" />
+                <p className="text-gray-600 text-sm sm:text-base text-center">
+                  Du bist noch keinem Team zugeordnet.
+                </p>
+                <p className="text-gray-500 text-xs sm:text-sm mt-2 text-center">
+                  Wende dich an deinen Projektleiter oder Administrator.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Organisation Auswahl - nur für Admins */}
           {isAdmin && organizations.length > 0 && (
@@ -657,8 +778,8 @@ export default function TeamClient() {
             </div>
           )}
 
-          {/* Teams Section */}
-          {teams.length > 0 && (
+          {/* Teams Section - nicht für Mitglieder (die haben eigene Ansicht oben) */}
+          {!isMitglied && teams.length > 0 && (
             <div className="mb-6 sm:mb-8">
               <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 flex items-center gap-2">
                 <Building2 className="w-5 h-5" />
@@ -798,7 +919,8 @@ export default function TeamClient() {
             </div>
           )}
 
-          {/* Users Section */}
+          {/* Users Section - nicht für Mitglieder */}
+          {!isMitglied && (
           <div>
             <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Alle Benutzer</h2>
             {users.length === 0 ? (
@@ -922,6 +1044,7 @@ export default function TeamClient() {
               </div>
             )}
           </div>
+          )}
         </motion.div>
       </div>
 

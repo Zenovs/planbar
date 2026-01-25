@@ -34,8 +34,8 @@ export function Header() {
     // Tasks und Projekte NICHT für Admins (Datenschutz)
     ...(!isAdmin ? [{ href: '/tasks', label: 'Tasks', icon: CheckSquare }] : []),
     ...(!isAdmin ? [{ href: '/tickets', label: 'Projekte', icon: Ticket }] : []),
-    // Team nicht für Mitglieder sichtbar
-    ...(!isMitglied ? [{ href: '/team', label: 'Team', icon: Users }] : []),
+    // Team für alle ausser Admins sichtbar (Mitglieder sehen ihre eigenen Teams)
+    ...(!isAdmin ? [{ href: '/team', label: 'Team', icon: Users }] : []),
     // Kalender NICHT für Admins (Datenschutz) - nur für Koordinator/Projektleiter
     ...(!isAdmin && !isMitglied ? [{ href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays }] : []),
     // Kosten nur für Admins sichtbar

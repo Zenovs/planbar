@@ -28,13 +28,8 @@ export async function GET(req: NextRequest) {
     // Admin kann nach beliebiger Organisation filtern
     if (userIsAdmin && filterOrgId) {
       whereClause.organizationId = filterOrgId;
-    } else if (currentUser?.organizationId) {
-      // Normaler User sieht nur seine eigene Organisation
-      whereClause.organizationId = currentUser.organizationId;
-    }
-
-    // Non-admins only see teams they are members of (within their org)
-    if (!userIsAdmin) {
+    } else if (!userIsAdmin) {
+      // Normaler User sieht nur Teams, in denen er Mitglied ist (über alle Organisationen hinweg)
       whereClause.teamMembers = {
         some: {
           userId: session.user.id,
@@ -45,6 +40,12 @@ export async function GET(req: NextRequest) {
     const teams = await prisma.team.findMany({
       where: whereClause,
       include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         members: {
           select: {
             id: true,
