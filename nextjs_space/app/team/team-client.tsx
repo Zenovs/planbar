@@ -368,6 +368,39 @@ export default function TeamClient() {
     }
   };
 
+  const handleDeleteOrganization = async (orgId: string) => {
+    const org = organizations.find(o => o.id === orgId);
+    if (!org) return;
+
+    const confirmMessage = `Möchten Sie die Organisation "${org.name}" wirklich löschen?\n\n` +
+      `Dies wird Folgendes löschen:\n` +
+      `• ${org._count.teams} Team(s)\n` +
+      `• Alle Tickets und Subtasks dieser Teams\n\n` +
+      `${org._count.users} Benutzer werden von der Organisation getrennt (nicht gelöscht).`;
+    
+    if (!confirm(confirmMessage)) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/organizations?id=${orgId}`, { method: 'DELETE' });
+      const data = await res.json();
+      
+      if (res.ok) {
+        toast.success(data.message || 'Organisation gelöscht');
+        // Organisationen neu laden
+        loadOrganizations();
+        // Erste verbleibende Organisation auswählen oder null
+        setSelectedOrgId(null);
+      } else {
+        toast.error(data.error || 'Fehler beim Löschen');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Löschen der Organisation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Multi-Team Membership Functions
   const handleAddMemberToTeam = async () => {
     if (!selectedTeamForAssign || !assignForm.userId) {
@@ -572,6 +605,15 @@ export default function TeamClient() {
                                 <Users className="w-4 h-4 text-yellow-600" />
                                 <strong>{selectedOrg._count.users}</strong> Mitglieder
                               </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="ml-2 text-red-600 border-red-300 hover:bg-red-50 min-h-[36px]"
+                                onClick={() => handleDeleteOrganization(selectedOrgId)}
+                              >
+                                <Trash2 className="w-4 h-4 mr-1" />
+                                Löschen
+                              </Button>
                             </>
                           ) : null;
                         })()}

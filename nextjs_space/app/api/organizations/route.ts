@@ -228,3 +228,108 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Serverfehler' }, { status: 500 });
   }
 }
+
+// DELETE: Organisation löschen (nur für System-Admins)
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    // Nur System-Admins dürfen Organisationen löschen
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json({ error: 'Keine Berechtigung - nur Admins können Organisationen löschen' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const orgId = searchParams.get('id');
+
+    if (!orgId) {
+      return NextResponse.json({ error: 'Organisation-ID erforderlich' }, { status: 400 });
+    }
+
+    // Prüfen ob Organisation existiert
+    const organization = await prisma.organization.findUnique({
+      where: { id: orgId },
+      include: {
+        _count: { select: { users: true, teams: true } },
+      },
+    });
+
+    if (!organization) {
+      return NextResponse.json({ error: 'Organisation nicht gefunden' }, { status: 404 });
+    }
+
+    // Transaktion: Alle zugehörigen Daten bereinigen und Organisation löschen
+    await prisma.$transaction(async (tx) => {
+      // 1. Alle Einladungen der Organisation löschen
+      await tx.orgInvite.deleteMany({
+        where: { organizationId: orgId },
+      });
+
+      // 2. Alle TeamMember-Einträge der Teams in dieser Organisation löschen
+      const teamIds = await tx.team.findMany({
+        where: { organizationId: orgId },
+        select: { id: true },
+      });
+      
+      if (teamIds.length > 0) {
+        await tx.teamMember.deleteMany({
+          where: { teamId: { in: teamIds.map(t => t.id) } },
+        });
+      }
+
+      // 3. Alle Subtasks von Tickets dieser Organisation löschen
+      const ticketIds = await tx.ticket.findMany({
+        where: { teamId: { in: teamIds.map(t => t.id) } },
+        select: { id: true },
+      });
+
+      if (ticketIds.length > 0) {
+        await tx.subTask.deleteMany({
+          where: { ticketId: { in: ticketIds.map(t => t.id) } },
+        });
+      }
+
+      // 4. Alle Tickets der Teams löschen
+      if (teamIds.length > 0) {
+        await tx.ticket.deleteMany({
+          where: { teamId: { in: teamIds.map(t => t.id) } },
+        });
+      }
+
+      // 5. Alle Teams der Organisation löschen
+      await tx.team.deleteMany({
+        where: { organizationId: orgId },
+      });
+
+      // 6. Alle User von der Organisation trennen (nicht löschen!)
+      await tx.user.updateMany({
+        where: { organizationId: orgId },
+        data: { 
+          organizationId: null,
+          orgRole: 'member',
+        },
+      });
+
+      // 7. Organisation löschen
+      await tx.organization.delete({
+        where: { id: orgId },
+      });
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Organisation "${organization.name}" wurde gelöscht` 
+    });
+  } catch (error) {
+    console.error('Error deleting organization:', error);
+    return NextResponse.json({ error: 'Fehler beim Löschen der Organisation' }, { status: 500 });
+  }
+}
