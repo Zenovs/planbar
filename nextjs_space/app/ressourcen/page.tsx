@@ -97,6 +97,32 @@ export default async function RessourcenPage() {
         orderBy: {
           dueDate: 'asc'
         }
+      },
+      // Auch Tasks laden, die über SubTaskAssignee zugewiesen sind
+      subTaskAssignees: {
+        where: {
+          subTask: {
+            completed: false
+          }
+        },
+        select: {
+          subTask: {
+            select: {
+              id: true,
+              title: true,
+              estimatedHours: true,
+              dueDate: true,
+              completed: true,
+              ticket: {
+                select: {
+                  id: true,
+                  title: true,
+                  status: true
+                }
+              }
+            }
+          }
+        }
       }
     },
     orderBy: {
@@ -124,6 +150,20 @@ export default async function RessourcenPage() {
       workloadPercent = 100;
     }
     
+    // Kombiniere Tasks aus beiden Quellen (direkter Assignee + SubTaskAssignee)
+    // und entferne Duplikate basierend auf der Task-ID
+    const directTasks = user.assignedSubTasks || [];
+    const additionalTasks = (user.subTaskAssignees || []).map(sta => sta.subTask);
+    
+    // Kombiniere und entferne Duplikate
+    const taskMap = new Map();
+    [...directTasks, ...additionalTasks].forEach(task => {
+      if (task && !taskMap.has(task.id)) {
+        taskMap.set(task.id, task);
+      }
+    });
+    const allAssignedSubTasks = Array.from(taskMap.values());
+    
     return {
       id: user.id,
       name: user.name,
@@ -131,7 +171,7 @@ export default async function RessourcenPage() {
       image: user.image,
       weeklyHours,
       workloadPercent,
-      assignedSubTasks: user.assignedSubTasks,
+      assignedSubTasks: allAssignedSubTasks,
     };
   });
 
