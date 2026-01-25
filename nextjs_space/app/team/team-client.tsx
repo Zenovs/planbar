@@ -35,13 +35,18 @@ import { Header } from '@/components/header';
 interface TeamMembership {
   id: string;
   teamId: string;
-  userId: string;
+  userId?: string;
   weeklyHours: number;
   workloadPercent: number;
   team: {
     id: string;
     name: string;
     color: string;
+    organizationId?: string | null;
+    organization?: {
+      id: string;
+      name: string;
+    } | null;
   };
 }
 
@@ -51,6 +56,7 @@ interface User {
   email: string;
   role: string;
   teamId: string | null;
+  organizationId?: string | null;
   weeklyHours: number;
   workloadPercent: number;
   createdAt: string;
@@ -870,7 +876,30 @@ export default function TeamClient() {
                           )}
                         </div>
 
-                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                        {/* Team-Mitgliedschaften anzeigen */}
+                        {user.teamMemberships && user.teamMemberships.length > 0 && (
+                          <div className="mt-2 pt-2 border-t">
+                            <span className="text-xs text-gray-500 block mb-1">Teams:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {user.teamMemberships.map((membership) => (
+                                <Badge 
+                                  key={membership.id} 
+                                  variant="outline" 
+                                  className="text-xs"
+                                  style={{ borderColor: membership.team.color, color: membership.team.color }}
+                                >
+                                  <div 
+                                    className="w-2 h-2 rounded-full mr-1" 
+                                    style={{ backgroundColor: membership.team.color }}
+                                  />
+                                  {membership.team.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="text-xs text-gray-500 flex items-center gap-1 mt-2">
                           <Calendar className="w-3 h-3" />
                           Seit {format(new Date(user.createdAt), 'dd.MM.yyyy')}
                         </div>

@@ -33,11 +33,35 @@ export async function GET(req: NextRequest) {
     
     // Admin kann nicht zugeordnete Benutzer anzeigen
     if (userIsAdmin && unassigned) {
-      whereClause.organizationId = null;
+      // Benutzer ohne direkte Org-Zuordnung UND ohne Team-Mitgliedschaften in Orgs
+      whereClause.AND = [
+        { organizationId: null },
+        {
+          teamMemberships: {
+            none: {
+              team: {
+                organizationId: { not: null }
+              }
+            }
+          }
+        }
+      ];
     }
     // Admin kann nach beliebiger Organisation filtern
     else if (userIsAdmin && filterOrgId) {
-      whereClause.organizationId = filterOrgId;
+      // Benutzer mit direkter Org-Zuordnung ODER Team-Mitgliedschaft in dieser Org
+      whereClause.OR = [
+        { organizationId: filterOrgId },
+        {
+          teamMemberships: {
+            some: {
+              team: {
+                organizationId: filterOrgId
+              }
+            }
+          }
+        }
+      ];
     } else if (!canManageUsers(currentUser?.role)) {
       if (!currentUser?.teamId) {
         // User ohne Team sieht nur sich selbst
@@ -60,6 +84,7 @@ export async function GET(req: NextRequest) {
         role: true,
         createdAt: true,
         teamId: true,
+        organizationId: true,
         weeklyHours: true,
         workloadPercent: true,
         team: {
@@ -67,6 +92,28 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true,
             color: true,
+          },
+        },
+        teamMemberships: {
+          select: {
+            id: true,
+            teamId: true,
+            weeklyHours: true,
+            workloadPercent: true,
+            team: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+                organizationId: true,
+                organization: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
         _count: {
