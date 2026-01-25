@@ -119,31 +119,54 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
   };
   const goToToday = () => setCurrentDate(new Date());
 
+  // Hilfsfunktion: Finde den nächsten Arbeitstag (Mo-Fr)
+  const getNextWorkday = (date: Date): Date => {
+    const result = new Date(date);
+    const dayOfWeek = result.getDay();
+    if (dayOfWeek === 0) { // Sonntag -> Montag
+      result.setDate(result.getDate() + 1);
+    } else if (dayOfWeek === 6) { // Samstag -> Montag
+      result.setDate(result.getDate() + 2);
+    }
+    return result;
+  };
+
   // Berechne Stunden pro Tag für einen SubTask
   const calculateHoursPerDay = (task: SubTask): { hoursPerDay: number; startDate: Date; endDate: Date; isOverdue: boolean } => {
     if (!task.dueDate || !task.estimatedHours) {
       return { hoursPerDay: 0, startDate: new Date(), endDate: new Date(), isOverdue: false };
     }
     
-    const today = startOfDay(new Date());
+    const todayRaw = startOfDay(new Date());
     const dueDate = startOfDay(new Date(task.dueDate));
     
     // Wenn Task überfällig ist (dueDate liegt vor heute)
-    const isOverdue = dueDate < today;
+    const isOverdue = dueDate < todayRaw;
     
     if (isOverdue) {
-      // Überfällige Tasks: Alle Stunden werden auf HEUTE verrechnet
+      // Überfällige Tasks: Alle Stunden werden auf den NÄCHSTEN ARBEITSTAG verrechnet
+      const nextWorkday = getNextWorkday(todayRaw);
       return { 
         hoursPerDay: task.estimatedHours, 
-        startDate: today, 
-        endDate: today,
+        startDate: nextWorkday, 
+        endDate: nextWorkday,
         isOverdue: true 
       };
     }
     
-    // Normale Tasks: Start ist heute, Ende ist dueDate
-    const startDate = today;
+    // Normale Tasks: Start ist der nächste Arbeitstag (falls heute Wochenende), Ende ist dueDate
+    const startDate = getNextWorkday(todayRaw);
     const endDate = dueDate;
+    
+    // Wenn Start nach Ende liegt (z.B. Deadline ist heute Sonntag, nächster Arbeitstag Montag)
+    if (startDate > endDate) {
+      return { 
+        hoursPerDay: task.estimatedHours, 
+        startDate: startDate, 
+        endDate: startDate,
+        isOverdue: true 
+      };
+    }
     
     // Arbeitstage berechnen (Mo-Fr)
     let workDays = 0;

@@ -6,6 +6,84 @@ import { differenceInBusinessDays, addDays, startOfDay } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 
+// Hilfsfunktion: Finde den nächsten Arbeitstag (Mo-Fr)
+function getNextWorkday(date: Date): Date {
+  const result = startOfDay(new Date(date));
+  const dayOfWeek = result.getDay();
+  if (dayOfWeek === 0) { // Sonntag -> Montag
+    result.setDate(result.getDate() + 1);
+  } else if (dayOfWeek === 6) { // Samstag -> Montag
+    result.setDate(result.getDate() + 2);
+  }
+  return result;
+}
+
+// Berechnet die verteilten Stunden eines Tasks für einen Zeitraum
+function calculateDistributedHoursForPeriod(
+  task: { estimatedHours: number | null; dueDate: Date | null },
+  periodStart: Date,
+  periodEnd: Date,
+  today: Date
+): number {
+  if (!task.dueDate || !task.estimatedHours) return 0;
+  
+  const dueDate = startOfDay(new Date(task.dueDate));
+  const todayStart = startOfDay(today);
+  const nextWorkday = getNextWorkday(todayStart);
+  
+  // Task ist überfällig - alle Stunden fallen auf den nächsten Arbeitstag
+  if (dueDate < todayStart) {
+    // Prüfen ob der nächste Arbeitstag im Zeitraum liegt
+    if (nextWorkday >= periodStart && nextWorkday < periodEnd) {
+      return task.estimatedHours;
+    }
+    return 0;
+  }
+  
+  // Task-Zeitraum: vom nächsten Arbeitstag bis Deadline
+  const taskStart = nextWorkday;
+  const taskEnd = dueDate;
+  
+  // Wenn Start nach Ende (Deadline ist am Wochenende vor dem nächsten Arbeitstag)
+  if (taskStart > taskEnd) {
+    if (nextWorkday >= periodStart && nextWorkday < periodEnd) {
+      return task.estimatedHours;
+    }
+    return 0;
+  }
+  
+  // Arbeitstage im gesamten Task-Zeitraum zählen
+  let totalWorkDays = 0;
+  let current = new Date(taskStart);
+  while (current <= taskEnd) {
+    const dow = current.getDay();
+    if (dow !== 0 && dow !== 6) {
+      totalWorkDays++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  totalWorkDays = Math.max(totalWorkDays, 1);
+  
+  // Stunden pro Arbeitstag
+  const hoursPerDay = task.estimatedHours / totalWorkDays;
+  
+  // Arbeitstage im Zeitraum zählen, die auch im Task-Zeitraum liegen
+  let periodWorkDays = 0;
+  current = new Date(periodStart);
+  while (current < periodEnd) {
+    const dow = current.getDay();
+    if (dow !== 0 && dow !== 6) {
+      // Nur wenn im Task-Zeitraum
+      if (current >= taskStart && current <= taskEnd) {
+        periodWorkDays++;
+      }
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return hoursPerDay * periodWorkDays;
+}
+
 // GET - Ressourcenverfügbarkeit aller Teammitglieder berechnen
 export async function GET(request: NextRequest) {
   try {
@@ -29,13 +107,7 @@ export async function GET(request: NextRequest) {
         assignedSubTasks: {
           where: {
             completed: false,
-            // Berücksichtige Sub-Tasks die:
-            // - keine Deadline haben ODER
-            // - eine Deadline bis zur angegebenen Deadline haben
-            OR: deadline ? [
-              { dueDate: null },
-              { dueDate: { lte: new Date(deadline) } }
-            ] : undefined
+            dueDate: { not: null }
           },
           select: {
             id: true,
@@ -68,10 +140,16 @@ export async function GET(request: NextRequest) {
       // Gesamte verfügbare Stunden bis Deadline
       const totalAvailableHours = dailyHours * workDays;
       
-      // Bereits zugewiesene Stunden (SubTasks)
-      const assignedHours = user.assignedSubTasks.reduce((sum: number, st: any) => {
-        return sum + (st.estimatedHours || 0);
-      }, 0);
+      // Verteilte Stunden im Zeitraum berechnen
+      let assignedHours = 0;
+      for (const task of user.assignedSubTasks) {
+        assignedHours += calculateDistributedHoursForPeriod(
+          task,
+          today,
+          deadlineDate,
+          today
+        );
+      }
       
       // Freie Kapazität
       const freeHours = Math.max(0, totalAvailableHours - assignedHours);

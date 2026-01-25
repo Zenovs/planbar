@@ -20,6 +20,107 @@ interface WorkloadResult {
   };
 }
 
+// Hilfsfunktion: Finde den nächsten Arbeitstag (Mo-Fr)
+function getNextWorkday(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  const dayOfWeek = result.getDay();
+  if (dayOfWeek === 0) { // Sonntag -> Montag
+    result.setDate(result.getDate() + 1);
+  } else if (dayOfWeek === 6) { // Samstag -> Montag
+    result.setDate(result.getDate() + 2);
+  }
+  return result;
+}
+
+// Berechnet die verteilten Stunden eines Tasks für einen bestimmten Tag
+function calculateHoursForDay(
+  task: { estimatedHours: number | null; dueDate: Date | null },
+  targetDay: Date,
+  today: Date
+): number {
+  if (!task.dueDate || !task.estimatedHours) return 0;
+  
+  const dueDate = new Date(task.dueDate);
+  dueDate.setHours(0, 0, 0, 0);
+  
+  const targetDayStart = new Date(targetDay);
+  targetDayStart.setHours(0, 0, 0, 0);
+  
+  const todayStart = new Date(today);
+  todayStart.setHours(0, 0, 0, 0);
+  
+  // Wochenende überspringen
+  const dayOfWeek = targetDayStart.getDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) return 0;
+  
+  // Nächster Arbeitstag (falls heute Wochenende)
+  const nextWorkday = getNextWorkday(todayStart);
+  
+  // Task ist überfällig - alle Stunden werden auf den NÄCHSTEN ARBEITSTAG verrechnet
+  if (dueDate < todayStart) {
+    // Nur wenn targetDay = nächster Arbeitstag
+    if (targetDayStart.getTime() === nextWorkday.getTime()) {
+      return task.estimatedHours;
+    }
+    return 0;
+  }
+  
+  // Task-Zeitraum: vom nächsten Arbeitstag bis Deadline
+  const startDate = nextWorkday;
+  const endDate = dueDate;
+  
+  // Wenn Start nach Ende (Deadline ist am Wochenende vor dem nächsten Arbeitstag)
+  if (startDate > endDate) {
+    if (targetDayStart.getTime() === nextWorkday.getTime()) {
+      return task.estimatedHours;
+    }
+    return 0;
+  }
+  
+  // Prüfen ob targetDay im Zeitraum liegt
+  if (targetDayStart < startDate || targetDayStart > endDate) {
+    return 0;
+  }
+  
+  // Arbeitstage im Zeitraum zählen
+  let workDays = 0;
+  const current = new Date(startDate);
+  while (current <= endDate) {
+    const dow = current.getDay();
+    if (dow !== 0 && dow !== 6) {
+      workDays++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  
+  // Minimum 1 Tag
+  workDays = Math.max(workDays, 1);
+  
+  // Stunden pro Tag
+  return task.estimatedHours / workDays;
+}
+
+// Berechnet die Summe der verteilten Stunden für einen Zeitraum
+function calculateHoursForPeriod(
+  tasks: { estimatedHours: number | null; dueDate: Date | null }[],
+  periodStart: Date,
+  periodEnd: Date,
+  today: Date
+): number {
+  let totalHours = 0;
+  
+  const current = new Date(periodStart);
+  while (current < periodEnd) {
+    for (const task of tasks) {
+      totalHours += calculateHoursForDay(task, current, today);
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return totalHours;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -46,11 +147,13 @@ export async function GET(req: NextRequest) {
     }
 
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const startOfDay = new Date(today);
     const endOfDay = new Date(startOfDay);
     endOfDay.setDate(endOfDay.getDate() + 1);
 
-    const startOfWeek = new Date(startOfDay);
+    const startOfWeek = new Date(today);
     const dayOfWeek = startOfWeek.getDay();
     const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Montag als Wochenstart
     startOfWeek.setDate(startOfWeek.getDate() + diff);
@@ -105,46 +208,23 @@ export async function GET(req: NextRequest) {
       const weekCapacity = Math.max(0, availableHoursPerWeek - (weekAbsenceDays * hoursPerDay));
       const monthCapacity = Math.max(0, (hoursPerDay * workdaysInMonth) - (monthAbsenceDays * hoursPerDay));
 
-      // Get assigned hours for each period (nur offene Tasks)
-      const [dayTasks, weekTasks, monthTasks] = await Promise.all([
-        prisma.subTask.findMany({
-          where: {
-            assigneeId: userId,
-            completed: false,
-            dueDate: {
-              gte: startOfDay,
-              lt: endOfDay,
-            },
-          },
-          select: { estimatedHours: true },
-        }),
-        prisma.subTask.findMany({
-          where: {
-            assigneeId: userId,
-            completed: false,
-            dueDate: {
-              gte: startOfWeek,
-              lt: endOfWeek,
-            },
-          },
-          select: { estimatedHours: true },
-        }),
-        prisma.subTask.findMany({
-          where: {
-            assigneeId: userId,
-            completed: false,
-            dueDate: {
-              gte: startOfMonth,
-              lt: endOfMonth,
-            },
-          },
-          select: { estimatedHours: true },
-        }),
-      ]);
+      // Alle offenen Tasks des Users laden (mit Deadline oder überfällig)
+      const allOpenTasks = await prisma.subTask.findMany({
+        where: {
+          assigneeId: userId,
+          completed: false,
+          dueDate: { not: null },
+        },
+        select: { 
+          estimatedHours: true,
+          dueDate: true,
+        },
+      });
 
-      const dayHours = dayTasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
-      const weekHours = weekTasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
-      const monthHours = monthTasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
+      // Verteilte Stunden für jeden Zeitraum berechnen
+      const dayHours = calculateHoursForPeriod(allOpenTasks, startOfDay, endOfDay, today);
+      const weekHours = calculateHoursForPeriod(allOpenTasks, startOfWeek, endOfWeek, today);
+      const monthHours = calculateHoursForPeriod(allOpenTasks, startOfMonth, endOfMonth, today);
 
       // Wenn komplett abwesend, 100% Auslastung durch Abwesenheit
       const dayPercentage = dayAbsenceDays >= 1 ? 100 : (dayCapacity > 0 ? Math.round((dayHours / dayCapacity) * 100) : 0);
@@ -160,20 +240,20 @@ export async function GET(req: NextRequest) {
         availableHoursPerWeek,
         periods: {
           day: {
-            assigned: dayHours,
-            capacity: dayCapacity,
+            assigned: Math.round(dayHours * 10) / 10,
+            capacity: Math.round(dayCapacity * 10) / 10,
             percentage: dayPercentage,
             absenceDays: dayAbsenceDays,
           },
           week: {
-            assigned: weekHours,
-            capacity: weekCapacity,
+            assigned: Math.round(weekHours * 10) / 10,
+            capacity: Math.round(weekCapacity * 10) / 10,
             percentage: weekPercentage,
             absenceDays: weekAbsenceDays,
           },
           month: {
-            assigned: monthHours,
-            capacity: monthCapacity,
+            assigned: Math.round(monthHours * 10) / 10,
+            capacity: Math.round(monthCapacity * 10) / 10,
             percentage: monthPercentage,
             absenceDays: monthAbsenceDays,
           },
