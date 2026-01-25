@@ -14,10 +14,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get current user info
+    // Get current user info including team memberships
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { role: true, teamId: true },
+      select: { 
+        role: true, 
+        teamId: true,
+        teamMemberships: { select: { teamId: true } }
+      },
     });
 
     // Aus Datenschutzgründen sehen Admins keine Projekt-/Task-Details
@@ -30,33 +34,40 @@ export async function GET(request: NextRequest) {
     const filter = searchParams.get('filter') || 'all';
 
     // Check permissions - Projektleiter haben gleiche Rechte wie Koordinator (Admin bereits ausgeschlossen)
-    const isAdmin = false;
     const isKoordinator = isKoordinatorOrHigher(currentUser?.role);
     
-    // If not admin/koordinator/projektleiter, can only view own tasks
+    // Collect all team IDs the current user belongs to
+    const currentUserTeamIds: string[] = [];
+    if (currentUser?.teamId) currentUserTeamIds.push(currentUser.teamId);
+    currentUser?.teamMemberships?.forEach(tm => {
+      if (!currentUserTeamIds.includes(tm.teamId)) currentUserTeamIds.push(tm.teamId);
+    });
+    
+    // If not koordinator/projektleiter, can only view own tasks
     let userId = session.user.id;
     
     if (requestedUserId !== session.user.id) {
-      if (isAdmin) {
-        userId = requestedUserId;
-      } else if (isKoordinator && currentUser?.teamId) {
-        // Check if requested user is in same team
+      if (isKoordinator && currentUserTeamIds.length > 0) {
+        // Get requested user's teams
         const requestedUser = await prisma.user.findUnique({
           where: { id: requestedUserId },
-          select: { teamId: true },
-        });
-        
-        const isInTeam = requestedUser?.teamId === currentUser.teamId;
-        
-        // Also check TeamMember table
-        const teamMembership = await prisma.teamMember.findFirst({
-          where: {
-            userId: requestedUserId,
-            teamId: currentUser.teamId,
+          select: { 
+            teamId: true,
+            teamMemberships: { select: { teamId: true } }
           },
         });
         
-        if (isInTeam || teamMembership) {
+        // Collect all team IDs the requested user belongs to
+        const requestedUserTeamIds: string[] = [];
+        if (requestedUser?.teamId) requestedUserTeamIds.push(requestedUser.teamId);
+        requestedUser?.teamMemberships?.forEach(tm => {
+          if (!requestedUserTeamIds.includes(tm.teamId)) requestedUserTeamIds.push(tm.teamId);
+        });
+        
+        // Check if they share at least one team
+        const sharedTeam = currentUserTeamIds.some(teamId => requestedUserTeamIds.includes(teamId));
+        
+        if (sharedTeam) {
           userId = requestedUserId;
         }
       }
