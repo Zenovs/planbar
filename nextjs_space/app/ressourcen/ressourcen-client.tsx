@@ -90,8 +90,18 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('week');
 
-  // Heute
-  const today = startOfDay(new Date());
+  // Heute (wenn Wochenende, verwende nächsten Arbeitstag als Referenz für Auslastung)
+  const todayRaw = startOfDay(new Date());
+  const todayDayOfWeek = todayRaw.getDay();
+  const isWeekendToday = todayDayOfWeek === 0 || todayDayOfWeek === 6;
+  
+  // Für die Auslastungsberechnung: Am Wochenende zeigen wir die kommende Woche
+  const today = isWeekendToday ? (() => {
+    const nextMon = new Date(todayRaw);
+    if (todayDayOfWeek === 0) nextMon.setDate(nextMon.getDate() + 1); // Sonntag -> Montag
+    else if (todayDayOfWeek === 6) nextMon.setDate(nextMon.getDate() + 2); // Samstag -> Montag
+    return nextMon;
+  })() : todayRaw;
 
   // Woche berechnen
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });

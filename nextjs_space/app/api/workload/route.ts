@@ -33,6 +33,12 @@ function getNextWorkday(date: Date): Date {
   return result;
 }
 
+// Hilfsfunktion: Prüft ob heute ein Wochenende ist
+function isWeekend(date: Date): boolean {
+  const dayOfWeek = date.getDay();
+  return dayOfWeek === 0 || dayOfWeek === 6;
+}
+
 // Berechnet die verteilten Stunden eines Tasks für einen bestimmten Tag
 function calculateHoursForDay(
   task: { estimatedHours: number | null; dueDate: Date | null },
@@ -149,11 +155,16 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    const startOfDay = new Date(today);
+    // Wenn heute Wochenende ist, verwende den nächsten Arbeitstag als Referenz
+    // Das macht die Auslastungsplanung am Wochenende sinnvoller
+    const referenceDay = isWeekend(today) ? getNextWorkday(today) : today;
+    
+    const startOfDay = new Date(referenceDay);
     const endOfDay = new Date(startOfDay);
     endOfDay.setDate(endOfDay.getDate() + 1);
 
-    const startOfWeek = new Date(today);
+    // Woche basierend auf referenceDay berechnen
+    const startOfWeek = new Date(referenceDay);
     const dayOfWeek = startOfWeek.getDay();
     const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Montag als Wochenstart
     startOfWeek.setDate(startOfWeek.getDate() + diff);
@@ -230,9 +241,10 @@ export async function GET(req: NextRequest) {
       const uniqueTasks = Array.from(new Map(allOpenTasks.map(t => [t.id, t])).values());
 
       // Verteilte Stunden für jeden Zeitraum berechnen (mit deduplizierten Tasks)
-      const dayHours = calculateHoursForPeriod(uniqueTasks, startOfDay, endOfDay, today);
-      const weekHours = calculateHoursForPeriod(uniqueTasks, startOfWeek, endOfWeek, today);
-      const monthHours = calculateHoursForPeriod(uniqueTasks, startOfMonth, endOfMonth, today);
+      // Verwende referenceDay statt today für konsistente Berechnung am Wochenende
+      const dayHours = calculateHoursForPeriod(uniqueTasks, startOfDay, endOfDay, referenceDay);
+      const weekHours = calculateHoursForPeriod(uniqueTasks, startOfWeek, endOfWeek, referenceDay);
+      const monthHours = calculateHoursForPeriod(uniqueTasks, startOfMonth, endOfMonth, referenceDay);
 
       // Wenn komplett abwesend, 100% Auslastung durch Abwesenheit
       const dayPercentage = dayAbsenceDays >= 1 ? 100 : (dayCapacity > 0 ? Math.round((dayHours / dayCapacity) * 100) : 0);
