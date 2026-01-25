@@ -189,14 +189,20 @@ export default function TeamClient() {
   // Wenn sich die ausgewählte Organisation ändert, Teams und Users neu laden
   useEffect(() => {
     if (isAdmin && selectedOrgId) {
-      loadTeams(selectedOrgId);
-      loadUsers(selectedOrgId);
+      const isUnassigned = selectedOrgId === 'unassigned';
+      loadTeams(isUnassigned ? undefined : selectedOrgId, isUnassigned);
+      loadUsers(isUnassigned ? undefined : selectedOrgId, isUnassigned);
     }
   }, [selectedOrgId, isAdmin]);
 
-  const loadUsers = async (orgId?: string) => {
+  const loadUsers = async (orgId?: string, unassigned?: boolean) => {
     try {
-      const url = orgId ? `/api/users?organizationId=${orgId}` : '/api/users';
+      let url = '/api/users';
+      if (unassigned) {
+        url = '/api/users?unassigned=true';
+      } else if (orgId) {
+        url = `/api/users?organizationId=${orgId}`;
+      }
       const res = await fetch(url);
       const data = await res.json();
       if (res.ok) {
@@ -207,8 +213,13 @@ export default function TeamClient() {
     }
   };
 
-  const loadTeams = async (orgId?: string) => {
+  const loadTeams = async (orgId?: string, unassigned?: boolean) => {
     try {
+      if (unassigned) {
+        // Nicht zugeordnete Benutzer haben keine Teams
+        setTeams([]);
+        return;
+      }
       const url = orgId ? `/api/teams?organizationId=${orgId}` : '/api/teams';
       const res = await fetch(url);
       const data = await res.json();
@@ -589,11 +600,26 @@ export default function TeamClient() {
                             </div>
                           </SelectItem>
                         ))}
+                        <SelectItem value="unassigned">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white text-xs font-bold">
+                              ?
+                            </div>
+                            <span className="text-gray-600">Nicht zugeordnet</span>
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     {selectedOrgId && (
                       <div className="flex items-center gap-4 text-sm text-gray-600">
-                        {(() => {
+                        {selectedOrgId === 'unassigned' ? (
+                          <>
+                            <span className="flex items-center gap-1">
+                              <Users className="w-4 h-4 text-gray-500" />
+                              <strong>{users.length}</strong> nicht zugeordnete Benutzer
+                            </span>
+                          </>
+                        ) : (() => {
                           const selectedOrg = organizations.find(o => o.id === selectedOrgId);
                           return selectedOrg ? (
                             <>

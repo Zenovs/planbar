@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const filterOrgId = searchParams.get('organizationId');
+    const unassigned = searchParams.get('unassigned') === 'true';
 
     // Hole den aktuellen User mit Team-Info
     const currentUser = await prisma.user.findUnique({
@@ -30,8 +31,12 @@ export async function GET(req: NextRequest) {
     // User mit Team sehen nur Teammitglieder
     let whereClause: any = {};
     
+    // Admin kann nicht zugeordnete Benutzer anzeigen
+    if (userIsAdmin && unassigned) {
+      whereClause.organizationId = null;
+    }
     // Admin kann nach beliebiger Organisation filtern
-    if (userIsAdmin && filterOrgId) {
+    else if (userIsAdmin && filterOrgId) {
       whereClause.organizationId = filterOrgId;
     } else if (!canManageUsers(currentUser?.role)) {
       if (!currentUser?.teamId) {
