@@ -177,7 +177,7 @@ export async function GET(req: NextRequest) {
     const results: WorkloadResult[] = [];
 
     for (const userId of userIds) {
-      // Get user info
+      // Get user info mit TeamMember-Zuordnungen für korrekte Arbeitsstunden
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -186,12 +186,35 @@ export async function GET(req: NextRequest) {
           email: true,
           weeklyHours: true,
           workloadPercent: true,
+          // TeamMember-Zuordnungen für die tatsächlichen Arbeitsstunden
+          teamMemberships: {
+            select: {
+              weeklyHours: true,
+              workloadPercent: true,
+            }
+          }
         },
       });
 
       if (!user) continue;
 
-      const availableHoursPerWeek = (user.weeklyHours * user.workloadPercent) / 100;
+      // Verwende TeamMember-Stunden wenn vorhanden, sonst User-Defaults
+      // Bei mehreren Team-Mitgliedschaften: SUMMIERE die verfügbaren Stunden
+      let weeklyHours = user.weeklyHours;
+      let workloadPercent = user.workloadPercent;
+      
+      if (user.teamMemberships && user.teamMemberships.length > 0) {
+        // Berechne die tatsächlich verfügbaren Stunden pro Team und summiere
+        const totalAvailableHours = user.teamMemberships.reduce((sum, tm) => {
+          return sum + (tm.weeklyHours * tm.workloadPercent / 100);
+        }, 0);
+        
+        // Setze weeklyHours auf die Gesamtsumme und workloadPercent auf 100
+        weeklyHours = totalAvailableHours;
+        workloadPercent = 100;
+      }
+
+      const availableHoursPerWeek = (weeklyHours * workloadPercent) / 100;
       const hoursPerDay = availableHoursPerWeek / 5; // 5 Arbeitstage
       
       // Berechne Werktage im Monat
@@ -255,8 +278,8 @@ export async function GET(req: NextRequest) {
         userId: user.id,
         userName: user.name,
         userEmail: user.email,
-        weeklyHours: user.weeklyHours,
-        workloadPercent: user.workloadPercent,
+        weeklyHours,
+        workloadPercent,
         availableHoursPerWeek,
         periods: {
           day: {
