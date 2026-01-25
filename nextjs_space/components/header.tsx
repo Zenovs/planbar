@@ -25,8 +25,10 @@ export function Header() {
     return null;
   }
 
-  const isAdmin = session?.user?.role === 'admin';
-  const isMitglied = session?.user?.role === 'Mitglied';
+  // Case-insensitive Rollenprüfung
+  const userRole = session?.user?.role?.toLowerCase() || '';
+  const isAdmin = userRole === 'admin' || userRole === 'administrator';
+  const isMitglied = userRole === 'mitglied';
   
   const navItems = [
     // Dashboard nur für Admins sichtbar

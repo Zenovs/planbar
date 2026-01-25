@@ -46,6 +46,14 @@ export async function GET(request: NextRequest) {
     // If not koordinator/projektleiter, can only view own tasks
     let userId = session.user.id;
     
+    console.log('[Tasks API] Request:', {
+      sessionUserId: session.user.id,
+      requestedUserId,
+      currentUserRole: currentUser?.role,
+      isKoordinator,
+      currentUserTeamIds,
+    });
+    
     if (requestedUserId !== session.user.id) {
       if (isKoordinator && currentUserTeamIds.length > 0) {
         // Get requested user's teams
@@ -67,11 +75,18 @@ export async function GET(request: NextRequest) {
         // Check if they share at least one team
         const sharedTeam = currentUserTeamIds.some(teamId => requestedUserTeamIds.includes(teamId));
         
+        console.log('[Tasks API] Permission check:', {
+          requestedUserTeamIds,
+          sharedTeam,
+        });
+        
         if (sharedTeam) {
           userId = requestedUserId;
         }
       }
     }
+    
+    console.log('[Tasks API] Final userId for query:', userId);
 
     // Build where clause
     const whereClause: any = {
