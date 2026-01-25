@@ -35,6 +35,10 @@ export default async function TicketsPage() {
   let teams: any[] = [];
   try {
     users = await prisma.user.findMany({
+      where: {
+        // Admins aus Dropdown-Listen ausschließen
+        role: { notIn: ['admin', 'administrator'] }
+      },
       select: {
         id: true,
         name: true,
