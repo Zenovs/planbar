@@ -195,12 +195,15 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
     
     // Zähle Arbeitstage in dieser Woche, die auch im Task-Zeitraum liegen
     let hoursInWeek = 0;
-    let current = new Date(weekStartDate);
+    let current = startOfDay(new Date(weekStartDate));
+    const weekEndNormalized = startOfDay(new Date(weekEndDate));
+    const startDateNormalized = startOfDay(new Date(startDate));
+    const endDateNormalized = startOfDay(new Date(endDate));
     
-    while (current <= weekEndDate) {
+    while (current <= weekEndNormalized) {
       const dayOfWeek = current.getDay();
       // Nur Arbeitstage und nur wenn im Task-Zeitraum
-      if (dayOfWeek !== 0 && dayOfWeek !== 6 && current >= startDate && current <= endDate) {
+      if (dayOfWeek !== 0 && dayOfWeek !== 6 && current >= startDateNormalized && current <= endDateNormalized) {
         hoursInWeek += hoursPerDay;
       }
       current.setDate(current.getDate() + 1);
@@ -213,12 +216,15 @@ export function RessourcenClient({ users, projects }: RessourcenClientProps) {
   const calculateDailyHoursForTask = (task: SubTask, day: Date): number => {
     if (!task.dueDate || !task.estimatedHours) return 0;
     
-    const dayOfWeek = day.getDay();
+    const dayNormalized = startOfDay(new Date(day));
+    const dayOfWeek = dayNormalized.getDay();
     if (dayOfWeek === 0 || dayOfWeek === 6) return 0; // Wochenende
     
     const { hoursPerDay, startDate, endDate } = calculateHoursPerDay(task);
+    const startDateNormalized = startOfDay(new Date(startDate));
+    const endDateNormalized = startOfDay(new Date(endDate));
     
-    if (day >= startDate && day <= endDate) {
+    if (dayNormalized >= startDateNormalized && dayNormalized <= endDateNormalized) {
       return hoursPerDay;
     }
     return 0;
