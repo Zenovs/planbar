@@ -34,13 +34,15 @@ export default async function CalendarPlanningPage() {
 
   const isAdmin = checkIsAdmin(user.role);
   
-  // Nur Admins dürfen die Kalenderseite sehen
-  if (!isAdmin) {
-    redirect('/tasks');
+  // Aus Datenschutzgründen sehen Admins keine Projekt-/Task-Details
+  // Admins werden zum Dashboard weitergeleitet
+  if (isAdmin) {
+    redirect('/dashboard');
   }
 
+  // Admin bereits oben ausgeschlossen
   const isKoordinator = isKoordinatorOrHigher(user.role);
-  const canViewOthers = isAdmin || isKoordinator;
+  const canViewOthers = isKoordinator;
 
   // Team IDs sammeln
   const teamIds: string[] = [];
@@ -49,15 +51,10 @@ export default async function CalendarPlanningPage() {
     if (!teamIds.includes(tm.teamId)) teamIds.push(tm.teamId);
   });
 
-  // Team-Mitglieder laden (für Admin/Koordinator)
+  // Team-Mitglieder laden (für Koordinator/Projektleiter)
   let teamMembers: { id: string; name: string | null; email: string }[] = [];
 
-  if (isAdmin) {
-    teamMembers = await prisma.user.findMany({
-      select: { id: true, name: true, email: true },
-      orderBy: { name: 'asc' }
-    });
-  } else if (isKoordinator && teamIds.length > 0) {
+  if (isKoordinator && teamIds.length > 0) {
     teamMembers = await prisma.user.findMany({
       where: {
         OR: [
@@ -77,7 +74,7 @@ export default async function CalendarPlanningPage() {
       currentUser={{ id: user.id, name: user.name, email: user.email, role: user.role }}
       teamMembers={teamMembers}
       canViewOthers={canViewOthers}
-      isAdmin={isAdmin}
+      isAdmin={false}
     />
   );
 }

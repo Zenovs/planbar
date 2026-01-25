@@ -34,7 +34,13 @@ export default async function TasksPage() {
   // Check if user is koordinator, projektleiter or admin
   const isKoordinator = isKoordinatorOrHigher(currentUser.role);
   const isAdmin = checkIsAdmin(currentUser.role);
-  const canViewOthers = isKoordinator || isAdmin;
+  
+  // Aus Datenschutzgründen sehen Admins keine Projekt-/Task-Details
+  if (isAdmin) {
+    redirect('/dashboard');
+  }
+  
+  const canViewOthers = isKoordinator;
 
   // Collect all team IDs the user belongs to
   const userTeamIds: string[] = [];
@@ -43,16 +49,10 @@ export default async function TasksPage() {
     if (!userTeamIds.includes(tm.teamId)) userTeamIds.push(tm.teamId);
   });
 
-  // Get team members if koordinator/admin
+  // Get team members if koordinator (Admin bereits ausgeschlossen)
   let teamMembers: { id: string; name: string | null; email: string }[] = [];
   if (canViewOthers) {
-    if (isAdmin) {
-      // Admin sees all users
-      teamMembers = await prisma.user.findMany({
-        select: { id: true, name: true, email: true },
-        orderBy: { name: 'asc' },
-      });
-    } else if (isKoordinator && userTeamIds.length > 0) {
+    if (isKoordinator && userTeamIds.length > 0) {
       // Koordinator sees team members from ALL their teams
       const teamMemberships = await prisma.teamMember.findMany({
         where: { teamId: { in: userTeamIds } },

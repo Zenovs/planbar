@@ -13,6 +13,16 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
     redirect('/');
   }
 
+  // Aus Datenschutzgründen sehen Admins keine Projekt-/Ticket-Details
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true }
+  });
+  
+  if (currentUser?.role?.toLowerCase() === 'admin') {
+    redirect('/dashboard');
+  }
+
   const [ticket, users, teams] = await Promise.all([
     prisma.ticket.findUnique({
       where: { id: params.id },

@@ -13,6 +13,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! }
+    });
+
+    // Aus Datenschutzgründen sehen Admins keine Projekt-/Task-Details
+    if (checkIsAdmin(user?.role)) {
+      return NextResponse.json({ error: 'Admins haben aus Datenschutzgründen keinen Zugriff auf Projektdetails' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const ticketId = searchParams.get('ticketId');
 
@@ -30,12 +39,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email! }
-    });
-
-    // Zugriffskontrolle
-    const isAdmin = checkIsAdmin(user?.role);
+    // Zugriffskontrolle (Admin bereits oben ausgeschlossen)
+    const isAdmin = false;
     const isCreator = ticket.createdById === user?.id;
     const isAssigned = ticket.assignedToId === user?.id;
     const isTeamMember = ticket.teamId && ticket.teamId === user?.teamId;

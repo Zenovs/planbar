@@ -45,37 +45,35 @@ export async function GET(req: NextRequest) {
     // Team-based filtering
     const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
     
-    if (!isAdmin) {
-      // Wenn ein spezifisches Team gefiltert wird und User Mitglied ist
-      if (teamId && teamId !== 'all') {
-        const isMember = userTeamIds.includes(teamId) || currentUser?.teamId === teamId;
-        if (isMember) {
-          where.teamId = teamId;
-        } else {
-          // User ist nicht Mitglied des Teams - zeige keine Tickets
-          where.id = 'none';
-        }
+    // Aus Datenschutzgründen sehen Admins keine Projekt-/Ticket-Details
+    if (isAdmin) {
+      return NextResponse.json({ tickets: [], message: 'Admins haben aus Datenschutzgründen keinen Zugriff auf Projektdetails' });
+    }
+    
+    // Wenn ein spezifisches Team gefiltert wird und User Mitglied ist
+    if (teamId && teamId !== 'all') {
+      const isMember = userTeamIds.includes(teamId) || currentUser?.teamId === teamId;
+      if (isMember) {
+        where.teamId = teamId;
       } else {
-        // Ohne Team-Filter: Zeige Tickets des Users oder seiner Teams
-        const orConditions: any[] = [
-          { createdById: currentUser?.id },
-          { assignedToId: currentUser?.id },
-        ];
-        
-        if (currentUser?.teamId) {
-          orConditions.push({ teamId: currentUser.teamId });
-        }
-        if (userTeamIds.length > 0) {
-          orConditions.push({ teamId: { in: userTeamIds } });
-        }
-        
-        where.OR = orConditions;
+        // User ist nicht Mitglied des Teams - zeige keine Tickets
+        where.id = 'none';
       }
     } else {
-      // Admin kann nach beliebigem Team filtern
-      if (teamId && teamId !== 'all') {
-        where.teamId = teamId;
+      // Ohne Team-Filter: Zeige Tickets des Users oder seiner Teams
+      const orConditions: any[] = [
+        { createdById: currentUser?.id },
+        { assignedToId: currentUser?.id },
+      ];
+      
+      if (currentUser?.teamId) {
+        orConditions.push({ teamId: currentUser.teamId });
       }
+      if (userTeamIds.length > 0) {
+        orConditions.push({ teamId: { in: userTeamIds } });
+      }
+      
+      where.OR = orConditions;
     }
 
     if (status && status !== 'all') {

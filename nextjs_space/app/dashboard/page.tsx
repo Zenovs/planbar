@@ -76,15 +76,8 @@ export default async function DashboardPage() {
     prisma.user.count({ where: { updatedAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } } }),
   ]);
 
-  // Get recent projects
-  const recentProjects = await prisma.ticket.findMany({
-    take: 5,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      createdBy: { select: { name: true, email: true } },
-      assignedTo: { select: { name: true, email: true } },
-    },
-  });
+  // Aus Datenschutzgründen sieht Admin keine Projekt-Details
+  const recentProjects: any[] = [];
 
   // Get recent users
   const recentUsers = await prisma.user.findMany({

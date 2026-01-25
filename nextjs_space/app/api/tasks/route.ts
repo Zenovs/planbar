@@ -14,18 +14,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const requestedUserId = searchParams.get('userId') || session.user.id;
-    const filter = searchParams.get('filter') || 'all';
-
     // Get current user info
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { role: true, teamId: true },
     });
 
-    // Check permissions - Projektleiter haben gleiche Rechte wie Koordinator
-    const isAdmin = checkIsAdmin(currentUser?.role);
+    // Aus Datenschutzgründen sehen Admins keine Projekt-/Task-Details
+    if (checkIsAdmin(currentUser?.role)) {
+      return NextResponse.json({ tasks: [], message: 'Admins haben aus Datenschutzgründen keinen Zugriff auf Task-Details' });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const requestedUserId = searchParams.get('userId') || session.user.id;
+    const filter = searchParams.get('filter') || 'all';
+
+    // Check permissions - Projektleiter haben gleiche Rechte wie Koordinator (Admin bereits ausgeschlossen)
+    const isAdmin = false;
     const isKoordinator = isKoordinatorOrHigher(currentUser?.role);
     
     // If not admin/koordinator/projektleiter, can only view own tasks

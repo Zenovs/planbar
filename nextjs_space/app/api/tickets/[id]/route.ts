@@ -16,6 +16,15 @@ export async function GET(
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
+    // Aus Datenschutzgründen sehen Admins keine Projekt-/Ticket-Details
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    if (currentUser?.role?.toLowerCase() === 'admin') {
+      return NextResponse.json({ error: 'Admins haben aus Datenschutzgründen keinen Zugriff auf Projektdetails' }, { status: 403 });
+    }
+
     const ticket = await prisma.ticket.findUnique({
       where: { id: params.id },
       include: {

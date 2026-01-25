@@ -19,6 +19,18 @@ export default async function TicketsPage() {
     redirect('/');
   }
 
+  // Aus Datenschutzgründen sehen Admins keine Projekt-/Ticket-Details
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true }
+  });
+  
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  
+  if (isAdmin) {
+    redirect('/dashboard');
+  }
+
   let users: any[] = [];
   let teams: any[] = [];
   try {
@@ -33,27 +45,12 @@ export default async function TicketsPage() {
       },
     });
     
-    // Teams laden, in denen der User Mitglied ist (oder alle für Admins)
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true }
+    // Nur Teams wo User Mitglied ist (Admin bereits ausgeschlossen)
+    const memberships = await prisma.teamMember.findMany({
+      where: { userId: session.user.id },
+      include: { team: { select: { id: true, name: true, color: true } } }
     });
-    
-    const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
-    
-    if (isAdmin) {
-      teams = await prisma.team.findMany({
-        select: { id: true, name: true, color: true },
-        orderBy: { name: 'asc' }
-      });
-    } else {
-      // Nur Teams wo User Mitglied ist
-      const memberships = await prisma.teamMember.findMany({
-        where: { userId: session.user.id },
-        include: { team: { select: { id: true, name: true, color: true } } }
-      });
-      teams = memberships.map(m => m.team);
-    }
+    teams = memberships.map(m => m.team);
   } catch (error) {
     console.error('Database error:', error);
   }

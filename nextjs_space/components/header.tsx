@@ -31,12 +31,13 @@ export function Header() {
   const navItems = [
     // Dashboard nur für Admins sichtbar
     ...(isAdmin ? [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] : []),
-    { href: '/tasks', label: 'Tasks', icon: CheckSquare },
-    { href: '/tickets', label: 'Projekte', icon: Ticket },
+    // Tasks und Projekte NICHT für Admins (Datenschutz)
+    ...(!isAdmin ? [{ href: '/tasks', label: 'Tasks', icon: CheckSquare }] : []),
+    ...(!isAdmin ? [{ href: '/tickets', label: 'Projekte', icon: Ticket }] : []),
     // Team nicht für Mitglieder sichtbar
     ...(!isMitglied ? [{ href: '/team', label: 'Team', icon: Users }] : []),
-    // Kalender nur für Admins sichtbar
-    ...(isAdmin ? [{ href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays }] : []),
+    // Kalender NICHT für Admins (Datenschutz) - nur für Koordinator/Projektleiter
+    ...(!isAdmin && !isMitglied ? [{ href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays }] : []),
     // Kosten nur für Admins sichtbar
     ...(isAdmin ? [{ href: '/kosten', label: 'Kosten', icon: Wallet }] : []),
   ];
