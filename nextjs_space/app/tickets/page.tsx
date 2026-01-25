@@ -22,7 +22,17 @@ export default async function TicketsPage() {
   // Aus Datenschutzgründen sehen Admins keine Projekt-/Ticket-Details
   const currentUser = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { role: true }
+    select: { 
+      role: true,
+      organizationId: true,
+      teamMemberships: {
+        select: {
+          team: {
+            select: { organizationId: true }
+          }
+        }
+      }
+    }
   });
   
   const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
@@ -31,13 +41,34 @@ export default async function TicketsPage() {
     redirect('/dashboard');
   }
 
+  // Sammle alle Organisations-IDs des Users
+  const userOrgIds: string[] = [];
+  if (currentUser?.organizationId) {
+    userOrgIds.push(currentUser.organizationId);
+  }
+  currentUser?.teamMemberships?.forEach(tm => {
+    if (tm.team.organizationId && !userOrgIds.includes(tm.team.organizationId)) {
+      userOrgIds.push(tm.team.organizationId);
+    }
+  });
+
   let users: any[] = [];
   let teams: any[] = [];
   try {
+    // User sehen nur Mitglieder aus ihren Organisationen
     users = await prisma.user.findMany({
       where: {
-        // Admins aus Dropdown-Listen ausschließen
-        role: { notIn: ['admin', 'administrator'] }
+        AND: [
+          // Admins aus Dropdown-Listen ausschließen
+          { role: { notIn: ['admin', 'administrator'] } },
+          // Nur User aus denselben Organisationen
+          userOrgIds.length > 0 ? {
+            OR: [
+              { organizationId: { in: userOrgIds } },
+              { teamMemberships: { some: { team: { organizationId: { in: userOrgIds } } } } }
+            ]
+          } : {}
+        ]
       },
       select: {
         id: true,
