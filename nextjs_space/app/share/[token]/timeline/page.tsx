@@ -15,6 +15,15 @@ export default async function SharedTimelinePage({ params }: PageProps) {
     include: {
       milestones: {
         orderBy: { dueDate: 'asc' },
+        include: {
+          dependsOn: {
+            select: {
+              id: true,
+              title: true,
+              dueDate: true,
+            },
+          },
+        },
       },
     },
   });

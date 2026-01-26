@@ -2,7 +2,13 @@
 
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Flag, Calendar, Check } from 'lucide-react';
+import { Flag, Calendar, Check, User, ArrowRight } from 'lucide-react';
+
+interface DependsOn {
+  id: string;
+  title: string;
+  dueDate: Date;
+}
 
 interface Milestone {
   id: string;
@@ -11,6 +17,8 @@ interface Milestone {
   dueDate: Date;
   completed: boolean;
   color: string;
+  responsibility: string | null;
+  dependsOn: DependsOn | null;
 }
 
 interface SharedTimelineViewProps {
@@ -202,6 +210,25 @@ export function SharedTimelineView({
                     <p className="text-sm text-gray-500 mt-1">
                       {format(new Date(milestone.dueDate), 'EEEE, dd. MMMM yyyy', { locale: de })}
                     </p>
+                    
+                    {/* Verantwortliche Instanz */}
+                    {milestone.responsibility && (
+                      <div className="flex items-center gap-1.5 mt-2 text-sm">
+                        <User className="w-4 h-4 text-blue-500" />
+                        <span className="text-gray-600">Verantwortlich:</span>
+                        <span className="font-medium text-blue-600">{milestone.responsibility}</span>
+                      </div>
+                    )}
+                    
+                    {/* Abhängigkeit */}
+                    {milestone.dependsOn && (
+                      <div className="flex items-center gap-1.5 mt-2 text-sm">
+                        <ArrowRight className="w-4 h-4 text-amber-500" />
+                        <span className="text-gray-600">Abhängig von:</span>
+                        <span className="font-medium text-amber-600">{milestone.dependsOn.title}</span>
+                      </div>
+                    )}
+                    
                     {milestone.description && (
                       <p className="text-sm text-gray-600 mt-2">{milestone.description}</p>
                     )}
