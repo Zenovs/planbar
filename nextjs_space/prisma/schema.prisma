@@ -105,6 +105,7 @@ model User {
   teamMemberships  TeamMember[]
   notes            Note[]
   absences         Absence[]
+  mocoIntegration  MocoIntegration?
 
   @@map("users")
 }
@@ -387,4 +388,44 @@ model AppSettings {
   updatedAt               DateTime @updatedAt
 
   @@map("app_settings")
+}
+
+// MOCO-Integration für Kalenderabgleich
+model MocoIntegration {
+  id                  String    @id @default(cuid())
+  apiKeyEncrypted     String    // Verschlüsselter API-Key
+  apiKeyIv            String    // Initialization Vector für Verschlüsselung
+  instanceDomain      String    // z.B. "meinefirma" für meinefirma.mocoapp.com
+  lastSyncAt          DateTime? // Letzter erfolgreicher Sync
+  lastSyncStatus      String?   // "success" | "error"
+  lastSyncError       String?   // Fehlermeldung falls vorhanden
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  calendarEntries     MocoCalendarEntry[]
+
+  @@map("moco_integrations")
+}
+
+// Synchronisierte MOCO Kalendereinträge
+model MocoCalendarEntry {
+  id              String    @id @default(cuid())
+  mocoId          String    // Original-ID von MOCO
+  date            DateTime  // Datum des Eintrags
+  hours           Float     // Gebuchte Stunden
+  description     String?   // Beschreibung
+  projectName     String?   // Projektname aus MOCO
+  taskName        String?   // Task-Name aus MOCO
+  billable        Boolean   @default(false)
+  syncedAt        DateTime  @default(now())
+
+  integrationId   String
+  integration     MocoIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([mocoId, integrationId])
+  @@map("moco_calendar_entries")
 }
