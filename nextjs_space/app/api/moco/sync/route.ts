@@ -162,13 +162,14 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: `${absenceEntries.length} Abwesenheiten synchronisiert`,
+      message: `${absenceEntries.length} Abwesenheiten für ${result.mocoUserName} synchronisiert`,
       entriesCount: absenceEntries.length,
-      debug: {
-        rawSchedulesCount: result.data?.length || 0,
-        groupedCount: groupedAbsences.size,
-        sample: result.raw
-      }
+      mocoUser: result.mocoUserName,
+      absences: absenceEntries.map(a => ({
+        title: a.title,
+        startDate: a.startDate.toISOString().split('T')[0],
+        endDate: a.endDate.toISOString().split('T')[0]
+      }))
     });
   } catch (error) {
     console.error('MOCO Sync Fehler:', error);

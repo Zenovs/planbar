@@ -24,34 +24,107 @@ interface MocoSchedule {
   updated_at: string;
 }
 
+// MOCO Session/User Response
+interface MocoSessionResponse {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string;
+}
+
 export interface MocoApiResponse {
   success: boolean;
   data?: MocoSchedule[];
   error?: string;
-  raw?: unknown;  // Für Debug-Zwecke
+  raw?: unknown;
+  mocoUserId?: number;
+  mocoUserName?: string;
+}
+
+// Erlaubte Abwesenheitstypen (nur diese werden importiert)
+const ALLOWED_ABSENCE_TYPES = [
+  'ferien',
+  'urlaub',
+  'vacation',
+  'holiday',
+  'feiertag',
+  'public holiday',
+  'krank',
+  'krankheit',
+  'sick',
+  'illness'
+];
+
+/**
+ * Prüft ob ein Assignment-Name eine erlaubte Abwesenheit ist
+ */
+function isAllowedAbsence(name: string | undefined): boolean {
+  if (!name) return false;
+  const lowerName = name.toLowerCase();
+  return ALLOWED_ABSENCE_TYPES.some(type => lowerName.includes(type));
 }
 
 /**
- * Ruft alle Schedules (inkl. Abwesenheiten/Ferien) von der MOCO API ab
+ * Holt die MOCO User-ID des API-Key Besitzers
+ */
+export async function getMocoCurrentUser(
+  apiKey: string,
+  instanceDomain: string
+): Promise<{ success: boolean; userId?: number; userName?: string; error?: string }> {
+  try {
+    const baseUrl = `https://${instanceDomain}.mocoapp.com/api/v1`;
+    const response = await fetch(`${baseUrl}/session`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Token token=${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return { success: false, error: `Session API Fehler: ${response.status}` };
+    }
+
+    const data: MocoSessionResponse = await response.json();
+    return {
+      success: true,
+      userId: data.id,
+      userName: `${data.firstname} ${data.lastname}`
+    };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+/**
+ * Ruft NUR die Abwesenheiten (Ferien, Krank, Feiertage) des aktuellen MOCO-Users ab
  */
 export async function fetchMocoSchedules(
   apiKeyEncrypted: string,
   apiKeyIv: string,
   instanceDomain: string,
   fromDate: string,
-  toDate: string,
-  userId?: number
+  toDate: string
 ): Promise<MocoApiResponse> {
   try {
     const apiKey = decrypt(apiKeyEncrypted, apiKeyIv);
     const baseUrl = `https://${instanceDomain}.mocoapp.com/api/v1`;
     
-    // Schedules Endpoint - enthält alle Abwesenheiten
-    let url = `${baseUrl}/schedules?from=${fromDate}&to=${toDate}`;
-    if (userId) {
-      url += `&user_id=${userId}`;
+    // 1. Zuerst die MOCO User-ID des API-Key Besitzers holen
+    const userResult = await getMocoCurrentUser(apiKey, instanceDomain);
+    if (!userResult.success || !userResult.userId) {
+      return {
+        success: false,
+        error: userResult.error || 'Konnte MOCO User nicht ermitteln'
+      };
     }
+
+    const mocoUserId = userResult.userId;
+    const mocoUserName = userResult.userName;
+    console.log(`MOCO User: ${mocoUserName} (ID: ${mocoUserId})`);
     
+    // 2. Schedules NUR für diesen User abrufen (user_id Parameter!)
+    const url = `${baseUrl}/schedules?from=${fromDate}&to=${toDate}&user_id=${mocoUserId}`;
     console.log('MOCO API Request:', url);
     
     const response = await fetch(url, {
@@ -82,34 +155,31 @@ export async function fetchMocoSchedules(
       };
     }
     
-    // Alle Schedule-Einträge zurückgeben (mit assignment = Abwesenheit)
-    // Filter: Nur Einträge mit einem assignment (= geplante Abwesenheit)
+    // 3. NUR Ferien, Krank, Feiertage filtern (keine Projekte oder andere Einträge)
     const schedules = rawData.filter((s: MocoSchedule) => {
-      // Ein Schedule ist eine Abwesenheit, wenn assignment vorhanden ist
-      // und assignment.type "Absence" ist ODER assignment.name bestimmte Wörter enthält
+      // Muss ein assignment haben
       if (!s.assignment) return false;
       
-      const isAbsence = s.assignment.type?.toLowerCase() === 'absence' ||
-        s.assignment.name?.toLowerCase().includes('ferien') ||
-        s.assignment.name?.toLowerCase().includes('urlaub') ||
-        s.assignment.name?.toLowerCase().includes('feiertag') ||
-        s.assignment.name?.toLowerCase().includes('krank') ||
-        s.assignment.name?.toLowerCase().includes('holiday') ||
-        s.assignment.name?.toLowerCase().includes('vacation') ||
-        s.assignment.name?.toLowerCase().includes('sick');
-        
-      return isAbsence;
+      // Nur erlaubte Abwesenheitstypen
+      if (!isAllowedAbsence(s.assignment.name)) {
+        console.log(`Überspringe: ${s.assignment.name} (kein erlaubter Abwesenheitstyp)`);
+        return false;
+      }
+      
+      return true;
     });
     
-    console.log('MOCO Abwesenheiten gefunden:', schedules.length);
-    if (schedules.length > 0) {
-      console.log('Beispiel:', JSON.stringify(schedules[0], null, 2));
-    }
+    console.log(`MOCO Abwesenheiten für ${mocoUserName}: ${schedules.length} Einträge`);
+    schedules.forEach((s: MocoSchedule) => {
+      console.log(`  - ${s.date}: ${s.assignment?.name}`);
+    });
     
     return {
       success: true,
       data: schedules as MocoSchedule[],
-      raw: rawData.slice(0, 3)  // Erste 3 Einträge für Debug
+      raw: rawData.slice(0, 5),
+      mocoUserId,
+      mocoUserName
     };
   } catch (error) {
     console.error('MOCO API Anfrage fehlgeschlagen:', error);
