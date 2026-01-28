@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // Team IDs sammeln
     const teamIds: string[] = [];
     if (user.teamId) teamIds.push(user.teamId);
-    user.teamMemberships?.forEach(tm => {
+    user.teamMemberships?.forEach((tm: { teamId: string }) => {
       if (!teamIds.includes(tm.teamId)) teamIds.push(tm.teamId);
     });
 
