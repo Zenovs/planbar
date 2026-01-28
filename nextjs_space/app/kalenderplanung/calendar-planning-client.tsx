@@ -14,7 +14,7 @@ import {
   Palmtree,
   GraduationCap,
   Heart,
-  HelpCircle,
+  Coffee,
   Filter,
   Link2
 } from 'lucide-react';
@@ -49,7 +49,7 @@ const ABSENCE_TYPES = [
   { value: 'vacation', label: 'Ferien', icon: Palmtree, color: '#22c55e' },
   { value: 'workshop', label: 'Workshop/Schulung', icon: GraduationCap, color: '#3b82f6' },
   { value: 'sick', label: 'Krank', icon: Heart, color: '#ef4444' },
-  { value: 'other', label: 'Sonstiges', icon: HelpCircle, color: '#a855f7' },
+  { value: 'other', label: 'Sonstiges', icon: Coffee, color: '#a855f7' },
 ];
 
 export function CalendarPlanningClient({ 

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { fetchMocoSchedules } from '@/lib/moco-api';
-import { format, subDays, addDays, addMonths } from 'date-fns';
+import { format, subDays, addDays, addMonths, subMonths } from 'date-fns';
 
 // Mapping von MOCO Abwesenheitstypen zu Planbar-Typen
 function mapMocoAbsenceType(mocoName: string): { type: string; color: string } {
@@ -54,8 +54,10 @@ export async function POST() {
 
     // Zeitraum: 30 Tage zurück bis 6 Monate in die Zukunft (für geplante Ferien)
     const today = new Date();
-    const fromDate = format(subDays(today, 30), 'yyyy-MM-dd');
-    const toDate = format(addMonths(today, 6), 'yyyy-MM-dd');
+    // Zeitraum: 12 Monate zurück bis 12 Monate vorwärts
+    const fromDate = format(subMonths(today, 12), 'yyyy-MM-dd');
+    const toDate = format(addMonths(today, 12), 'yyyy-MM-dd');
+    console.log(`MOCO Sync Zeitraum: ${fromDate} bis ${toDate}`);
 
     // Abwesenheiten von MOCO abrufen
     const result = await fetchMocoSchedules(
