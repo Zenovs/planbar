@@ -9,15 +9,15 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://planbar-one.vercel.app')),
-  title: 'planbar - Ticket Management System',
-  description: 'Modernes Ticket-Management für kleine Teams',
+  title: 'planbar - Modernes Projektmanagement-Tool',
+  description: 'Projektmanagement-Tool für Teams: Projektplanung, Task-Management, Ressourcenplanung und Meilenstein-Tracking. Mit rollenbasierten Zugriffsrechten, Kalenderintegration und teilbaren Timeline-Links. Optimiert für Desktop, Tablet und Smartphone.',
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
   },
   openGraph: {
-    title: 'planbar - Ticket Management System',
-    description: 'Modernes Ticket-Management für kleine Teams',
+    title: 'planbar - Modernes Projektmanagement-Tool',
+    description: 'Projektmanagement-Tool für Teams: Projektplanung, Task-Management, Ressourcenplanung und Meilenstein-Tracking. Mit rollenbasierten Zugriffsrechten und teilbaren Timeline-Links.',
     images: ['/og-image.png'],
   },
 };
