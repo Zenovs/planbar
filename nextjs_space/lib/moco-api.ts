@@ -1,42 +1,38 @@
 import { decrypt } from './encryption';
 
-// MOCO Schedule/Absence (Abwesenheit/Ferien)
+// MOCO Schedule Entry (basierend auf offizieller API-Dokumentation)
 interface MocoSchedule {
   id: number;
   date: string;
-  am: string | null;  // "absence" | "absence_am" | null
-  pm: string | null;  // "absence" | "absence_pm" | null
   comment: string | null;
-  absence: {
-    id: number;
-    name: string;     // z.B. "Ferien", "Feiertag", "Krank"
-    color: string;
-  } | null;
+  am: boolean | null;        // Vormittag belegt
+  pm: boolean | null;        // Nachmittag belegt
+  symbol: number | null;     // Symbol-ID (z.B. für Feiertag, Krankheit)
   assignment: {
     id: number;
-    name: string;
+    name: string;            // z.B. "Ferien", "Feiertag", "Krank"
+    customer_name: string | null;
+    color: string;
+    type: string;            // "Absence" für Abwesenheiten
   } | null;
   user: {
     id: number;
     firstname: string;
     lastname: string;
   };
+  created_at: string;
+  updated_at: string;
 }
 
-interface MocoApiResponse {
+export interface MocoApiResponse {
   success: boolean;
   data?: MocoSchedule[];
   error?: string;
+  raw?: unknown;  // Für Debug-Zwecke
 }
 
 /**
- * Ruft Abwesenheiten/Ferien von der MOCO API ab
- * @param apiKeyEncrypted Verschlüsselter API-Key
- * @param apiKeyIv IV für Entschlüsselung
- * @param instanceDomain MOCO Instance (z.B. "meinefirma" für meinefirma.mocoapp.com)
- * @param fromDate Start-Datum (YYYY-MM-DD)
- * @param toDate End-Datum (YYYY-MM-DD)
- * @param userId Optional: MOCO User ID (wenn leer, werden eigene Abwesenheiten geholt)
+ * Ruft alle Schedules (inkl. Abwesenheiten/Ferien) von der MOCO API ab
  */
 export async function fetchMocoSchedules(
   apiKeyEncrypted: string,
@@ -47,15 +43,16 @@ export async function fetchMocoSchedules(
   userId?: number
 ): Promise<MocoApiResponse> {
   try {
-    // API-Key entschlüsseln
     const apiKey = decrypt(apiKeyEncrypted, apiKeyIv);
-    
     const baseUrl = `https://${instanceDomain}.mocoapp.com/api/v1`;
-    // schedules Endpoint für Abwesenheiten
+    
+    // Schedules Endpoint - enthält alle Abwesenheiten
     let url = `${baseUrl}/schedules?from=${fromDate}&to=${toDate}`;
     if (userId) {
       url += `&user_id=${userId}`;
     }
+    
+    console.log('MOCO API Request:', url);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -74,14 +71,45 @@ export async function fetchMocoSchedules(
       };
     }
     
-    const data = await response.json();
-    // Nur Einträge mit Abwesenheiten filtern
-    const absences = (data as MocoSchedule[]).filter(
-      s => s.absence !== null || s.am === 'absence' || s.pm === 'absence'
-    );
+    const rawData = await response.json();
+    console.log('MOCO API Response count:', Array.isArray(rawData) ? rawData.length : 'not array');
+    
+    if (!Array.isArray(rawData)) {
+      return {
+        success: false,
+        error: 'Unerwartete API-Antwort (kein Array)',
+        raw: rawData
+      };
+    }
+    
+    // Alle Schedule-Einträge zurückgeben (mit assignment = Abwesenheit)
+    // Filter: Nur Einträge mit einem assignment (= geplante Abwesenheit)
+    const schedules = rawData.filter((s: MocoSchedule) => {
+      // Ein Schedule ist eine Abwesenheit, wenn assignment vorhanden ist
+      // und assignment.type "Absence" ist ODER assignment.name bestimmte Wörter enthält
+      if (!s.assignment) return false;
+      
+      const isAbsence = s.assignment.type?.toLowerCase() === 'absence' ||
+        s.assignment.name?.toLowerCase().includes('ferien') ||
+        s.assignment.name?.toLowerCase().includes('urlaub') ||
+        s.assignment.name?.toLowerCase().includes('feiertag') ||
+        s.assignment.name?.toLowerCase().includes('krank') ||
+        s.assignment.name?.toLowerCase().includes('holiday') ||
+        s.assignment.name?.toLowerCase().includes('vacation') ||
+        s.assignment.name?.toLowerCase().includes('sick');
+        
+      return isAbsence;
+    });
+    
+    console.log('MOCO Abwesenheiten gefunden:', schedules.length);
+    if (schedules.length > 0) {
+      console.log('Beispiel:', JSON.stringify(schedules[0], null, 2));
+    }
+    
     return {
       success: true,
-      data: absences
+      data: schedules as MocoSchedule[],
+      raw: rawData.slice(0, 3)  // Erste 3 Einträge für Debug
     };
   } catch (error) {
     console.error('MOCO API Anfrage fehlgeschlagen:', error);

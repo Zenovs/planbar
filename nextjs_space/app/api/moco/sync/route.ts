@@ -102,12 +102,18 @@ export async function POST() {
       description: string | null;
     }> = new Map();
 
+    console.log('Verarbeite', schedules.length, 'Schedules...');
+
     for (const schedule of schedules) {
-      if (!schedule.absence) continue;
+      // assignment enthält die Abwesenheitsinfo (nicht absence!)
+      if (!schedule.assignment) continue;
       
-      const absenceKey = `${schedule.absence.name}-${schedule.absence.id}`;
+      const absenceName = schedule.assignment.name;
+      const absenceKey = `${absenceName}-${schedule.assignment.id}`;
       const date = new Date(schedule.date);
-      const { type, color } = mapMocoAbsenceType(schedule.absence.name);
+      const { type, color } = mapMocoAbsenceType(absenceName);
+      
+      console.log(`Schedule: ${schedule.date} - ${absenceName} (${schedule.assignment.type})`);
       
       if (groupedAbsences.has(absenceKey)) {
         const existing = groupedAbsences.get(absenceKey)!;
@@ -116,9 +122,9 @@ export async function POST() {
         if (date > existing.endDate) existing.endDate = date;
       } else {
         groupedAbsences.set(absenceKey, {
-          title: `[MOCO] ${schedule.absence.name}`,
+          title: `[MOCO] ${absenceName}`,
           type,
-          color,
+          color: schedule.assignment.color || color,
           startDate: date,
           endDate: date,
           description: schedule.comment
@@ -157,7 +163,12 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message: `${absenceEntries.length} Abwesenheiten synchronisiert`,
-      entriesCount: absenceEntries.length
+      entriesCount: absenceEntries.length,
+      debug: {
+        rawSchedulesCount: result.data?.length || 0,
+        groupedCount: groupedAbsences.size,
+        sample: result.raw
+      }
     });
   } catch (error) {
     console.error('MOCO Sync Fehler:', error);

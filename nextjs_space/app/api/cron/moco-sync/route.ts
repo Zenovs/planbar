@@ -112,11 +112,13 @@ export async function GET(request: NextRequest) {
         }> = new Map();
 
         for (const schedule of schedules) {
-          if (!schedule.absence) continue;
+          // assignment enthält die Abwesenheitsinfo (nicht absence!)
+          if (!schedule.assignment) continue;
           
-          const absenceKey = `${schedule.absence.name}-${schedule.absence.id}`;
+          const absenceName = schedule.assignment.name;
+          const absenceKey = `${absenceName}-${schedule.assignment.id}`;
           const date = new Date(schedule.date);
-          const { type, color } = mapMocoAbsenceType(schedule.absence.name);
+          const { type, color } = mapMocoAbsenceType(absenceName);
           
           if (groupedAbsences.has(absenceKey)) {
             const existing = groupedAbsences.get(absenceKey)!;
@@ -124,9 +126,9 @@ export async function GET(request: NextRequest) {
             if (date > existing.endDate) existing.endDate = date;
           } else {
             groupedAbsences.set(absenceKey, {
-              title: `[MOCO] ${schedule.absence.name}`,
+              title: `[MOCO] ${absenceName}`,
               type,
-              color,
+              color: schedule.assignment.color || color,
               startDate: date,
               endDate: date,
               description: schedule.comment
