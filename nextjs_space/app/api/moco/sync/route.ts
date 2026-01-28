@@ -2,8 +2,26 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
-import { fetchMocoActivities } from '@/lib/moco-api';
-import { format, subDays, addDays } from 'date-fns';
+import { fetchMocoSchedules } from '@/lib/moco-api';
+import { format, subDays, addDays, addMonths } from 'date-fns';
+
+// Mapping von MOCO Abwesenheitstypen zu Planbar-Typen
+function mapMocoAbsenceType(mocoName: string): { type: string; color: string } {
+  const name = mocoName.toLowerCase();
+  if (name.includes('ferien') || name.includes('urlaub') || name.includes('vacation')) {
+    return { type: 'vacation', color: '#22c55e' };
+  }
+  if (name.includes('feiertag') || name.includes('holiday')) {
+    return { type: 'other', color: '#a855f7' };
+  }
+  if (name.includes('krank') || name.includes('sick')) {
+    return { type: 'sick', color: '#ef4444' };
+  }
+  if (name.includes('schulung') || name.includes('workshop') || name.includes('weiterbildung')) {
+    return { type: 'workshop', color: '#3b82f6' };
+  }
+  return { type: 'other', color: '#a855f7' };
+}
 
 // POST: Führt einen manuellen Sync für den aktuellen User durch
 export async function POST() {
@@ -34,13 +52,13 @@ export async function POST() {
       );
     }
 
-    // Zeitraum: Letzte 30 Tage bis heute
+    // Zeitraum: 30 Tage zurück bis 6 Monate in die Zukunft (für geplante Ferien)
     const today = new Date();
     const fromDate = format(subDays(today, 30), 'yyyy-MM-dd');
-    const toDate = format(today, 'yyyy-MM-dd');
+    const toDate = format(addMonths(today, 6), 'yyyy-MM-dd');
 
-    // Aktivitäten von MOCO abrufen
-    const result = await fetchMocoActivities(
+    // Abwesenheiten von MOCO abrufen
+    const result = await fetchMocoSchedules(
       integration.apiKeyEncrypted,
       integration.apiKeyIv,
       integration.instanceDomain,
@@ -65,26 +83,64 @@ export async function POST() {
       );
     }
 
-    // Alte Einträge löschen und neue einfügen
-    await prisma.mocoCalendarEntry.deleteMany({
-      where: { integrationId: integration.id }
+    // Alte MOCO-synchronisierte Abwesenheiten löschen (erkennbar am "[MOCO]" Prefix)
+    await prisma.absence.deleteMany({
+      where: { 
+        userId: user.id,
+        title: { startsWith: '[MOCO]' }
+      }
     });
 
-    // Neue Einträge einfügen
-    const entries = result.data.map(activity => ({
-      mocoId: String(activity.id),
-      date: new Date(activity.date),
-      hours: activity.hours,
-      description: activity.description || null,
-      projectName: activity.project?.name || null,
-      taskName: activity.task?.name || null,
-      billable: activity.billable,
-      integrationId: integration.id
+    // Abwesenheiten gruppieren (zusammenhängende Tage zu einem Eintrag)
+    const schedules = result.data;
+    const groupedAbsences: Map<string, { 
+      title: string; 
+      type: string; 
+      color: string; 
+      startDate: Date; 
+      endDate: Date;
+      description: string | null;
+    }> = new Map();
+
+    for (const schedule of schedules) {
+      if (!schedule.absence) continue;
+      
+      const absenceKey = `${schedule.absence.name}-${schedule.absence.id}`;
+      const date = new Date(schedule.date);
+      const { type, color } = mapMocoAbsenceType(schedule.absence.name);
+      
+      if (groupedAbsences.has(absenceKey)) {
+        const existing = groupedAbsences.get(absenceKey)!;
+        // Erweitere den Datumsbereich
+        if (date < existing.startDate) existing.startDate = date;
+        if (date > existing.endDate) existing.endDate = date;
+      } else {
+        groupedAbsences.set(absenceKey, {
+          title: `[MOCO] ${schedule.absence.name}`,
+          type,
+          color,
+          startDate: date,
+          endDate: date,
+          description: schedule.comment
+        });
+      }
+    }
+
+    // Abwesenheiten als Planbar Absences speichern
+    const absenceEntries = Array.from(groupedAbsences.values()).map(absence => ({
+      title: absence.title,
+      type: absence.type,
+      startDate: absence.startDate,
+      endDate: absence.endDate,
+      allDay: true,
+      description: absence.description,
+      color: absence.color,
+      userId: user.id
     }));
 
-    if (entries.length > 0) {
-      await prisma.mocoCalendarEntry.createMany({
-        data: entries
+    if (absenceEntries.length > 0) {
+      await prisma.absence.createMany({
+        data: absenceEntries
       });
     }
 
@@ -100,8 +156,8 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: `${entries.length} Einträge synchronisiert`,
-      entriesCount: entries.length
+      message: `${absenceEntries.length} Abwesenheiten synchronisiert`,
+      entriesCount: absenceEntries.length
     });
   } catch (error) {
     console.error('MOCO Sync Fehler:', error);

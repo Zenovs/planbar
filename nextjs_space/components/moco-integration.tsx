@@ -180,7 +180,7 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
           <div className="flex gap-3">
             <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-blue-700 dark:text-blue-300">
-              <p className="font-medium mb-1">Automatischer Kalenderabgleich</p>
+              <p className="font-medium mb-1">Ferien & Abwesenheiten synchronisieren</p>
               <ul className="space-y-1 text-blue-600 dark:text-blue-400">
                 <li className="flex items-center gap-2">
                   <Clock className="w-3.5 h-3.5" />
@@ -188,11 +188,12 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
                 </li>
                 <li className="flex items-center gap-2">
                   <Calendar className="w-3.5 h-3.5" />
-                  Einträge erscheinen am Folgetag
+                  Synchronisiert: Ferien, Feiertage, Krankheit, Schulungen
                 </li>
               </ul>
               <p className="mt-2 text-xs opacity-75">
                 Ihr API-Key wird verschlüsselt gespeichert und ist für andere nicht einsehbar.
+                Die Einträge erscheinen mit [MOCO] Prefix im Kalender.
               </p>
             </div>
           </div>

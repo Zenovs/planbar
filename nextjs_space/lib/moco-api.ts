@@ -1,50 +1,61 @@
 import { decrypt } from './encryption';
 
-interface MocoActivity {
+// MOCO Schedule/Absence (Abwesenheit/Ferien)
+interface MocoSchedule {
   id: number;
   date: string;
-  hours: number;
-  seconds: number;
-  description: string;
-  billed: boolean;
-  billable: boolean;
-  project: {
+  am: string | null;  // "absence" | "absence_am" | null
+  pm: string | null;  // "absence" | "absence_pm" | null
+  comment: string | null;
+  absence: {
+    id: number;
+    name: string;     // z.B. "Ferien", "Feiertag", "Krank"
+    color: string;
+  } | null;
+  assignment: {
     id: number;
     name: string;
   } | null;
-  task: {
+  user: {
     id: number;
-    name: string;
-  } | null;
+    firstname: string;
+    lastname: string;
+  };
 }
 
 interface MocoApiResponse {
   success: boolean;
-  data?: MocoActivity[];
+  data?: MocoSchedule[];
   error?: string;
 }
 
 /**
- * Ruft Kalendereinträge (Aktivitäten) von der MOCO API ab
+ * Ruft Abwesenheiten/Ferien von der MOCO API ab
  * @param apiKeyEncrypted Verschlüsselter API-Key
  * @param apiKeyIv IV für Entschlüsselung
  * @param instanceDomain MOCO Instance (z.B. "meinefirma" für meinefirma.mocoapp.com)
  * @param fromDate Start-Datum (YYYY-MM-DD)
  * @param toDate End-Datum (YYYY-MM-DD)
+ * @param userId Optional: MOCO User ID (wenn leer, werden eigene Abwesenheiten geholt)
  */
-export async function fetchMocoActivities(
+export async function fetchMocoSchedules(
   apiKeyEncrypted: string,
   apiKeyIv: string,
   instanceDomain: string,
   fromDate: string,
-  toDate: string
+  toDate: string,
+  userId?: number
 ): Promise<MocoApiResponse> {
   try {
     // API-Key entschlüsseln
     const apiKey = decrypt(apiKeyEncrypted, apiKeyIv);
     
     const baseUrl = `https://${instanceDomain}.mocoapp.com/api/v1`;
-    const url = `${baseUrl}/activities?from=${fromDate}&to=${toDate}`;
+    // schedules Endpoint für Abwesenheiten
+    let url = `${baseUrl}/schedules?from=${fromDate}&to=${toDate}`;
+    if (userId) {
+      url += `&user_id=${userId}`;
+    }
     
     const response = await fetch(url, {
       method: 'GET',
@@ -64,9 +75,13 @@ export async function fetchMocoActivities(
     }
     
     const data = await response.json();
+    // Nur Einträge mit Abwesenheiten filtern
+    const absences = (data as MocoSchedule[]).filter(
+      s => s.absence !== null || s.am === 'absence' || s.pm === 'absence'
+    );
     return {
       success: true,
-      data: data as MocoActivity[]
+      data: absences
     };
   } catch (error) {
     console.error('MOCO API Anfrage fehlgeschlagen:', error);
@@ -75,6 +90,17 @@ export async function fetchMocoActivities(
       error: error instanceof Error ? error.message : 'Unbekannter Fehler'
     };
   }
+}
+
+// Legacy-Funktion für Abwärtskompatibilität
+export async function fetchMocoActivities(
+  apiKeyEncrypted: string,
+  apiKeyIv: string,
+  instanceDomain: string,
+  fromDate: string,
+  toDate: string
+): Promise<MocoApiResponse> {
+  return fetchMocoSchedules(apiKeyEncrypted, apiKeyIv, instanceDomain, fromDate, toDate);
 }
 
 /**
