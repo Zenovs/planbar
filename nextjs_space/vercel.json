@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "prisma generate && (prisma db push --accept-data-loss || true) && next build",
+  "buildCommand": "sed -i '/output.*=.*\"\\/home/d' prisma/schema.prisma && prisma generate && (prisma db push --accept-data-loss || true) && next build",
   "crons": [
     {
       "path": "/api/cron/moco-sync",
