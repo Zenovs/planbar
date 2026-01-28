@@ -2,7 +2,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
-import { differenceInBusinessDays, addDays, startOfDay } from 'date-fns';
+import { differenceInBusinessDays, addDays, startOfDay, endOfDay } from 'date-fns';
+
+// Berechnet Abwesenheitstage (Arbeitstage) in einem Zeitraum
+function countAbsenceWorkdays(
+  absences: { startDate: Date; endDate: Date }[],
+  periodStart: Date,
+  periodEnd: Date
+): number {
+  let absenceDays = 0;
+  const countedDates = new Set<string>();
+  
+  for (const absence of absences) {
+    const absStart = new Date(absence.startDate);
+    const absEnd = new Date(absence.endDate);
+    
+    // Überlappung mit Zeitraum prüfen
+    const overlapStart = absStart < periodStart ? periodStart : absStart;
+    const overlapEnd = absEnd > periodEnd ? periodEnd : absEnd;
+    
+    if (overlapStart <= overlapEnd) {
+      // Arbeitstage in der Überlappung zählen
+      const current = new Date(overlapStart);
+      while (current <= overlapEnd) {
+        const dow = current.getDay();
+        const dateKey = current.toISOString().split('T')[0];
+        // Nur Arbeitstage (Mo-Fr) und nicht doppelt zählen
+        if (dow !== 0 && dow !== 6 && !countedDates.has(dateKey)) {
+          absenceDays++;
+          countedDates.add(dateKey);
+        }
+        current.setDate(current.getDate() + 1);
+      }
+    }
+  }
+  
+  return absenceDays;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -95,7 +131,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const deadline = searchParams.get('deadline');
 
-    // Hole alle User mit Pensum
+    const today = startOfDay(new Date());
+    const deadlineDate = deadline ? startOfDay(new Date(deadline)) : addDays(today, 14);
+
+    // Hole alle User mit Pensum und Abwesenheiten
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -123,22 +162,41 @@ export async function GET(request: NextRequest) {
           select: {
             id: true
           }
+        },
+        // Abwesenheiten im Zeitraum laden (inkl. MOCO-importierte)
+        absences: {
+          where: {
+            OR: [
+              {
+                startDate: { lte: deadlineDate },
+                endDate: { gte: today }
+              }
+            ]
+          },
+          select: {
+            startDate: true,
+            endDate: true,
+            title: true
+          }
         }
       }
     });
-
-    const today = startOfDay(new Date());
-    const deadlineDate = deadline ? startOfDay(new Date(deadline)) : addDays(today, 14);
     
     // Arbeitstage bis Deadline berechnen (Mo-Fr)
     const workDays = Math.max(1, differenceInBusinessDays(deadlineDate, today));
 
     const resources = users.map((user: any) => {
+      // Abwesenheitstage im Zeitraum berechnen
+      const absenceDays = countAbsenceWorkdays(user.absences || [], today, deadlineDate);
+      
+      // Effektive Arbeitstage (abzüglich Abwesenheiten)
+      const effectiveWorkDays = Math.max(0, workDays - absenceDays);
+      
       // Verfügbare Stunden pro Tag
       const dailyHours = (user.weeklyHours * user.workloadPercent / 100) / 5;
       
-      // Gesamte verfügbare Stunden bis Deadline
-      const totalAvailableHours = dailyHours * workDays;
+      // Gesamte verfügbare Stunden bis Deadline (mit Abwesenheiten reduziert)
+      const totalAvailableHours = dailyHours * effectiveWorkDays;
       
       // Verteilte Stunden im Zeitraum berechnen
       let assignedHours = 0;
@@ -167,6 +225,13 @@ export async function GET(request: NextRequest) {
         workloadPercent: user.workloadPercent,
         dailyHours: Math.round(dailyHours * 10) / 10,
         workDays,
+        effectiveWorkDays,
+        absenceDays,
+        absences: user.absences?.map((a: { title: string; startDate: Date; endDate: Date }) => ({
+          title: a.title,
+          from: a.startDate,
+          to: a.endDate
+        })) || [],
         totalAvailableHours: Math.round(totalAvailableHours * 10) / 10,
         assignedHours: Math.round(assignedHours * 10) / 10,
         freeHours: Math.round(freeHours * 10) / 10,
