@@ -6,6 +6,15 @@ import { isAdmin as checkIsAdmin, isKoordinatorOrHigher } from '@/lib/auth-helpe
 
 export const dynamic = 'force-dynamic';
 
+interface PeriodData {
+  assigned: number;
+  capacity: number;
+  percentage: number;
+  absenceDays?: number;
+  workdays?: number;
+  label?: string;
+}
+
 interface TeamBreakdown {
   teamId: string;
   teamName: string;
@@ -13,9 +22,10 @@ interface TeamBreakdown {
   workloadPercent: number;
   availableHoursPerWeek: number;
   periods: {
-    day: { assigned: number; capacity: number; percentage: number };
-    week: { assigned: number; capacity: number; percentage: number };
-    month: { assigned: number; capacity: number; percentage: number };
+    day: PeriodData;
+    week: PeriodData;
+    month: PeriodData;
+    custom?: PeriodData;
   };
 }
 
@@ -27,9 +37,10 @@ interface WorkloadResult {
   workloadPercent: number;
   availableHoursPerWeek: number;
   periods: {
-    day: { assigned: number; capacity: number; percentage: number; absenceDays: number };
-    week: { assigned: number; capacity: number; percentage: number; absenceDays: number };
-    month: { assigned: number; capacity: number; percentage: number; absenceDays: number };
+    day: PeriodData;
+    week: PeriodData;
+    month: PeriodData;
+    custom?: PeriodData;
   };
   teamBreakdown?: TeamBreakdown[];
 }
@@ -150,6 +161,11 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const userIds = searchParams.get('userIds')?.split(',') || [session.user.id];
+    
+    // Custom date range parameters
+    const customFromParam = searchParams.get('fromDate');
+    const customToParam = searchParams.get('toDate');
+    const hasCustomRange = customFromParam && customToParam;
 
     // Get current user to check permissions
     const currentUser = await prisma.user.findUnique({
@@ -187,6 +203,27 @@ export async function GET(req: NextRequest) {
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    // Custom date range
+    let customStart: Date | null = null;
+    let customEnd: Date | null = null;
+    let customWorkdays = 0;
+    
+    if (hasCustomRange) {
+      customStart = new Date(customFromParam);
+      customStart.setHours(0, 0, 0, 0);
+      customEnd = new Date(customToParam);
+      customEnd.setHours(23, 59, 59, 999);
+      // Add one day to make the end date inclusive
+      const customEndExclusive = new Date(customEnd);
+      customEndExclusive.setDate(customEndExclusive.getDate() + 1);
+      
+      // Count workdays in custom range
+      for (let d = new Date(customStart); d <= customEnd; d.setDate(d.getDate() + 1)) {
+        const dow = d.getDay();
+        if (dow !== 0 && dow !== 6) customWorkdays++;
+      }
+    }
 
     const results: WorkloadResult[] = [];
 
@@ -241,14 +278,17 @@ export async function GET(req: NextRequest) {
       // Berechne Werktage im Monat
       const workdaysInMonth = getWorkdaysInMonth(now.getFullYear(), now.getMonth());
 
-      // Abwesenheiten laden
+      // Abwesenheiten laden (erweitert um Custom-Range falls vorhanden)
+      const absenceQueryStart = customStart && customStart < startOfMonth ? customStart : startOfMonth;
+      const absenceQueryEnd = customEnd && customEnd > endOfMonth ? customEnd : endOfMonth;
+      
       const absences = await prisma.absence.findMany({
         where: {
           userId,
           OR: [
-            { startDate: { gte: startOfMonth, lt: endOfMonth } },
-            { endDate: { gte: startOfMonth, lt: endOfMonth } },
-            { AND: [{ startDate: { lte: startOfMonth } }, { endDate: { gte: endOfMonth } }] }
+            { startDate: { gte: absenceQueryStart, lte: absenceQueryEnd } },
+            { endDate: { gte: absenceQueryStart, lte: absenceQueryEnd } },
+            { AND: [{ startDate: { lte: absenceQueryStart } }, { endDate: { gte: absenceQueryEnd } }] }
           ]
         }
       });
@@ -257,6 +297,12 @@ export async function GET(req: NextRequest) {
       const dayAbsenceDays = countAbsenceWorkdays(absences, startOfDay, endOfDay);
       const weekAbsenceDays = countAbsenceWorkdays(absences, startOfWeek, endOfWeek);
       const monthAbsenceDays = countAbsenceWorkdays(absences, startOfMonth, endOfMonth);
+      
+      // Custom-Zeitraum Abwesenheitstage
+      let customAbsenceDays = 0;
+      if (customStart && customEnd) {
+        customAbsenceDays = countAbsenceWorkdays(absences, customStart, customEnd);
+      }
 
       // Kapazität nach Abzug der Abwesenheiten
       const dayCapacity = Math.max(0, hoursPerDay - (dayAbsenceDays * hoursPerDay));
@@ -292,6 +338,18 @@ export async function GET(req: NextRequest) {
       const dayHours = calculateHoursForPeriod(uniqueTasks, startOfDay, endOfDay, referenceDay);
       const weekHours = calculateHoursForPeriod(uniqueTasks, startOfWeek, endOfWeek, referenceDay);
       const monthHours = calculateHoursForPeriod(uniqueTasks, startOfMonth, endOfMonth, referenceDay);
+      
+      // Custom-Zeitraum berechnen
+      let customHours = 0;
+      let customCapacity = 0;
+      let customPercentage = 0;
+      if (customStart && customEnd) {
+        const customEndExclusive = new Date(customEnd);
+        customEndExclusive.setDate(customEndExclusive.getDate() + 1);
+        customHours = calculateHoursForPeriod(uniqueTasks, customStart, customEndExclusive, referenceDay);
+        customCapacity = Math.max(0, (hoursPerDay * customWorkdays) - (customAbsenceDays * hoursPerDay));
+        customPercentage = customAbsenceDays >= customWorkdays ? 100 : (customCapacity > 0 ? Math.round((customHours / customCapacity) * 100) : 0);
+      }
 
       // Wenn komplett abwesend, 100% Auslastung durch Abwesenheit
       const dayPercentage = dayAbsenceDays >= 1 ? 100 : (dayCapacity > 0 ? Math.round((dayHours / dayCapacity) * 100) : 0);
@@ -324,31 +382,87 @@ export async function GET(req: NextRequest) {
           const teamWeekPct = teamWeekCapacity > 0 ? Math.round((teamWeekHours / teamWeekCapacity) * 100) : 0;
           const teamMonthPct = teamMonthCapacity > 0 ? Math.round((teamMonthHours / teamMonthCapacity) * 100) : 0;
           
+          // Custom-Zeitraum für Team
+          let teamCustomHours = 0;
+          let teamCustomCapacity = 0;
+          let teamCustomPct = 0;
+          if (customStart && customEnd) {
+            const customEndExclusive = new Date(customEnd);
+            customEndExclusive.setDate(customEndExclusive.getDate() + 1);
+            teamCustomHours = calculateHoursForPeriod(teamTasks, customStart, customEndExclusive, referenceDay);
+            teamCustomCapacity = Math.max(0, (teamHoursPerDay * customWorkdays) - (customAbsenceDays * teamHoursPerDay));
+            teamCustomPct = teamCustomCapacity > 0 ? Math.round((teamCustomHours / teamCustomCapacity) * 100) : 0;
+          }
+          
+          const teamPeriods: TeamBreakdown['periods'] = {
+            day: {
+              assigned: Math.round(teamDayHours * 10) / 10,
+              capacity: Math.round(teamDayCapacity * 10) / 10,
+              percentage: teamDayPct,
+            },
+            week: {
+              assigned: Math.round(teamWeekHours * 10) / 10,
+              capacity: Math.round(teamWeekCapacity * 10) / 10,
+              percentage: teamWeekPct,
+            },
+            month: {
+              assigned: Math.round(teamMonthHours * 10) / 10,
+              capacity: Math.round(teamMonthCapacity * 10) / 10,
+              percentage: teamMonthPct,
+            },
+          };
+          
+          if (hasCustomRange) {
+            teamPeriods.custom = {
+              assigned: Math.round(teamCustomHours * 10) / 10,
+              capacity: Math.round(teamCustomCapacity * 10) / 10,
+              percentage: teamCustomPct,
+              workdays: customWorkdays,
+              absenceDays: customAbsenceDays,
+            };
+          }
+          
           teamBreakdown.push({
             teamId: membership.teamId,
             teamName: membership.team.name,
             weeklyHours: membership.weeklyHours,
             workloadPercent: membership.workloadPercent,
             availableHoursPerWeek: teamAvailableHours,
-            periods: {
-              day: {
-                assigned: Math.round(teamDayHours * 10) / 10,
-                capacity: Math.round(teamDayCapacity * 10) / 10,
-                percentage: teamDayPct,
-              },
-              week: {
-                assigned: Math.round(teamWeekHours * 10) / 10,
-                capacity: Math.round(teamWeekCapacity * 10) / 10,
-                percentage: teamWeekPct,
-              },
-              month: {
-                assigned: Math.round(teamMonthHours * 10) / 10,
-                capacity: Math.round(teamMonthCapacity * 10) / 10,
-                percentage: teamMonthPct,
-              },
-            },
+            periods: teamPeriods,
           });
         }
+      }
+
+      const periods: WorkloadResult['periods'] = {
+        day: {
+          assigned: Math.round(dayHours * 10) / 10,
+          capacity: Math.round(dayCapacity * 10) / 10,
+          percentage: dayPercentage,
+          absenceDays: dayAbsenceDays,
+        },
+        week: {
+          assigned: Math.round(weekHours * 10) / 10,
+          capacity: Math.round(weekCapacity * 10) / 10,
+          percentage: weekPercentage,
+          absenceDays: weekAbsenceDays,
+        },
+        month: {
+          assigned: Math.round(monthHours * 10) / 10,
+          capacity: Math.round(monthCapacity * 10) / 10,
+          percentage: monthPercentage,
+          absenceDays: monthAbsenceDays,
+        },
+      };
+      
+      if (hasCustomRange) {
+        periods.custom = {
+          assigned: Math.round(customHours * 10) / 10,
+          capacity: Math.round(customCapacity * 10) / 10,
+          percentage: customPercentage,
+          absenceDays: customAbsenceDays,
+          workdays: customWorkdays,
+          label: `${customFromParam} - ${customToParam}`,
+        };
       }
 
       results.push({
@@ -358,26 +472,7 @@ export async function GET(req: NextRequest) {
         weeklyHours,
         workloadPercent,
         availableHoursPerWeek,
-        periods: {
-          day: {
-            assigned: Math.round(dayHours * 10) / 10,
-            capacity: Math.round(dayCapacity * 10) / 10,
-            percentage: dayPercentage,
-            absenceDays: dayAbsenceDays,
-          },
-          week: {
-            assigned: Math.round(weekHours * 10) / 10,
-            capacity: Math.round(weekCapacity * 10) / 10,
-            percentage: weekPercentage,
-            absenceDays: weekAbsenceDays,
-          },
-          month: {
-            assigned: Math.round(monthHours * 10) / 10,
-            capacity: Math.round(monthCapacity * 10) / 10,
-            percentage: monthPercentage,
-            absenceDays: monthAbsenceDays,
-          },
-        },
+        periods,
         teamBreakdown: teamBreakdown.length > 0 ? teamBreakdown : undefined,
       });
     }

@@ -21,6 +21,15 @@ interface Task {
   assignee: { id: string; name: string | null; email: string } | null;
 }
 
+interface PeriodData {
+  assigned: number;
+  capacity: number;
+  percentage: number;
+  absenceDays?: number;
+  workdays?: number;
+  label?: string;
+}
+
 interface TeamBreakdown {
   teamId: string;
   teamName: string;
@@ -28,9 +37,10 @@ interface TeamBreakdown {
   workloadPercent: number;
   availableHoursPerWeek: number;
   periods: {
-    day: { assigned: number; capacity: number; percentage: number };
-    week: { assigned: number; capacity: number; percentage: number };
-    month: { assigned: number; capacity: number; percentage: number };
+    day: PeriodData;
+    week: PeriodData;
+    month: PeriodData;
+    custom?: PeriodData;
   };
 }
 
@@ -42,9 +52,10 @@ interface WorkloadData {
   workloadPercent: number;
   availableHoursPerWeek: number;
   periods: {
-    day: { assigned: number; capacity: number; percentage: number; absenceDays?: number };
-    week: { assigned: number; capacity: number; percentage: number; absenceDays?: number };
-    month: { assigned: number; capacity: number; percentage: number; absenceDays?: number };
+    day: PeriodData;
+    week: PeriodData;
+    month: PeriodData;
+    custom?: PeriodData;
   };
   teamBreakdown?: TeamBreakdown[];
 }
@@ -76,8 +87,10 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
   const [compareUsers, setCompareUsers] = useState<CompareUser[]>([]);
   
   // Auslastung
-  const [workloadPeriod, setWorkloadPeriod] = useState<'day' | 'week' | 'month'>('week');
+  const [workloadPeriod, setWorkloadPeriod] = useState<'day' | 'week' | 'month' | 'custom'>('week');
   const [workloadData, setWorkloadData] = useState<Record<string, WorkloadData>>({});
+  const [workloadFromDate, setWorkloadFromDate] = useState('');
+  const [workloadToDate, setWorkloadToDate] = useState('');
   
   // Zeitfilter
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'custom'>('all');
@@ -154,9 +167,19 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
     const loadWorkload = async () => {
       if (!canViewOthers || teamMembers.length === 0) return;
       
+      // Wenn custom-Modus aber Daten fehlen, nicht laden
+      if (workloadPeriod === 'custom' && (!workloadFromDate || !workloadToDate)) return;
+      
       try {
         const userIds = teamMembers.map(m => m.id).join(',');
-        const response = await fetch(`/api/workload?userIds=${userIds}`);
+        let url = `/api/workload?userIds=${userIds}`;
+        
+        // Custom date range hinzufügen wenn ausgewählt
+        if (workloadPeriod === 'custom' && workloadFromDate && workloadToDate) {
+          url += `&fromDate=${workloadFromDate}&toDate=${workloadToDate}`;
+        }
+        
+        const response = await fetch(url);
         if (response.ok) {
           const data: WorkloadData[] = await response.json();
           const mapped: Record<string, WorkloadData> = {};
@@ -169,7 +192,7 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
     };
 
     loadWorkload();
-  }, [canViewOthers, teamMembers]);
+  }, [canViewOthers, teamMembers, workloadPeriod, workloadFromDate, workloadToDate]);
 
   const toggleTask = async (taskId: string, completed: boolean) => {
     try {
@@ -276,23 +299,41 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
     return 'bg-red-500';
   };
 
-  const getWorkloadLabel = (period: 'day' | 'week' | 'month') => {
+  const getWorkloadLabel = (period: 'day' | 'week' | 'month' | 'custom') => {
     switch (period) {
       case 'day': return 'Tag';
       case 'week': return 'Woche';
       case 'month': return 'Monat';
+      case 'custom': return workloadFromDate && workloadToDate 
+        ? `${workloadFromDate} - ${workloadToDate}` 
+        : 'Zeitraum';
     }
   };
 
   const selectedUser = teamMembers.find(m => m.id === selectedUserId) || currentUser;
   
   const getUserById = (userId: string) => teamMembers.find(m => m.id === userId);
+  
+  // Helper: Auslastung für den aktuellen Zeitraum holen
+  const getWorkloadPercentage = (userId: string): number | null => {
+    const data = workloadData[userId];
+    if (!data) return null;
+    const periodData = workloadPeriod === 'custom' 
+      ? data.periods.custom 
+      : data.periods[workloadPeriod];
+    return periodData?.percentage ?? null;
+  };
 
   const renderWorkloadBadge = (userId: string) => {
     const data = workloadData[userId];
     if (!data) return null;
     
-    const periodData = data.periods[workloadPeriod];
+    // Für custom muss der custom-Zeitraum existieren
+    const periodData = workloadPeriod === 'custom' 
+      ? data.periods.custom 
+      : data.periods[workloadPeriod];
+    
+    if (!periodData) return null;
     const percentage = periodData.percentage;
     
     return (
@@ -388,7 +429,11 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
     const data = workloadData[userId];
     if (!data) return null;
     
-    const periodData = data.periods[workloadPeriod];
+    const periodData = workloadPeriod === 'custom' 
+      ? data.periods.custom 
+      : data.periods[workloadPeriod];
+    
+    if (!periodData) return null;
     const hasAbsence = periodData.absenceDays && periodData.absenceDays > 0;
     const hasMultipleTeams = data.teamBreakdown && data.teamBreakdown.length > 1;
     
@@ -420,7 +465,10 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
         {hasMultipleTeams ? (
           <div className="space-y-4">
             {data.teamBreakdown!.map((team) => {
-              const teamPeriodData = team.periods[workloadPeriod];
+              const teamPeriodData = workloadPeriod === 'custom' 
+                ? team.periods.custom 
+                : team.periods[workloadPeriod];
+              if (!teamPeriodData) return null;
               return (
                 <div key={team.teamId} className="border-l-4 border-purple-400 pl-3">
                   <div className="flex items-center justify-between mb-1">
@@ -518,11 +566,14 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
                     onChange={(e) => setSelectedUserId(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    {teamMembers.map(member => (
-                      <option key={member.id} value={member.id}>
-                        {member.name || member.email} {workloadData[member.id] ? `(${workloadData[member.id].periods[workloadPeriod].percentage}%)` : ''}
-                      </option>
-                    ))}
+                    {teamMembers.map(member => {
+                      const pct = getWorkloadPercentage(member.id);
+                      return (
+                        <option key={member.id} value={member.id}>
+                          {member.name || member.email} {pct !== null ? `(${pct}%)` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}
@@ -577,10 +628,51 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
                     <option value="day">Heute</option>
                     <option value="week">Diese Woche</option>
                     <option value="month">Dieser Monat</option>
+                    <option value="custom">Zeitraum wählen...</option>
                   </select>
                 </div>
               )}
             </div>
+            
+            {/* Custom Workload Date Range */}
+            {canViewOthers && workloadPeriod === 'custom' && (
+              <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t border-gray-100">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <BarChart3 className="w-4 h-4 inline mr-1" />
+                    Auslastung von
+                  </label>
+                  <input
+                    type="date"
+                    value={workloadFromDate}
+                    onChange={(e) => setWorkloadFromDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Auslastung bis
+                  </label>
+                  <input
+                    type="date"
+                    value={workloadToDate}
+                    onChange={(e) => setWorkloadToDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                {(workloadFromDate || workloadToDate) && (
+                  <div className="flex items-end">
+                    <button
+                      onClick={() => { setWorkloadFromDate(''); setWorkloadToDate(''); }}
+                      className="px-3 py-2 text-sm text-gray-600 hover:text-red-600 flex items-center gap-1"
+                    >
+                      <X className="w-4 h-4" />
+                      Zurücksetzen
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Custom Date Range */}
             {dateFilter === 'custom' && (
@@ -692,11 +784,14 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
                           defaultValue=""
                         >
                           <option value="">+ Mitarbeiter hinzufügen...</option>
-                          {availableForComparison.map(member => (
-                            <option key={member.id} value={member.id}>
-                              {member.name || member.email} {workloadData[member.id] ? `(${workloadData[member.id].periods[workloadPeriod].percentage}%)` : ''}
-                            </option>
-                          ))}
+                          {availableForComparison.map(member => {
+                            const pct = getWorkloadPercentage(member.id);
+                            return (
+                              <option key={member.id} value={member.id}>
+                                {member.name || member.email} {pct !== null ? `(${pct}%)` : ''}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                     )}
@@ -730,8 +825,7 @@ export function TasksClient({ session, initialTasks, currentUser, teamMembers, c
                     const openCount = cu.tasks.filter(t => !t.completed).length;
                     const doneCount = cu.tasks.filter(t => t.completed).length;
                     const totalHours = cu.tasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
-                    const workload = workloadData[cu.userId];
-                    const percentage = workload?.periods[workloadPeriod].percentage || 0;
+                    const percentage = getWorkloadPercentage(cu.userId) || 0;
                     
                     return (
                       <tr key={cu.userId} className="border-b hover:bg-gray-50">
