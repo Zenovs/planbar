@@ -95,6 +95,78 @@ export async function sendEmail({
 
 // Email templates
 
+// Passwort-Reset-E-Mail (noreply@planbar.dev)
+export async function sendPasswordResetEmail(
+  userEmail: string,
+  userName: string,
+  resetToken: string
+) {
+  const companyName = process.env.COMPANY_NAME || 'planbar';
+  const primaryColor = process.env.PRIMARY_COLOR || '#3b82f6';
+  const baseUrl = process.env.NEXTAUTH_URL || 'https://planbar-one.vercel.app';
+  const resetUrl = `${baseUrl}/auth/reset-password?token=${resetToken}&email=${encodeURIComponent(userEmail)}`;
+
+  console.log('[Password Reset Email] Preparing email for:', userEmail);
+  console.log('[Password Reset Email] Reset URL:', resetUrl);
+  console.log('[Password Reset Email] SMTP Config - Host:', process.env.SMTP_HOST, 'User:', process.env.SMTP_USER, 'From:', process.env.SMTP_FROM);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(to right, ${primaryColor}, #8b5cf6); padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">${companyName}</h1>
+      </div>
+      <div style="padding: 30px; background-color: #f9fafb;">
+        <h2 style="color: #1f2937;">🔐 Passwort zurücksetzen</h2>
+        <p style="color: #4b5563; font-size: 16px;">
+          Hallo ${userName},
+        </p>
+        <p style="color: #4b5563; font-size: 16px;">
+          Du hast eine Anfrage zum Zurücksetzen deines Passworts bei ${companyName} gestellt.
+        </p>
+        <p style="color: #4b5563; font-size: 16px;">
+          Klicke auf den folgenden Button, um ein neues Passwort festzulegen:
+        </p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" 
+             style="display: inline-block; padding: 14px 32px; background: linear-gradient(to right, ${primaryColor}, #8b5cf6); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+            Passwort zurücksetzen
+          </a>
+        </div>
+        <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+          <p style="color: #92400e; margin: 0; font-size: 14px;">
+            ⏰ Dieser Link ist <strong>1 Stunde</strong> gültig.
+          </p>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">
+          Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:
+        </p>
+        <p style="color: ${primaryColor}; font-size: 12px; word-break: break-all;">
+          ${resetUrl}
+        </p>
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+        <p style="color: #6b7280; font-size: 14px;">
+          <strong>⚠️ Du hast diese Anfrage nicht gestellt?</strong><br>
+          Dann kannst du diese E-Mail ignorieren. Dein Passwort bleibt unverändert.
+        </p>
+      </div>
+      <div style="padding: 20px; text-align: center; color: #9ca3af; font-size: 14px;">
+        <p>${companyName} - Sichere Passwortverwaltung</p>
+        <p style="margin-top: 10px; font-size: 12px;">Diese E-Mail wurde automatisch versendet. Bitte antworte nicht darauf.</p>
+      </div>
+    </div>
+  `;
+
+  const result = await sendEmail({
+    to: userEmail,
+    subject: `🔐 ${companyName} - Passwort zurücksetzen`,
+    html,
+    type: 'default', // Verwendet SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_FROM
+  });
+
+  console.log('[Password Reset Email] Send result:', result);
+  return result;
+}
+
 // Verifizierungs-E-Mail bei Registrierung
 export async function sendVerificationEmail(
   userEmail: string,
