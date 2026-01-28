@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         },
         select: { id: true }
       });
-      const memberIds = teamMembers.map(m => m.id);
+      const memberIds = teamMembers.map((m: { id: string }) => m.id);
       userFilter = userId && memberIds.includes(userId) 
         ? { userId } 
         : { userId: { in: memberIds } };
