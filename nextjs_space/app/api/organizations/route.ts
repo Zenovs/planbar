@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Standard: Nur eigene Organisation
+    // Alle Organisationen des Users laden (über OrganizationMember UND primäre organizationId)
     const userWithOrg = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: {
@@ -263,6 +263,22 @@ export async function GET(request: NextRequest) {
                 },
               },
             },
+            members: {
+              select: {
+                id: true,
+                userId: true,
+                orgRole: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                    image: true,
+                  },
+                },
+              },
+            },
             teams: {
               select: {
                 id: true,
@@ -283,15 +299,102 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+        organizationMemberships: {
+          include: {
+            organization: {
+              include: {
+                users: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    orgRole: true,
+                    role: true,
+                    image: true,
+                  },
+                },
+                members: {
+                  select: {
+                    id: true,
+                    userId: true,
+                    orgRole: true,
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        role: true,
+                        image: true,
+                      },
+                    },
+                  },
+                },
+                teams: {
+                  select: {
+                    id: true,
+                    name: true,
+                    color: true,
+                    _count: { select: { teamMembers: true } },
+                  },
+                },
+                invites: {
+                  where: { accepted: false, expiresAt: { gt: new Date() } },
+                  select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    expiresAt: true,
+                    createdAt: true,
+                  },
+                },
+                _count: {
+                  select: {
+                    users: true,
+                    teams: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
+    // Alle Organisationen sammeln (primäre + memberships)
+    const userOrganizations: any[] = [];
+    const addedOrgIds = new Set<string>();
+
+    // Primäre Organisation hinzufügen
+    if (userWithOrg?.organization) {
+      userOrganizations.push({
+        ...userWithOrg.organization,
+        userOrgRole: userWithOrg.orgRole || 'member',
+        isPrimary: true,
+      });
+      addedOrgIds.add(userWithOrg.organization.id);
+    }
+
+    // Organisationen aus Memberships hinzufügen
+    if (userWithOrg?.organizationMemberships) {
+      for (const membership of userWithOrg.organizationMemberships) {
+        if (!addedOrgIds.has(membership.organization.id)) {
+          userOrganizations.push({
+            ...membership.organization,
+            userOrgRole: membership.orgRole || 'member',
+            isPrimary: false,
+          });
+          addedOrgIds.add(membership.organization.id);
+        }
+      }
+    }
+
     return NextResponse.json({
       organization: userWithOrg?.organization,
+      userOrganizations, // Alle Organisationen des Users
       orgRole: userWithOrg?.orgRole,
       userRole: userWithOrg?.role,
-      isOrgAdmin: userWithOrg?.orgRole === 'org_admin' || userWithOrg?.role === 'admin',
-      canCreateOrganization: canManageOrganizations(userWithOrg?.role),
+      isOrgAdmin: userWithOrg?.orgRole === 'org_admin' || userWithOrg?.orgRole === 'admin_organisation' || userWithOrg?.role === 'admin',
+      canCreateOrganization: true, // Jeder User kann jetzt ein Unternehmen erstellen
     });
   } catch (error) {
     console.error('Error fetching organization:', error);
@@ -299,7 +402,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Neue Organisation erstellen
+// POST: Neue Organisation erstellen (jeder eingeloggte User kann erstellen)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -314,20 +417,6 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
-    }
-
-    // Nur Admin oder Admin Unternehmen können Unternehmen erstellen
-    if (!canManageOrganizations(user.role)) {
-      return NextResponse.json({ 
-        error: 'Keine Berechtigung - nur Admin oder Admin Unternehmen können Unternehmen erstellen' 
-      }, { status: 403 });
-    }
-
-    // Prüfen ob User bereits in einem Unternehmen ist
-    if (user.organizationId) {
-      return NextResponse.json({ 
-        error: 'Sie sind bereits Mitglied einem Unternehmen' 
-      }, { status: 400 });
     }
 
     const { name, description } = await request.json();
@@ -346,8 +435,7 @@ export async function POST(request: NextRequest) {
       counter++;
     }
 
-    // Organisation erstellen OHNE den Admin automatisch hinzuzufügen
-    // Admin kann später manuell Mitglieder hinzufügen
+    // Organisation erstellen
     const organization = await prisma.organization.create({
       data: {
         name: name.trim(),
@@ -355,6 +443,26 @@ export async function POST(request: NextRequest) {
         description: description?.trim() || null,
       },
     });
+
+    // Ersteller als Admin Unternehmen in OrganizationMember eintragen
+    await prisma.organizationMember.create({
+      data: {
+        userId: user.id,
+        organizationId: organization.id,
+        orgRole: 'admin_organisation',
+      },
+    });
+
+    // Wenn User noch keine primäre Organisation hat, diese setzen
+    if (!user.organizationId) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          organizationId: organization.id,
+          orgRole: 'admin_organisation',
+        },
+      });
+    }
 
     return NextResponse.json(organization, { status: 201 });
   } catch (error) {

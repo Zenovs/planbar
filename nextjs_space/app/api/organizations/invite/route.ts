@@ -17,19 +17,51 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      include: { organization: true },
+      include: { 
+        organization: true,
+        organizationMemberships: {
+          include: {
+            organization: true,
+          },
+        },
+      },
     });
 
-    if (!user?.organizationId || !user.organization) {
-      return NextResponse.json({ error: 'Keine Organisation gefunden' }, { status: 404 });
+    if (!user) {
+      return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
     }
 
-    // Nur org_admin, Admin oder Admin Unternehmen können einladen
-    if (user.orgRole !== 'org_admin' && !canManageOrganizations(user.role)) {
-      return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
+    const { email, role, organizationId } = await request.json();
+
+    // Ziel-Organisation bestimmen
+    const targetOrgId = organizationId || user.organizationId;
+    
+    if (!targetOrgId) {
+      return NextResponse.json({ error: 'Keine Organisation angegeben' }, { status: 400 });
     }
 
-    const { email, role } = await request.json();
+    // Organisation laden
+    const targetOrg = await prisma.organization.findUnique({
+      where: { id: targetOrgId },
+    });
+
+    if (!targetOrg) {
+      return NextResponse.json({ error: 'Organisation nicht gefunden' }, { status: 404 });
+    }
+
+    // Berechtigung prüfen: System-Admin, oder Admin Unternehmen in dieser Org
+    const isSystemAdmin = user.role === 'admin';
+    const isPrimaryOrgAdmin = user.organizationId === targetOrgId && 
+      (user.orgRole === 'org_admin' || user.orgRole === 'admin_organisation');
+    
+    // Prüfen ob User in OrganizationMember Admin Unternehmen ist
+    const membership = user.organizationMemberships?.find(m => m.organizationId === targetOrgId);
+    const isMembershipAdmin = membership && 
+      (membership.orgRole === 'org_admin' || membership.orgRole === 'admin_organisation');
+
+    if (!isSystemAdmin && !isPrimaryOrgAdmin && !isMembershipAdmin) {
+      return NextResponse.json({ error: 'Keine Berechtigung - nur Admin Unternehmen können einladen' }, { status: 403 });
+    }
 
     if (!email || !email.includes('@')) {
       return NextResponse.json({ error: 'Gültige E-Mail-Adresse erforderlich' }, { status: 400 });
@@ -41,19 +73,31 @@ export async function POST(request: NextRequest) {
     // Prüfen ob User bereits existiert und in dieser Org ist
     const existingUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
+      include: {
+        organizationMemberships: true,
+      },
     });
 
-    if (existingUser?.organizationId === user.organizationId) {
-      return NextResponse.json({ 
-        error: 'Diese Person ist bereits Mitglied Ihrer Organisation' 
-      }, { status: 400 });
+    // Prüfen ob User bereits Mitglied ist (primär oder über membership)
+    if (existingUser) {
+      if (existingUser.organizationId === targetOrgId) {
+        return NextResponse.json({ 
+          error: 'Diese Person ist bereits Mitglied dieser Organisation' 
+        }, { status: 400 });
+      }
+      const existingMembership = existingUser.organizationMemberships?.find(m => m.organizationId === targetOrgId);
+      if (existingMembership) {
+        return NextResponse.json({ 
+          error: 'Diese Person ist bereits Mitglied dieser Organisation' 
+        }, { status: 400 });
+      }
     }
 
     // Prüfen ob bereits eine offene Einladung existiert
     const existingInvite = await prisma.orgInvite.findFirst({
       where: {
         email: email.toLowerCase(),
-        organizationId: user.organizationId,
+        organizationId: targetOrgId,
         accepted: false,
         expiresAt: { gt: new Date() },
       },
@@ -76,7 +120,7 @@ export async function POST(request: NextRequest) {
         token,
         role: assignedRole,
         expiresAt,
-        organizationId: user.organizationId,
+        organizationId: targetOrgId,
         invitedById: user.id,
       },
     });
@@ -88,7 +132,7 @@ export async function POST(request: NextRequest) {
     try {
       await sendEmail({
         to: email.toLowerCase(),
-        subject: `Einladung zu ${user.organization.name} auf Planbar`,
+        subject: `Einladung zu ${targetOrg.name} auf Planbar`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
@@ -97,8 +141,8 @@ export async function POST(request: NextRequest) {
             <div style="padding: 30px; background: #f9fafb; border-radius: 0 0 12px 12px;">
               <h2 style="color: #1f2937; margin-top: 0;">Sie wurden eingeladen!</h2>
               <p style="color: #4b5563; font-size: 16px;">
-                ${user.name || user.email} hat Sie eingeladen, der Organisation 
-                <strong>${user.organization.name}</strong> auf Planbar beizutreten.
+                ${user.name || user.email} hat Sie eingeladen, dem Unternehmen 
+                <strong>${targetOrg.name}</strong> auf Planbar beizutreten.
               </p>
               <p style="color: #4b5563; font-size: 14px;">
                 Ihre Rolle: <strong>${assignedRole === 'org_admin' ? 'Admin Unternehmen' : assignedRole === 'admin_organisation' ? 'Admin Unternehmen' : assignedRole === 'projektleiter' ? 'Projektleiter' : assignedRole === 'koordinator' ? 'Koordinator' : 'Mitglied'}</strong>

@@ -28,6 +28,7 @@ import {
   Eye,
   Layers,
   Save,
+  Star,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -93,6 +94,9 @@ interface Organization {
     expiresAt: string;
     createdAt: string;
   }[];
+  // Für User-spezifische Ansicht
+  userOrgRole?: string;
+  isPrimary?: boolean;
 }
 
 interface Team {
@@ -254,6 +258,7 @@ export default function OrganisationClient() {
   const [orgName, setOrgName] = useState('');
   const [orgDescription, setOrgDescription] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteOrgId, setInviteOrgId] = useState<string | null>(null); // Org-ID für Einladung
   const [inviteRole, setInviteRole] = useState('member');
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
   const [selectedUserToAdd, setSelectedUserToAdd] = useState<string>('');
@@ -284,7 +289,7 @@ export default function OrganisationClient() {
       if (res.ok) {
         setOrganization(data.organization);
         setIsOrgAdmin(data.isOrgAdmin);
-        setCanCreateOrganization(data.canCreateOrganization || false);
+        setCanCreateOrganization(data.canCreateOrganization || true); // Jeder kann erstellen
         setUserRole(data.userRole || '');
         
         const role = data.userRole?.toLowerCase() || '';
@@ -298,6 +303,18 @@ export default function OrganisationClient() {
           if (allRes.ok && allData.organizations) {
             setAllOrganizations(allData.organizations);
             setUsersWithoutOrg(allData.usersWithoutOrg || []);
+          }
+        } else {
+          // Für normale User: userOrganizations verwenden
+          if (data.userOrganizations && data.userOrganizations.length > 0) {
+            setAllOrganizations(data.userOrganizations);
+          } else if (data.organization) {
+            // Fallback: nur primäre Organisation
+            setAllOrganizations([{
+              ...data.organization,
+              userOrgRole: data.orgRole || 'member',
+              isPrimary: true,
+            }]);
           }
         }
         
@@ -346,7 +363,11 @@ export default function OrganisationClient() {
       const res = await fetch('/api/organizations/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({ 
+          email: inviteEmail, 
+          role: inviteRole,
+          organizationId: inviteOrgId, // Org-spezifische Einladung
+        }),
       });
 
       const data = await res.json();
@@ -354,7 +375,9 @@ export default function OrganisationClient() {
       if (res.ok) {
         toast.success(`Einladung an ${inviteEmail} gesendet!`);
         setInviteEmail('');
+        setInviteOrgId(null);
         setLastInviteUrl(data.inviteUrl);
+        setShowInviteModal(false);
         fetchOrganization();
       } else {
         toast.error(data.error || 'Fehler beim Einladen');
@@ -1330,39 +1353,284 @@ export default function OrganisationClient() {
     );
   }
 
-  // Kein Unternehmen - Info oder Erstellen anzeigen
-  if (!organization) {
-    // User hat keine Berechtigung, Unternehmen zu erstellen
-    if (!canCreateOrganization) {
-      return (
-        <div className="min-h-screen bg-gray-50">
-          <Header />
-          <main className="max-w-xl mx-auto px-4 py-12">
+  // Normale User-Ansicht: Alle Organisationen des Users anzeigen
+  // Hilfsfunktion: Prüfen ob User Admin in einer bestimmten Organisation ist
+  const isAdminInOrg = (org: any): boolean => {
+    const role = org.userOrgRole || '';
+    return role === 'admin_organisation' || role === 'org_admin';
+  };
+
+  // User-Ansicht (nicht System-Admin)
+  if (allOrganizations.length > 0 || canCreateOrganization) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        
+        <main className="max-w-4xl mx-auto px-4 py-6 sm:px-6">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl text-white">
+                  <Building2 className="w-8 h-8" />
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Meine Unternehmen</h1>
+                  <p className="text-gray-500 mt-1">
+                    {allOrganizations.length === 0 
+                      ? 'Sie sind noch in keinem Unternehmen' 
+                      : `Sie sind in ${allOrganizations.length} Unternehmen`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateOrg(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:opacity-90 transition-opacity"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="hidden sm:inline">Neues Unternehmen</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Organisationen-Liste */}
+          {allOrganizations.length === 0 ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl shadow-lg overflow-hidden"
+              className="bg-white rounded-xl shadow-sm border p-8 text-center"
             >
-              <div className="bg-gradient-to-r from-gray-400 to-gray-500 p-6 text-center text-white">
-                <Building2 className="w-12 h-12 mx-auto mb-3" />
-                <h1 className="text-2xl font-bold">Kein Unternehmen</h1>
-                <p className="mt-2 opacity-90">Sie sind noch keinem Unternehmen zugeordnet</p>
-              </div>
-              <div className="p-6 text-center">
-                <p className="text-gray-600 mb-4">
-                  Sie müssen von einem <strong>Admin</strong> oder <strong>Admin Unternehmen</strong> zu einem Unternehmen eingeladen werden.
-                </p>
-                <p className="text-sm text-gray-500">
-                  Kontaktieren Sie Ihren Administrator, um Zugang zu einem Unternehmen zu erhalten.
-                </p>
-              </div>
+              <Building2 className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">Noch kein Unternehmen</h3>
+              <p className="text-gray-500 mb-4">
+                Erstellen Sie Ihr erstes Unternehmen oder warten Sie auf eine Einladung.
+              </p>
+              <button
+                onClick={() => setShowCreateOrg(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              >
+                <Plus className="w-5 h-5" />
+                Unternehmen erstellen
+              </button>
             </motion.div>
-          </main>
-        </div>
-      );
-    }
+          ) : (
+            <div className="space-y-4">
+              {allOrganizations.map((org) => {
+                const orgRoleInfo = getRoleInfo(org.userOrgRole || 'member');
+                const memberCount = (org.users?.length || 0) + (org.members?.length || 0);
+                const teamCount = org.teams?.length || org._count?.teams || 0;
+                const canInvite = isAdminInOrg(org);
 
-    // User kann Unternehmen erstellen
+                return (
+                  <motion.div
+                    key={org.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-xl shadow-sm border overflow-hidden"
+                  >
+                    <div className="p-5">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold">
+                            {org.name[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">{org.name}</h3>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${orgRoleInfo.color}`}>
+                                {orgRoleInfo.label}
+                              </span>
+                              {org.isPrimary && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                                  <Star className="w-3 h-3" />
+                                  Primär
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          {canInvite && (
+                            <button
+                              onClick={() => {
+                                setInviteOrgId(org.id);
+                                setShowInviteModal(true);
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                            >
+                              <Mail className="w-4 h-4" />
+                              <span className="hidden sm:inline">Einladen</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="flex items-center gap-6 mt-4 text-sm text-gray-500">
+                        <div className="flex items-center gap-1.5">
+                          <Users className="w-4 h-4" />
+                          <span>{memberCount} Mitglieder</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Shield className="w-4 h-4" />
+                          <span>{teamCount} Teams</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Unternehmen erstellen Modal */}
+          {showCreateOrg && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+              >
+                <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-5 text-white">
+                  <h2 className="text-xl font-bold">Neues Unternehmen erstellen</h2>
+                  <p className="text-sm opacity-90 mt-1">Sie werden automatisch Admin dieses Unternehmens</p>
+                </div>
+                <form onSubmit={createOrganization} className="p-5 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name des Unternehmens *
+                    </label>
+                    <input
+                      type="text"
+                      value={orgName}
+                      onChange={(e) => setOrgName(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="Mein Unternehmen"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Beschreibung (optional)
+                    </label>
+                    <textarea
+                      value={orgDescription}
+                      onChange={(e) => setOrgDescription(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="Kurze Beschreibung..."
+                      rows={2}
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateOrg(false);
+                        setOrgName('');
+                        setOrgDescription('');
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={processing === 'create' || !orgName.trim()}
+                      className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {processing === 'create' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4" />
+                      )}
+                      Erstellen
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+
+          {/* Einladung Modal */}
+          {showInviteModal && inviteOrgId && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+              >
+                <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-5 text-white">
+                  <h2 className="text-xl font-bold">Mitglied einladen</h2>
+                  <p className="text-sm opacity-90 mt-1">
+                    Zu: {allOrganizations.find(o => o.id === inviteOrgId)?.name}
+                  </p>
+                </div>
+                <form onSubmit={inviteMember} className="p-5 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      E-Mail-Adresse *
+                    </label>
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="name@beispiel.de"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Rolle
+                    </label>
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      {ORG_ROLES.map((role) => (
+                        <option key={role.value} value={role.value}>{role.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowInviteModal(false);
+                        setInviteOrgId(null);
+                        setInviteEmail('');
+                        setInviteRole('member');
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={processing === 'invite' || !inviteEmail.trim()}
+                      className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {processing === 'invite' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Mail className="w-4 h-4" />
+                      )}
+                      Einladen
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
+
+  // Fallback: Kein Unternehmen - Info anzeigen
+  if (!organization) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />

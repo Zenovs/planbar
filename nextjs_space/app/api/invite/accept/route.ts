@@ -35,37 +35,67 @@ export async function POST(request: NextRequest) {
     // Prüfen ob User schon existiert
     const existingUser = await prisma.user.findUnique({
       where: { email: invite.email },
+      include: {
+        organizationMemberships: true,
+      },
     });
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Rolle für System-Rolle mappen
     const systemRole = invite.role === 'org_admin' ? 'admin' 
+                     : invite.role === 'admin_organisation' ? 'admin_organisation'
                      : invite.role === 'projektleiter' ? 'projektleiter'
                      : invite.role === 'koordinator' ? 'koordinator'
                      : 'Mitglied';
 
     if (existingUser) {
-      // User existiert - zur Organisation hinzufügen
-      if (existingUser.organizationId) {
+      // User existiert - prüfen ob bereits in dieser Org
+      const existingMembership = existingUser.organizationMemberships?.find(
+        m => m.organizationId === invite.organizationId
+      );
+      
+      if (existingMembership || existingUser.organizationId === invite.organizationId) {
         return NextResponse.json({ 
-          error: 'Sie sind bereits Mitglied einer anderen Organisation' 
+          error: 'Sie sind bereits Mitglied dieses Unternehmens' 
         }, { status: 400 });
       }
 
-      await prisma.user.update({
-        where: { id: existingUser.id },
-        data: {
-          organizationId: invite.organizationId,
-          orgRole: invite.role,
-          role: systemRole,
-          name: name.trim(),
-          password: hashedPassword, // Passwort aktualisieren
-        },
-      });
+      // User hat bereits eine Organisation - über OrganizationMember hinzufügen
+      if (existingUser.organizationId) {
+        // Als zusätzliche Mitgliedschaft hinzufügen
+        await prisma.organizationMember.create({
+          data: {
+            userId: existingUser.id,
+            organizationId: invite.organizationId,
+            orgRole: invite.role,
+          },
+        });
+      } else {
+        // Keine primäre Organisation - diese als primäre setzen
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            organizationId: invite.organizationId,
+            orgRole: invite.role,
+            role: systemRole,
+            name: name.trim(),
+            password: hashedPassword,
+          },
+        });
+        
+        // Auch OrganizationMember erstellen
+        await prisma.organizationMember.create({
+          data: {
+            userId: existingUser.id,
+            organizationId: invite.organizationId,
+            orgRole: invite.role,
+          },
+        });
+      }
     } else {
       // Neuen User erstellen
-      await prisma.user.create({
+      const newUser = await prisma.user.create({
         data: {
           email: invite.email,
           name: name.trim(),
@@ -74,6 +104,15 @@ export async function POST(request: NextRequest) {
           orgRole: invite.role,
           organizationId: invite.organizationId,
           emailVerified: true, // Da per Einladung, ist E-Mail verifiziert
+        },
+      });
+      
+      // Auch OrganizationMember erstellen
+      await prisma.organizationMember.create({
+        data: {
+          userId: newUser.id,
+          organizationId: invite.organizationId,
+          orgRole: invite.role,
         },
       });
     }
