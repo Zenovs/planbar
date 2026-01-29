@@ -111,6 +111,7 @@ const ORG_ROLES = [
 
 const SYSTEM_ROLES = [
   { value: 'admin', label: 'Admin', color: 'bg-red-500' },
+  { value: 'org_admin', label: 'Unternehmens-Admin', color: 'bg-yellow-500' },
   { value: 'admin_organisation', label: 'Admin Unternehmen', color: 'bg-orange-500' },
   { value: 'projektleiter', label: 'Projektleiter', color: 'bg-purple-500' },
   { value: 'koordinator', label: 'Koordinator', color: 'bg-blue-500' },
@@ -161,11 +162,25 @@ export default function OrganisationClient() {
     workloadPercent: number;
   }>({ role: '', teamId: '', weeklyHours: 42, workloadPercent: 100 });
   const [editingUserRole, setEditingUserRole] = useState<string | null>(null); // userId für Rollen-Bearbeitung
+  const [editingUserOrgId, setEditingUserOrgId] = useState<string | null>(null); // orgId für Rollen-Bearbeitung
   const [newRole, setNewRole] = useState<string>('');
   const [expandedSection, setExpandedSection] = useState<string>('members');
   const [expandedOrg, setExpandedOrg] = useState<string | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+
+  // Hilfsfunktion: Organisationsspezifische Rolle eines Users ermitteln
+  const getOrgSpecificRole = (user: any, orgId: string): string => {
+    // 1. Aus OrganizationMemberships (höchste Priorität)
+    if (user.organizationMemberships) {
+      const membership = user.organizationMemberships.find((om: any) => om.organizationId === orgId);
+      if (membership?.orgRole) return membership.orgRole;
+    }
+    // 2. Fallback: User's globale orgRole (wenn primäre Org)
+    if (user.orgRole) return user.orgRole;
+    // 3. Default
+    return 'member';
+  };
 
   // Hilfsfunktion: Alle Mitglieder einer Organisation (aus users + members + teamMembers kombiniert)
   const getOrgMembers = (org: Organization): OrgUser[] => {
@@ -174,26 +189,36 @@ export default function OrganisationClient() {
     // 1. User mit primärer organizationId hinzufügen
     if (org.users) {
       org.users.forEach(user => {
-        memberMap.set(user.id, user);
+        const orgSpecificRole = getOrgSpecificRole(user, org.id);
+        memberMap.set(user.id, {
+          ...user,
+          orgRole: orgSpecificRole,
+        });
       });
     }
     
-    // 2. User aus OrganizationMember hinzufügen (können andere orgRole haben)
+    // 2. User aus OrganizationMember hinzufügen (haben org-spezifische Rolle)
     if (org.members) {
       org.members.forEach(member => {
         if (!memberMap.has(member.user.id)) {
-          // User ist nur über OrganizationMember verbunden
           memberMap.set(member.user.id, {
             id: member.user.id,
             name: member.user.name,
             email: member.user.email,
             role: member.user.role,
-            orgRole: member.orgRole || 'member',
+            orgRole: member.orgRole || 'member', // Org-spezifische Rolle
             image: member.user.image,
             weeklyHours: member.user.weeklyHours,
             workloadPercent: member.user.workloadPercent,
             teamMemberships: member.user.teamMemberships,
             organizationMemberships: member.user.organizationMemberships,
+          });
+        } else {
+          // User existiert bereits - org-spezifische Rolle überschreiben
+          const existing = memberMap.get(member.user.id)!;
+          memberMap.set(member.user.id, {
+            ...existing,
+            orgRole: member.orgRole || existing.orgRole,
           });
         }
       });
@@ -205,12 +230,13 @@ export default function OrganisationClient() {
         if (team.teamMembers) {
           team.teamMembers.forEach((tm: any) => {
             if (tm.user && !memberMap.has(tm.user.id)) {
+              const orgSpecificRole = getOrgSpecificRole(tm.user, org.id);
               memberMap.set(tm.user.id, {
                 id: tm.user.id,
                 name: tm.user.name,
                 email: tm.user.email,
                 role: tm.user.role,
-                orgRole: tm.user.orgRole || 'member',
+                orgRole: orgSpecificRole,
                 image: tm.user.image,
                 weeklyHours: tm.user.weeklyHours,
                 workloadPercent: tm.user.workloadPercent,
@@ -534,18 +560,24 @@ export default function OrganisationClient() {
   };
 
   // Rolle eines Users ändern
-  const updateUserRole = async (userId: string, role: string) => {
+  const updateUserRole = async (userId: string, orgRole: string) => {
     setProcessing(userId);
     try {
-      const res = await fetch(`/api/users?id=${userId}`, {
-        method: 'PATCH',
+      // Org-spezifische Rolle aktualisieren
+      const res = await fetch('/api/organizations/members', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify({ 
+          userId, 
+          orgRole,
+          organizationId: editingUserOrgId, // Org-spezifisch
+        }),
       });
 
       if (res.ok) {
         toast.success('Rolle aktualisiert');
         setEditingUserRole(null);
+        setEditingUserOrgId(null);
         setNewRole('');
         fetchOrganization();
       } else {
@@ -560,8 +592,9 @@ export default function OrganisationClient() {
   };
 
   // Bearbeitung starten
-  const startEditingRole = (userId: string, currentRole: string) => {
+  const startEditingRole = (userId: string, currentRole: string, orgId?: string) => {
     setEditingUserRole(userId);
+    setEditingUserOrgId(orgId || null);
     setNewRole(currentRole.toLowerCase());
   };
 
@@ -1074,7 +1107,7 @@ export default function OrganisationClient() {
                           {getOrgMembers(org).length > 0 ? (
                             <div className="space-y-2">
                               {getOrgMembers(org).map((user) => {
-                                const systemRoleInfo = getSystemRoleInfo(user.role);
+                                const systemRoleInfo = getSystemRoleInfo(user.orgRole); // Org-spezifische Rolle
                                 const userTeams = getUserTeams(user);
                                 const otherOrgs = getOtherOrgs(user, org.id);
                                 const isCurrentUser = user.email === session?.user?.email;
@@ -1163,6 +1196,7 @@ export default function OrganisationClient() {
                                           <button
                                             onClick={() => {
                                               setEditingUserRole(null);
+                                              setEditingUserOrgId(null);
                                               setNewRole('');
                                             }}
                                             className="p-1.5 text-white bg-gray-400 hover:bg-gray-500 rounded-lg"
@@ -1175,7 +1209,7 @@ export default function OrganisationClient() {
                                         /* Normale Anzeige */
                                         <>
                                           <button
-                                            onClick={() => startEditingRole(user.id, user.role)}
+                                            onClick={() => startEditingRole(user.id, user.orgRole, org.id)}
                                             className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color} hover:opacity-80 transition-opacity cursor-pointer`}
                                             title="Klicken zum Bearbeiten"
                                           >
@@ -1184,7 +1218,7 @@ export default function OrganisationClient() {
                                           {!isCurrentUser && (
                                             <>
                                               <button
-                                                onClick={() => startEditingRole(user.id, user.role)}
+                                                onClick={() => startEditingRole(user.id, user.orgRole, org.id)}
                                                 className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"
                                                 title="Rolle bearbeiten"
                                               >

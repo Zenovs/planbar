@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT: Rolle eines Mitglieds ändern
+// PUT: Rolle eines Mitglieds ändern (org-spezifisch)
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -253,35 +253,56 @@ export async function PUT(request: NextRequest) {
       where: { email: session.user.email },
     });
 
-    if (!currentUser?.organizationId) {
-      return NextResponse.json({ error: 'Kein Unternehmen gefunden' }, { status: 404 });
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
     }
 
     // Nur org_admin, Admin oder Admin Unternehmen können Rollen ändern
-    if (currentUser.orgRole !== 'org_admin' && !canManageOrganizations(currentUser.role)) {
+    const isSystemAdmin = isAdmin(currentUser.role);
+    if (currentUser.orgRole !== 'org_admin' && !isSystemAdmin && !canManageOrganizations(currentUser.role)) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }
 
-    const { userId, orgRole, role } = await request.json();
+    const { userId, orgRole, organizationId } = await request.json();
 
     if (!userId) {
       return NextResponse.json({ error: 'User-ID erforderlich' }, { status: 400 });
     }
 
-    // Prüfen ob User in der gleichen Organisation ist
-    const targetUser = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!targetUser || targetUser.organizationId !== currentUser.organizationId) {
-      return NextResponse.json({ error: 'User nicht in Ihrem Unternehmen' }, { status: 404 });
+    // Bestimme die Ziel-Organisation
+    const targetOrgId = organizationId || currentUser.organizationId;
+    
+    if (!targetOrgId) {
+      return NextResponse.json({ error: 'Unternehmen-ID erforderlich' }, { status: 400 });
     }
 
-    // Verhindern dass der letzte org_admin degradiert wird
-    if (targetUser.orgRole === 'org_admin' && orgRole !== 'org_admin') {
-      const orgAdminCount = await prisma.user.count({
+    // System-Admin kann in jeder Organisation ändern
+    // Org-Admin nur in seiner eigenen
+    if (!isSystemAdmin && currentUser.organizationId !== targetOrgId) {
+      return NextResponse.json({ error: 'Keine Berechtigung für dieses Unternehmen' }, { status: 403 });
+    }
+
+    const validOrgRoles = ['member', 'koordinator', 'projektleiter', 'admin_organisation', 'org_admin'];
+
+    if (orgRole && !validOrgRoles.includes(orgRole)) {
+      return NextResponse.json({ error: 'Ungültige Rolle' }, { status: 400 });
+    }
+
+    // Prüfe ob OrganizationMember-Eintrag existiert
+    const existingMembership = await prisma.organizationMember.findUnique({
+      where: {
+        userId_organizationId: {
+          userId: userId,
+          organizationId: targetOrgId,
+        },
+      },
+    });
+
+    // Verhindern dass der letzte org_admin in dieser Org degradiert wird
+    if (existingMembership?.orgRole === 'org_admin' && orgRole !== 'org_admin') {
+      const orgAdminCount = await prisma.organizationMember.count({
         where: {
-          organizationId: currentUser.organizationId,
+          organizationId: targetOrgId,
           orgRole: 'org_admin',
         },
       });
@@ -293,44 +314,51 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const validOrgRoles = ['member', 'koordinator', 'projektleiter', 'admin_organisation', 'org_admin'];
-    const validRoles = ['member', 'Mitglied', 'koordinator', 'projektleiter', 'admin_organisation', 'admin'];
-
-    const updateData: any = {};
-    
-    if (orgRole && validOrgRoles.includes(orgRole)) {
-      updateData.orgRole = orgRole;
-      // Wenn org_admin, auch System-Rolle auf admin setzen
-      if (orgRole === 'org_admin') {
-        updateData.role = 'admin';
-      } else if (orgRole === 'admin_organisation') {
-        updateData.role = 'admin_organisation';
-      } else if (orgRole === 'projektleiter') {
-        updateData.role = 'projektleiter';
-      } else if (orgRole === 'koordinator') {
-        updateData.role = 'koordinator';
-      } else {
-        updateData.role = 'Mitglied';
-      }
-    }
-    
-    if (role && validRoles.includes(role)) {
-      updateData.role = role;
+    // Update oder erstelle OrganizationMember-Eintrag
+    if (existingMembership) {
+      await prisma.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId: userId,
+            organizationId: targetOrgId,
+          },
+        },
+        data: { orgRole: orgRole },
+      });
+    } else {
+      // Erstelle neuen Eintrag falls nicht vorhanden
+      await prisma.organizationMember.create({
+        data: {
+          userId: userId,
+          organizationId: targetOrgId,
+          orgRole: orgRole,
+        },
+      });
     }
 
-    const updatedUser = await prisma.user.update({
+    // Wenn dies die primäre Organisation des Users ist, auch User.orgRole aktualisieren
+    const targetUser = await prisma.user.findUnique({
       where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        orgRole: true,
-        role: true,
-      },
     });
 
-    return NextResponse.json(updatedUser);
+    if (targetUser?.organizationId === targetOrgId) {
+      // Bestimme die globale Rolle basierend auf orgRole
+      let globalRole = 'Mitglied';
+      if (orgRole === 'org_admin') globalRole = 'admin';
+      else if (orgRole === 'admin_organisation') globalRole = 'admin_organisation';
+      else if (orgRole === 'projektleiter') globalRole = 'projektleiter';
+      else if (orgRole === 'koordinator') globalRole = 'koordinator';
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { 
+          orgRole: orgRole,
+          role: globalRole,
+        },
+      });
+    }
+
+    return NextResponse.json({ success: true, orgRole: orgRole });
   } catch (error) {
     console.error('Error updating member:', error);
     return NextResponse.json({ error: 'Serverfehler' }, { status: 500 });
