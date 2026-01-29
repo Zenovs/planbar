@@ -251,16 +251,13 @@ export async function PUT(request: NextRequest) {
 
     const currentUser = await prisma.user.findUnique({
       where: { email: session.user.email },
+      include: {
+        organizationMemberships: true,
+      },
     });
 
     if (!currentUser) {
       return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
-    }
-
-    // Nur org_admin, Admin oder Admin Unternehmen können Rollen ändern
-    const isSystemAdmin = isAdmin(currentUser.role);
-    if (currentUser.orgRole !== 'org_admin' && !isSystemAdmin && !canManageOrganizations(currentUser.role)) {
-      return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }
 
     const { userId, orgRole, organizationId } = await request.json();
@@ -276,9 +273,20 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unternehmen-ID erforderlich' }, { status: 400 });
     }
 
-    // System-Admin kann in jeder Organisation ändern
-    // Org-Admin nur in seiner eigenen
-    if (!isSystemAdmin && currentUser.organizationId !== targetOrgId) {
+    // Prüfe Berechtigung: System-Admin, oder Admin in der Ziel-Organisation
+    const isSystemAdmin = isAdmin(currentUser.role);
+    
+    // Prüfe ob User Admin in der Ziel-Organisation ist (primäre Org oder über Membership)
+    const isPrimaryOrgAdmin = currentUser.organizationId === targetOrgId && 
+      (currentUser.orgRole === 'org_admin' || currentUser.orgRole === 'admin_organisation');
+    
+    const membershipInTargetOrg = currentUser.organizationMemberships?.find(
+      (m: { organizationId: string; orgRole: string | null }) => m.organizationId === targetOrgId
+    );
+    const isMembershipAdmin = membershipInTargetOrg && 
+      (membershipInTargetOrg.orgRole === 'org_admin' || membershipInTargetOrg.orgRole === 'admin_organisation');
+    
+    if (!isSystemAdmin && !isPrimaryOrgAdmin && !isMembershipAdmin) {
       return NextResponse.json({ error: 'Keine Berechtigung für dieses Unternehmen' }, { status: 403 });
     }
 

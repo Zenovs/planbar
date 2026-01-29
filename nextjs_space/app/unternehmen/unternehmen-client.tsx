@@ -1196,7 +1196,7 @@ export default function UnternehmenClient() {
                                     </div>
                                     {/* Rolle und Aktions-Buttons */}
                                     <div className="flex items-center gap-2">
-                                      {editingUserRole === user.id ? (
+                                      {editingUserRole === user.id && editingUserOrgId === org.id ? (
                                         /* Rollen-Bearbeitungsmodus */
                                         <div className="flex items-center gap-2">
                                           <select
