@@ -13,6 +13,7 @@ import {
   Trash2,
   Crown,
   UserPlus,
+  UserMinus,
   Copy,
   Check,
   X,
@@ -83,7 +84,7 @@ interface Organization {
     id: string;
     name: string;
     color: string;
-    _count: { members: number };
+    _count: { teamMembers: number };
   }[];
   invites: {
     id: string;
@@ -142,6 +143,8 @@ export default function OrganisationClient() {
   const [loading, setLoading] = useState(true);
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState<string | null>(null); // orgId
+  const [availableUsers, setAvailableUsers] = useState<{id: string; name: string | null; email: string; role: string}[]>([]);
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editUserData, setEditUserData] = useState<{
     role: string;
@@ -160,6 +163,7 @@ export default function OrganisationClient() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+  const [selectedUserToAdd, setSelectedUserToAdd] = useState<string>('');
 
   useEffect(() => {
     fetchOrganization();
@@ -359,6 +363,79 @@ export default function OrganisationClient() {
       return user.organizationMemberships.filter(om => om.organizationId !== currentOrgId);
     }
     return [];
+  };
+
+  // Verfügbare User laden (ohne Organisation)
+  const fetchAvailableUsers = async () => {
+    try {
+      const res = await fetch('/api/organizations/members?withoutOrg=true');
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableUsers(data);
+      }
+    } catch (error) {
+      console.error('Failed to load available users:', error);
+    }
+  };
+
+  // User zu Organisation hinzufügen
+  const addMemberToOrg = async (organizationId: string) => {
+    if (!selectedUserToAdd) {
+      toast.error('Bitte wählen Sie einen Benutzer aus');
+      return;
+    }
+
+    setProcessing('adding');
+    try {
+      const res = await fetch('/api/organizations/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: selectedUserToAdd,
+          organizationId: organizationId,
+          orgRole: 'member',
+        }),
+      });
+
+      if (res.ok) {
+        toast.success('Mitglied hinzugefügt');
+        setShowAddMemberModal(null);
+        setSelectedUserToAdd('');
+        fetchOrganization();
+        fetchAvailableUsers();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Fehler beim Hinzufügen');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Hinzufügen');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  // Mitglied aus Organisation entfernen (für Admin)
+  const removeMemberFromOrg = async (userId: string, userName: string, organizationId: string) => {
+    if (!confirm(`${userName} wirklich aus dieser Organisation entfernen?`)) return;
+
+    setProcessing(userId);
+    try {
+      const res = await fetch(`/api/organizations/members?userId=${userId}&organizationId=${organizationId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        toast.success('Mitglied entfernt');
+        fetchOrganization();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Fehler');
+      }
+    } catch (error) {
+      toast.error('Fehler');
+    } finally {
+      setProcessing(null);
+    }
   };
 
   const removeMember = async (userId: string, userName: string) => {
@@ -591,6 +668,110 @@ export default function OrganisationClient() {
             )}
           </AnimatePresence>
 
+          {/* Mitglied hinzufügen Modal */}
+          <AnimatePresence>
+            {showAddMemberModal && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                onClick={() => {
+                  setShowAddMemberModal(null);
+                  setSelectedUserToAdd('');
+                }}
+              >
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+                >
+                  <div className="bg-gradient-to-r from-green-500 to-teal-600 p-6 text-white">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <UserPlus className="w-6 h-6" />
+                        Mitglied hinzufügen
+                      </h2>
+                      <button 
+                        onClick={() => {
+                          setShowAddMemberModal(null);
+                          setSelectedUserToAdd('');
+                        }} 
+                        className="p-1 hover:bg-white/20 rounded"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    {availableUsers.length > 0 ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Benutzer auswählen
+                          </label>
+                          <select
+                            value={selectedUserToAdd}
+                            onChange={(e) => setSelectedUserToAdd(e.target.value)}
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                          >
+                            <option value="">-- Benutzer wählen --</option>
+                            {availableUsers.map((user) => (
+                              <option key={user.id} value={user.id}>
+                                {user.name || user.email} ({user.email})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddMemberModal(null);
+                              setSelectedUserToAdd('');
+                            }}
+                            className="flex-1 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50"
+                          >
+                            Abbrechen
+                          </button>
+                          <button
+                            onClick={() => addMemberToOrg(showAddMemberModal)}
+                            disabled={!selectedUserToAdd || processing === 'adding'}
+                            className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                            {processing === 'adding' ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
+                            Hinzufügen
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-4">
+                        <Users className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-500">
+                          Keine verfügbaren Benutzer ohne Organisation gefunden.
+                        </p>
+                        <p className="text-sm text-gray-400 mt-2">
+                          Alle Benutzer sind bereits einer Organisation zugewiesen.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setShowAddMemberModal(null);
+                            setSelectedUserToAdd('');
+                          }}
+                          className="mt-4 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          Schließen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Organisationen-Liste */}
           <div className="space-y-4">
             {allOrganizations.length === 0 && (
@@ -665,15 +846,15 @@ export default function OrganisationClient() {
                               {org.teams.map((team) => (
                                 <div
                                   key={team.id}
-                                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border"
                                 >
                                   <div
-                                    className="w-3 h-3 rounded-full"
+                                    className="w-4 h-4 rounded-full flex-shrink-0"
                                     style={{ backgroundColor: team.color }}
                                   />
                                   <div>
                                     <p className="font-medium text-gray-900">{team.name}</p>
-                                    <p className="text-xs text-gray-500">{team._count?.members || 0} Mitglieder</p>
+                                    <p className="text-xs text-gray-500">{team._count?.teamMembers || 0} Mitglieder</p>
                                   </div>
                                 </div>
                               ))}
@@ -683,12 +864,24 @@ export default function OrganisationClient() {
                           )}
                         </div>
 
-                        {/* Mitglieder - nur Ansicht für Admin */}
+                        {/* Mitglieder mit Hinzufügen/Entfernen für Admin */}
                         <div>
-                          <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                            <Users className="w-4 h-4 text-blue-600" />
-                            Mitglieder ({org.users?.length || 0})
-                          </h4>
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                              <Users className="w-4 h-4 text-blue-600" />
+                              Mitglieder ({org.users?.length || 0})
+                            </h4>
+                            <button
+                              onClick={() => {
+                                setShowAddMemberModal(org.id);
+                                fetchAvailableUsers();
+                              }}
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Mitglied hinzufügen
+                            </button>
+                          </div>
                           {org.users && org.users.length > 0 ? (
                             <div className="space-y-2">
                               {org.users.map((user) => {
@@ -700,10 +893,10 @@ export default function OrganisationClient() {
                                 return (
                                   <div
                                     key={user.id}
-                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 border"
                                   >
                                     <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                                         {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
                                       </div>
                                       <div>
@@ -712,44 +905,63 @@ export default function OrganisationClient() {
                                           {isCurrentUser && <span className="text-gray-400 text-xs ml-1">(Sie)</span>}
                                         </p>
                                         <p className="text-xs text-gray-500">{user.email}</p>
-                                        <div className="flex flex-wrap items-center gap-1 mt-1">
-                                          {/* Teams anzeigen */}
+                                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                          {/* Teams anzeigen - bessere Lesbarkeit */}
                                           {userTeams.length > 0 ? (
                                             userTeams.map((team) => (
                                               <span 
                                                 key={team.id} 
-                                                className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full"
-                                                style={{ backgroundColor: team.color + '20', color: team.color }}
+                                                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border"
+                                                style={{ 
+                                                  backgroundColor: team.color + '15', 
+                                                  borderColor: team.color + '40',
+                                                  color: team.color 
+                                                }}
                                               >
-                                                <Users className="w-3 h-3" />
+                                                <div 
+                                                  className="w-2 h-2 rounded-full"
+                                                  style={{ backgroundColor: team.color }}
+                                                />
                                                 {team.name}
                                               </span>
                                             ))
                                           ) : (
-                                            <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-500 rounded-full">
+                                            <span className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded-md border border-gray-200">
                                               Kein Team
                                             </span>
                                           )}
                                           {/* Multi-Org Badge */}
                                           {otherOrgs.length > 0 && (
                                             <span 
-                                              className="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full"
+                                              className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-md border border-purple-200"
                                               title={`Auch in: ${otherOrgs.map(o => o.organization.name).join(', ')}`}
                                             >
                                               +{otherOrgs.length} Org{otherOrgs.length > 1 ? 's' : ''}
                                             </span>
                                           )}
-                                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                                          <span className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded-md">
                                             <Clock className="w-3 h-3" />
                                             {user.workloadPercent || 100}%
                                           </span>
                                         </div>
                                       </div>
                                     </div>
-                                    {/* Nur Rolle anzeigen - keine Bearbeitung für Admin */}
-                                    <span className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
-                                      {systemRoleInfo.label}
-                                    </span>
+                                    {/* Rolle und Entfernen-Button */}
+                                    <div className="flex items-center gap-2">
+                                      <span className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
+                                        {systemRoleInfo.label}
+                                      </span>
+                                      {!isCurrentUser && (
+                                        <button
+                                          onClick={() => removeMemberFromOrg(user.id, user.name || user.email, org.id)}
+                                          disabled={processing === user.id}
+                                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                                          title="Aus Organisation entfernen"
+                                        >
+                                          {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })}

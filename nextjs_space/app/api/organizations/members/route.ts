@@ -2,7 +2,167 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { canManageOrganizations } from '@/lib/auth-helpers';
+import { canManageOrganizations, isAdmin } from '@/lib/auth-helpers';
+
+// GET: Alle Benutzer ohne Organisation abrufen (für Admin)
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!currentUser || !canManageOrganizations(currentUser.role)) {
+      return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
+    }
+
+    // Alle User laden, optional gefiltert
+    const { searchParams } = new URL(request.url);
+    const withoutOrg = searchParams.get('withoutOrg') === 'true';
+    const orgId = searchParams.get('orgId');
+
+    let users;
+    if (withoutOrg) {
+      // User ohne Organisation
+      users = await prisma.user.findMany({
+        where: {
+          organizationId: null,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          image: true,
+        },
+        orderBy: { name: 'asc' },
+      });
+    } else if (orgId) {
+      // User in einer bestimmten Organisation
+      users = await prisma.user.findMany({
+        where: {
+          organizationId: orgId,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          orgRole: true,
+          image: true,
+        },
+        orderBy: { name: 'asc' },
+      });
+    } else {
+      // Alle User
+      users = await prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          orgRole: true,
+          organizationId: true,
+          image: true,
+        },
+        orderBy: { name: 'asc' },
+      });
+    }
+
+    return NextResponse.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return NextResponse.json({ error: 'Serverfehler' }, { status: 500 });
+  }
+}
+
+// POST: User zu einer Organisation hinzufügen
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
+    }
+
+    // System-Admin oder Org-Admin kann Mitglieder hinzufügen
+    const isSystemAdmin = isAdmin(currentUser.role);
+    const isOrgAdmin = currentUser.orgRole === 'org_admin';
+    
+    if (!isSystemAdmin && !isOrgAdmin) {
+      return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
+    }
+
+    const { userId, organizationId, orgRole = 'member' } = await request.json();
+
+    if (!userId || !organizationId) {
+      return NextResponse.json({ error: 'User-ID und Organisations-ID erforderlich' }, { status: 400 });
+    }
+
+    // Prüfen ob Organisation existiert
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+    });
+
+    if (!organization) {
+      return NextResponse.json({ error: 'Organisation nicht gefunden' }, { status: 404 });
+    }
+
+    // System-Admin kann zu jeder Organisation hinzufügen
+    // Org-Admin nur zu seiner eigenen Organisation
+    if (!isSystemAdmin && currentUser.organizationId !== organizationId) {
+      return NextResponse.json({ error: 'Keine Berechtigung für diese Organisation' }, { status: 403 });
+    }
+
+    // Prüfen ob User existiert
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!targetUser) {
+      return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
+    }
+
+    // Prüfen ob User bereits in einer Organisation ist
+    if (targetUser.organizationId) {
+      return NextResponse.json({ error: 'User ist bereits in einer Organisation' }, { status: 400 });
+    }
+
+    // User zur Organisation hinzufügen
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        organizationId: organizationId,
+        orgRole: orgRole,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        orgRole: true,
+        role: true,
+      },
+    });
+
+    return NextResponse.json(updatedUser, { status: 201 });
+  } catch (error) {
+    console.error('Error adding member:', error);
+    return NextResponse.json({ error: 'Serverfehler' }, { status: 500 });
+  }
+}
 
 // PUT: Rolle eines Mitglieds ändern
 export async function PUT(request: NextRequest) {
@@ -114,16 +274,20 @@ export async function DELETE(request: NextRequest) {
       where: { email: session.user.email },
     });
 
-    if (!currentUser?.organizationId) {
-      return NextResponse.json({ error: 'Keine Organisation gefunden' }, { status: 404 });
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
     }
 
-    if (currentUser.orgRole !== 'org_admin' && !canManageOrganizations(currentUser.role)) {
+    const isSystemAdmin = isAdmin(currentUser.role);
+    const isOrgAdmin = currentUser.orgRole === 'org_admin';
+
+    if (!isSystemAdmin && !isOrgAdmin) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const organizationId = searchParams.get('organizationId');
 
     if (!userId) {
       return NextResponse.json({ error: 'User-ID erforderlich' }, { status: 400 });
@@ -138,8 +302,18 @@ export async function DELETE(request: NextRequest) {
       where: { id: userId },
     });
 
-    if (!targetUser || targetUser.organizationId !== currentUser.organizationId) {
+    if (!targetUser) {
       return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
+    }
+
+    // System-Admin kann aus jeder Organisation entfernen
+    // Org-Admin nur aus seiner eigenen Organisation
+    if (!isSystemAdmin) {
+      if (!currentUser.organizationId || targetUser.organizationId !== currentUser.organizationId) {
+        return NextResponse.json({ error: 'Keine Berechtigung für diese Organisation' }, { status: 403 });
+      }
+    } else if (organizationId && targetUser.organizationId !== organizationId) {
+      return NextResponse.json({ error: 'User nicht in dieser Organisation' }, { status: 404 });
     }
 
     // User aus Organisation entfernen (nicht löschen!)

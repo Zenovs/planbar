@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
               id: true,
               name: true,
               color: true,
-              _count: { select: { members: true } },
+              _count: { select: { teamMembers: true } },
             },
           },
           _count: {
@@ -227,7 +227,7 @@ export async function GET(request: NextRequest) {
                 id: true,
                 name: true,
                 color: true,
-                _count: { select: { members: true } },
+                _count: { select: { teamMembers: true } },
               },
             },
             invites: {
@@ -305,25 +305,13 @@ export async function POST(request: NextRequest) {
       counter++;
     }
 
-    // Organisation erstellen und User als org_admin setzen
+    // Organisation erstellen OHNE den Admin automatisch hinzuzufügen
+    // Admin kann später manuell Mitglieder hinzufügen
     const organization = await prisma.organization.create({
       data: {
         name: name.trim(),
         slug,
         description: description?.trim() || null,
-        users: {
-          connect: { id: user.id },
-        },
-      },
-    });
-
-    // User als org_admin markieren
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { 
-        orgRole: 'org_admin',
-        // Wenn der User vorher nur "member" war, bekommt er admin-Rechte
-        role: user.role === 'member' ? 'admin' : user.role,
       },
     });
 
