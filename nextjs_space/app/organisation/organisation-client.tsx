@@ -111,10 +111,12 @@ const ORG_ROLES = [
 
 const SYSTEM_ROLES = [
   { value: 'admin', label: 'Admin', color: 'bg-red-500' },
+  { value: 'org_admin', label: 'Org-Admin', color: 'bg-yellow-500' },
   { value: 'admin_organisation', label: 'Admin Organisation', color: 'bg-orange-500' },
   { value: 'projektleiter', label: 'Projektleiter', color: 'bg-purple-500' },
   { value: 'koordinator', label: 'Koordinator', color: 'bg-blue-500' },
   { value: 'member', label: 'Mitglied', color: 'bg-gray-500' },
+  { value: 'Mitglied', label: 'Mitglied', color: 'bg-gray-500' }, // Fallback für alte DB-Einträge
 ];
 
 export default function OrganisationClient() {
@@ -165,6 +167,8 @@ export default function OrganisationClient() {
     weeklyHours: number;
     workloadPercent: number;
   }>({ role: '', teamId: '', weeklyHours: 42, workloadPercent: 100 });
+  const [editingUserRole, setEditingUserRole] = useState<string | null>(null); // userId für Rollen-Bearbeitung
+  const [newRole, setNewRole] = useState<string>('');
   const [expandedSection, setExpandedSection] = useState<string>('members');
   const [expandedOrg, setExpandedOrg] = useState<string | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
@@ -491,6 +495,38 @@ export default function OrganisationClient() {
     } finally {
       setProcessing(null);
     }
+  };
+
+  // Rolle eines Users ändern
+  const updateUserRole = async (userId: string, role: string) => {
+    setProcessing(userId);
+    try {
+      const res = await fetch(`/api/users?id=${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      });
+
+      if (res.ok) {
+        toast.success('Rolle aktualisiert');
+        setEditingUserRole(null);
+        setNewRole('');
+        fetchOrganization();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Fehler beim Aktualisieren');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Aktualisieren');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  // Bearbeitung starten
+  const startEditingRole = (userId: string, currentRole: string) => {
+    setEditingUserRole(userId);
+    setNewRole(currentRole.toLowerCase());
   };
 
   // Mitglied aus Organisation entfernen (für Admin)
@@ -1104,20 +1140,71 @@ export default function OrganisationClient() {
                                         </div>
                                       </div>
                                     </div>
-                                    {/* Rolle und Entfernen-Button */}
+                                    {/* Rolle und Aktions-Buttons */}
                                     <div className="flex items-center gap-2">
-                                      <span className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
-                                        {systemRoleInfo.label}
-                                      </span>
-                                      {!isCurrentUser && (
-                                        <button
-                                          onClick={() => removeMemberFromOrg(user.id, user.name || user.email, org.id)}
-                                          disabled={processing === user.id}
-                                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
-                                          title="Aus Organisation entfernen"
-                                        >
-                                          {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
-                                        </button>
+                                      {editingUserRole === user.id ? (
+                                        /* Rollen-Bearbeitungsmodus */
+                                        <div className="flex items-center gap-2">
+                                          <select
+                                            value={newRole}
+                                            onChange={(e) => setNewRole(e.target.value)}
+                                            className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                          >
+                                            {SYSTEM_ROLES.filter(r => r.value !== 'Mitglied').map((role) => (
+                                              <option key={role.value} value={role.value}>
+                                                {role.label}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          <button
+                                            onClick={() => updateUserRole(user.id, newRole)}
+                                            disabled={processing === user.id}
+                                            className="p-1.5 text-white bg-green-500 hover:bg-green-600 rounded-lg"
+                                            title="Speichern"
+                                          >
+                                            {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setEditingUserRole(null);
+                                              setNewRole('');
+                                            }}
+                                            className="p-1.5 text-white bg-gray-400 hover:bg-gray-500 rounded-lg"
+                                            title="Abbrechen"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        /* Normale Anzeige */
+                                        <>
+                                          <button
+                                            onClick={() => startEditingRole(user.id, user.role)}
+                                            className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color} hover:opacity-80 transition-opacity cursor-pointer`}
+                                            title="Klicken zum Bearbeiten"
+                                          >
+                                            {systemRoleInfo.label}
+                                          </button>
+                                          {!isCurrentUser && (
+                                            <>
+                                              <button
+                                                onClick={() => startEditingRole(user.id, user.role)}
+                                                className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"
+                                                title="Rolle bearbeiten"
+                                              >
+                                                <Edit2 className="w-4 h-4" />
+                                              </button>
+                                              <button
+                                                onClick={() => removeMemberFromOrg(user.id, user.name || user.email, org.id)}
+                                                disabled={processing === user.id}
+                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                                                title="Aus Organisation entfernen"
+                                              >
+                                                {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
+                                              </button>
+                                            </>
+                                          )}
+                                        </>
                                       )}
                                     </div>
                                   </div>
