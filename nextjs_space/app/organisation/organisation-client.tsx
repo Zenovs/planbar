@@ -719,7 +719,7 @@ export default function OrganisationClient() {
                     {allOrganizations.reduce((sum, org) => sum + getOrgMembers(org).length, 0)}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500">Benutzer in Orgs</p>
+                <p className="text-sm text-gray-500">Benutzer in Unternehmen</p>
               </div>
               <div className="bg-white rounded-lg p-4 shadow-sm border">
                 <div className="flex items-center gap-2 text-orange-600">
@@ -744,7 +744,7 @@ export default function OrganisationClient() {
                     {allOrganizations.reduce((sum, org) => sum + getOrgMembers(org).filter(u => u.orgRole === 'org_admin').length, 0)}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500">Org-Admins</p>
+                <p className="text-sm text-gray-500">Unternehmens-Admins</p>
               </div>
             </div>
           </div>
@@ -1119,13 +1119,14 @@ export default function OrganisationClient() {
                                               Kein Team
                                             </span>
                                           )}
-                                          {/* Multi-Org Badge */}
+                                          {/* Multi-Unternehmen Badge */}
                                           {otherOrgs.length > 0 && (
                                             <span 
-                                              className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-md border border-purple-200"
+                                              className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-md border border-purple-200"
                                               title={`Auch in: ${otherOrgs.map(o => o.organization.name).join(', ')}`}
                                             >
-                                              +{otherOrgs.length} Org{otherOrgs.length > 1 ? 's' : ''}
+                                              +{otherOrgs.length}
+                                              <Building2 className="w-3 h-3" />
                                             </span>
                                           )}
                                           <span className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded-md">
