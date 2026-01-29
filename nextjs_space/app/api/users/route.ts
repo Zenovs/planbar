@@ -234,16 +234,16 @@ export async function PATCH(req: NextRequest) {
     const { role, teamId, name, weeklyHours, workloadPercent } = body;
 
     // Validate role if provided
-    const validRoles = ['member', 'mitglied', 'koordinator', 'projektleiter', 'admin_organisation', 'org_admin', 'admin'];
+    const validRoles = ['member', 'mitglied', 'koordinator', 'projektleiter', 'admin_organisation', 'admin'];
     if (role && !validRoles.includes(role.toLowerCase())) {
       return NextResponse.json(
-        { error: 'Ungültige Rolle. Erlaubt: member, koordinator, projektleiter, admin_organisation, org_admin, admin' },
+        { error: 'Ungültige Rolle. Erlaubt: member, koordinator, projektleiter, admin_organisation, admin' },
         { status: 400 }
       );
     }
     
     // Projektleiter dürfen keine Admins erstellen
-    const adminRoles = ['admin', 'org_admin'];
+    const adminRoles = ['admin', 'admin_organisation'];
     if (role && adminRoles.includes(role.toLowerCase()) && !isAdmin(session.user.role)) {
       return NextResponse.json(
         { error: 'Nur Administratoren können Admin-Rollen vergeben' },
@@ -254,12 +254,7 @@ export async function PATCH(req: NextRequest) {
     // Build update data
     const updateData: any = {};
     if (role !== undefined) {
-      const normalizedRole = role.toLowerCase();
-      updateData.role = normalizedRole;
-      // Wenn org_admin gesetzt wird, auch orgRole aktualisieren
-      if (normalizedRole === 'org_admin') {
-        updateData.orgRole = 'org_admin';
-      }
+      updateData.role = role.toLowerCase();
     }
     if (teamId !== undefined) updateData.teamId = teamId || null;
     if (name !== undefined) updateData.name = name;

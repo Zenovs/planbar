@@ -111,12 +111,10 @@ const ORG_ROLES = [
 
 const SYSTEM_ROLES = [
   { value: 'admin', label: 'Admin', color: 'bg-red-500' },
-  { value: 'org_admin', label: 'Org-Admin', color: 'bg-yellow-500' },
   { value: 'admin_organisation', label: 'Admin Organisation', color: 'bg-orange-500' },
   { value: 'projektleiter', label: 'Projektleiter', color: 'bg-purple-500' },
   { value: 'koordinator', label: 'Koordinator', color: 'bg-blue-500' },
   { value: 'member', label: 'Mitglied', color: 'bg-gray-500' },
-  { value: 'Mitglied', label: 'Mitglied', color: 'bg-gray-500' }, // Fallback für alte DB-Einträge
 ];
 
 export default function OrganisationClient() {
