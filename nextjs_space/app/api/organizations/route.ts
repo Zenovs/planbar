@@ -275,24 +275,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
     }
 
-    // Nur Admin oder Admin Organisation können Organisationen erstellen
+    // Nur Admin oder Admin Organisation können Unternehmen erstellen
     if (!canManageOrganizations(user.role)) {
       return NextResponse.json({ 
-        error: 'Keine Berechtigung - nur Admin oder Admin Organisation können Organisationen erstellen' 
+        error: 'Keine Berechtigung - nur Admin oder Admin Organisation können Unternehmen erstellen' 
       }, { status: 403 });
     }
 
-    // Prüfen ob User bereits in einer Organisation ist
+    // Prüfen ob User bereits in einem Unternehmen ist
     if (user.organizationId) {
       return NextResponse.json({ 
-        error: 'Sie sind bereits Mitglied einer Organisation' 
+        error: 'Sie sind bereits Mitglied einem Unternehmen' 
       }, { status: 400 });
     }
 
     const { name, description } = await request.json();
 
     if (!name || name.trim().length < 2) {
-      return NextResponse.json({ error: 'Organisationsname erforderlich (min. 2 Zeichen)' }, { status: 400 });
+      return NextResponse.json({ error: 'Unternehmensname erforderlich (min. 2 Zeichen)' }, { status: 400 });
     }
 
     // Slug erstellen und eindeutig machen
@@ -336,7 +336,7 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!user?.organizationId) {
-      return NextResponse.json({ error: 'Keine Organisation gefunden' }, { status: 404 });
+      return NextResponse.json({ error: 'Kein Unternehmen gefunden' }, { status: 404 });
     }
 
     // Nur org_admin, Admin oder Admin Organisation können bearbeiten
@@ -375,16 +375,16 @@ export async function DELETE(request: NextRequest) {
       where: { email: session.user.email },
     });
 
-    // Nur System-Admins dürfen Organisationen löschen
+    // Nur System-Admins dürfen Unternehmen löschen
     if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Keine Berechtigung - nur Admins können Organisationen löschen' }, { status: 403 });
+      return NextResponse.json({ error: 'Keine Berechtigung - nur Admins können Unternehmen löschen' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const orgId = searchParams.get('id');
 
     if (!orgId) {
-      return NextResponse.json({ error: 'Organisation-ID erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'Unternehmens-ID erforderlich' }, { status: 400 });
     }
 
     // Prüfen ob Organisation existiert
@@ -396,17 +396,17 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (!organization) {
-      return NextResponse.json({ error: 'Organisation nicht gefunden' }, { status: 404 });
+      return NextResponse.json({ error: 'Unternehmen nicht gefunden' }, { status: 404 });
     }
 
     // Transaktion: Alle zugehörigen Daten bereinigen und Organisation löschen
     await prisma.$transaction(async (tx) => {
-      // 1. Alle Einladungen der Organisation löschen
+      // 1. Alle Einladungen des Unternehmens löschen
       await tx.orgInvite.deleteMany({
         where: { organizationId: orgId },
       });
 
-      // 2. Alle TeamMember-Einträge der Teams in dieser Organisation löschen
+      // 2. Alle TeamMember-Einträge der Teams in diesem Unternehmen löschen
       const teamIds = await tx.team.findMany({
         where: { organizationId: orgId },
         select: { id: true },
@@ -418,7 +418,7 @@ export async function DELETE(request: NextRequest) {
         });
       }
 
-      // 3. Alle Subtasks von Tickets dieser Organisation löschen
+      // 3. Alle Subtasks von Tickets diesem Unternehmen löschen
       const ticketIds = await tx.ticket.findMany({
         where: { teamId: { in: teamIds.map(t => t.id) } },
         select: { id: true },
@@ -437,21 +437,51 @@ export async function DELETE(request: NextRequest) {
         });
       }
 
-      // 5. Alle Teams der Organisation löschen
+      // 5. Alle Teams des Unternehmens löschen
       await tx.team.deleteMany({
         where: { organizationId: orgId },
       });
 
-      // 6. Alle User von der Organisation trennen (nicht löschen!)
-      await tx.user.updateMany({
+      // 6. OrganizationMember-Einträge für dieses Unternehmen löschen
+      await tx.organizationMember.deleteMany({
         where: { organizationId: orgId },
-        data: { 
-          organizationId: null,
-          orgRole: 'member',
+      });
+
+      // 7. User aus primärer Zuweisung entfernen und ggf. auf anderes Unternehmen setzen
+      const usersInOrg = await tx.user.findMany({
+        where: { organizationId: orgId },
+        select: { 
+          id: true,
+          organizationMemberships: {
+            where: { organizationId: { not: orgId } },
+            select: { organizationId: true },
+            take: 1,
+          },
         },
       });
 
-      // 7. Organisation löschen
+      for (const user of usersInOrg) {
+        if (user.organizationMemberships.length > 0) {
+          // User ist noch in einem anderen Unternehmen - dorthin setzen
+          await tx.user.update({
+            where: { id: user.id },
+            data: { 
+              organizationId: user.organizationMemberships[0].organizationId,
+            },
+          });
+        } else {
+          // User ist in keinem anderen Unternehmen - auf null setzen
+          await tx.user.update({
+            where: { id: user.id },
+            data: { 
+              organizationId: null,
+              orgRole: 'member',
+            },
+          });
+        }
+      }
+
+      // 8. Unternehmen löschen
       await tx.organization.delete({
         where: { id: orgId },
       });
@@ -459,10 +489,10 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Organisation "${organization.name}" wurde gelöscht` 
+      message: `Unternehmen "${organization.name}" wurde gelöscht` 
     });
   } catch (error) {
     console.error('Error deleting organization:', error);
-    return NextResponse.json({ error: 'Fehler beim Löschen der Organisation' }, { status: 500 });
+    return NextResponse.json({ error: 'Fehler beim Löschen des Unternehmens' }, { status: 500 });
   }
 }

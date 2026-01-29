@@ -208,7 +208,7 @@ export default function OrganisationClient() {
         const isSysAdmin = role === 'admin' || role === 'administrator';
         setIsSystemAdmin(isSysAdmin);
         
-        // Wenn System-Admin, alle Organisationen laden
+        // Wenn System-Admin, alle Unternehmen laden
         if (isSysAdmin) {
           const allRes = await fetch('/api/organizations?all=true');
           const allData = await allRes.json();
@@ -240,7 +240,7 @@ export default function OrganisationClient() {
       });
 
       if (res.ok) {
-        toast.success('Organisation erstellt!');
+        toast.success('Unternehmen erstellt!');
         setShowCreateOrg(false);
         fetchOrganization();
       } else {
@@ -367,7 +367,7 @@ export default function OrganisationClient() {
     return [];
   };
 
-  // Hilfsfunktion: Andere Organisationen eines Users ermitteln (für Multi-Org-Badge)
+  // Hilfsfunktion: Anderes Unternehmenen eines Users ermitteln (für Multi-Org-Badge)
   const getOtherOrgs = (user: OrgUser, currentOrgId: string) => {
     if (user.organizationMemberships && user.organizationMemberships.length > 1) {
       return user.organizationMemberships.filter(om => om.organizationId !== currentOrgId);
@@ -388,7 +388,7 @@ export default function OrganisationClient() {
     }
   };
 
-  // User aus anderen Organisationen gruppieren
+  // User aus anderen Unternehmen gruppieren
   const groupUsersByOrg = () => {
     const groups: { [key: string]: typeof availableUsers } = {
       'no_org': [],
@@ -398,7 +398,7 @@ export default function OrganisationClient() {
       if (!user.organizationId) {
         groups['no_org'].push(user);
       } else {
-        const orgName = user.organization?.name || 'Andere Organisation';
+        const orgName = user.organization?.name || 'Anderes Unternehmen';
         if (!groups[orgName]) {
           groups[orgName] = [];
         }
@@ -409,7 +409,7 @@ export default function OrganisationClient() {
     return groups;
   };
 
-  // User zu Organisation hinzufügen
+  // User zum Unternehmen hinzufügen
   const addMemberToOrg = async (organizationId: string, moveFromOtherOrg = false) => {
     if (!selectedUserToAdd) {
       toast.error('Bitte wählen Sie einen Benutzer aus');
@@ -477,9 +477,9 @@ export default function OrganisationClient() {
     setNewRole(currentRole.toLowerCase());
   };
 
-  // Mitglied aus Organisation entfernen (für Admin)
+  // Mitglied aus Unternehmen entfernen (für Admin)
   const removeMemberFromOrg = async (userId: string, userName: string, organizationId: string) => {
-    if (!confirm(`${userName} wirklich aus dieser Organisation entfernen?`)) return;
+    if (!confirm(`${userName} wirklich aus diesem Unternehmen entfernen?`)) return;
 
     setProcessing(userId);
     try {
@@ -502,7 +502,7 @@ export default function OrganisationClient() {
   };
 
   const removeMember = async (userId: string, userName: string) => {
-    if (!confirm(`${userName} wirklich aus der Organisation entfernen?`)) return;
+    if (!confirm(`${userName} wirklich aus des Unternehmens entfernen?`)) return;
 
     setProcessing(userId);
     try {
@@ -554,7 +554,7 @@ export default function OrganisationClient() {
   };
 
   const deleteOrganization = async (orgId: string, orgName: string) => {
-    if (!confirm(`Organisation "${orgName}" wirklich löschen? Alle Teams und Mitgliederzuordnungen werden entfernt!`)) return;
+    if (!confirm(`Unternehmen "${orgName}" wirklich löschen? Alle Teams und Mitgliederzuordnungen werden entfernt!`)) return;
 
     setProcessing(orgId);
     try {
@@ -563,7 +563,7 @@ export default function OrganisationClient() {
       });
 
       if (res.ok) {
-        toast.success(`Organisation "${orgName}" gelöscht`);
+        toast.success(`Unternehmen "${orgName}" gelöscht`);
         fetchOrganization();
       } else {
         const data = await res.json();
@@ -587,7 +587,7 @@ export default function OrganisationClient() {
     );
   }
 
-  // Admin-Übersicht: Alle Organisationen anzeigen (auch wenn Admin selbst keine Org hat)
+  // Admin-Übersicht: Alle Unternehmen anzeigen (auch wenn Admin selbst keine Org hat)
   if (isSystemAdmin) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -602,8 +602,8 @@ export default function OrganisationClient() {
                   <Layers className="w-8 h-8" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Alle Organisationen</h1>
-                  <p className="text-gray-500 mt-1">Admin-Übersicht aller {allOrganizations.length} Organisationen</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Alle Unternehmen</h1>
+                  <p className="text-gray-500 mt-1">Admin-Übersicht aller {allOrganizations.length} Unternehmen</p>
                 </div>
               </div>
               <button
@@ -611,7 +611,7 @@ export default function OrganisationClient() {
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:opacity-90 transition-opacity"
               >
                 <Plus className="w-5 h-5" />
-                <span className="hidden sm:inline">Neue Organisation</span>
+                <span className="hidden sm:inline">Neues Unternehmen</span>
               </button>
             </div>
 
@@ -622,7 +622,7 @@ export default function OrganisationClient() {
                   <Building2 className="w-5 h-5" />
                   <span className="text-2xl font-bold">{allOrganizations.length}</span>
                 </div>
-                <p className="text-sm text-gray-500">Organisationen</p>
+                <p className="text-sm text-gray-500">Unternehmen</p>
               </div>
               <div className="bg-white rounded-lg p-4 shadow-sm border">
                 <div className="flex items-center gap-2 text-purple-600">
@@ -638,7 +638,7 @@ export default function OrganisationClient() {
                   <User className="w-5 h-5" />
                   <span className="text-2xl font-bold">{usersWithoutOrg.length}</span>
                 </div>
-                <p className="text-sm text-gray-500">Ohne Organisation</p>
+                <p className="text-sm text-gray-500">Ohne Unternehmen</p>
               </div>
               <div className="bg-white rounded-lg p-4 shadow-sm border">
                 <div className="flex items-center gap-2 text-green-600">
@@ -661,7 +661,7 @@ export default function OrganisationClient() {
             </div>
           </div>
 
-          {/* Organisation erstellen Modal */}
+          {/* Unternehmen erstellen Modal */}
           <AnimatePresence>
             {showCreateOrg && (
               <motion.div
@@ -680,7 +680,7 @@ export default function OrganisationClient() {
                 >
                   <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-xl font-bold">Neue Organisation</h2>
+                      <h2 className="text-xl font-bold">Neues Unternehmen</h2>
                       <button onClick={() => setShowCreateOrg(false)} className="p-1 hover:bg-white/20 rounded">
                         <X className="w-5 h-5" />
                       </button>
@@ -786,10 +786,10 @@ export default function OrganisationClient() {
                                 const groups = groupUsersByOrg();
                                 const optGroups = [];
                                 
-                                // Zuerst User ohne Organisation
+                                // Zuerst User ohne Unternehmen
                                 if (groups['no_org']?.length > 0) {
                                   optGroups.push(
-                                    <optgroup key="no_org" label="📌 Ohne Organisation">
+                                    <optgroup key="no_org" label="📌 Ohne Unternehmen">
                                       {groups['no_org'].map((user) => (
                                         <option key={user.id} value={user.id}>
                                           {user.name || user.email} ({user.email})
@@ -799,7 +799,7 @@ export default function OrganisationClient() {
                                   );
                                 }
                                 
-                                // Dann User aus anderen Organisationen
+                                // Dann User aus anderen Unternehmen
                                 Object.entries(groups).forEach(([orgName, users]) => {
                                   if (orgName !== 'no_org' && users.length > 0) {
                                     optGroups.push(
@@ -822,7 +822,7 @@ export default function OrganisationClient() {
                             {selectedUserToAdd && availableUsers.find(u => u.id === selectedUserToAdd)?.organizationId && (
                               <p className="mt-2 text-sm text-blue-600 flex items-center gap-1">
                                 <Building2 className="w-4 h-4" />
-                                Dieser Benutzer wird zusätzlich zu dieser Organisation hinzugefügt (Multi-Org).
+                                Dieser Benutzer wird zusätzlich zu diesem Unternehmen hinzugefügt (Multi-Org).
                               </p>
                             )}
                           </div>
@@ -854,7 +854,7 @@ export default function OrganisationClient() {
                             Keine Benutzer zum Hinzufügen verfügbar.
                           </p>
                           <p className="text-sm text-gray-400 mt-2">
-                            Alle Benutzer sind bereits in dieser Organisation.
+                            Alle Benutzer sind bereits in dieser Unternehmen.
                           </p>
                           <button
                             onClick={() => {
@@ -873,19 +873,19 @@ export default function OrganisationClient() {
             )}
           </AnimatePresence>
 
-          {/* Organisationen-Liste */}
+          {/* Unternehmen-Liste */}
           <div className="space-y-4">
             {allOrganizations.length === 0 && (
               <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
                 <Building2 className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Keine Organisationen</h3>
-                <p className="text-gray-500 mb-4">Es wurden noch keine Organisationen erstellt.</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Keine Unternehmen</h3>
+                <p className="text-gray-500 mb-4">Es wurden noch keine Unternehmen erstellt.</p>
                 <button
                   onClick={() => setShowCreateOrg(true)}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:opacity-90"
                 >
                   <Plus className="w-5 h-5" />
-                  Erste Organisation erstellen
+                  Erste Unternehmen erstellen
                 </button>
               </div>
             )}
@@ -919,7 +919,7 @@ export default function OrganisationClient() {
                       }}
                       disabled={processing === org.id}
                       className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Organisation löschen"
+                      title="Unternehmen löschen"
                     >
                       {processing === org.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
                     </button>
@@ -1105,7 +1105,7 @@ export default function OrganisationClient() {
                                                 onClick={() => removeMemberFromOrg(user.id, user.name || user.email, org.id)}
                                                 disabled={processing === user.id}
                                                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
-                                                title="Aus Organisation entfernen"
+                                                title="Aus Unternehmen entfernen"
                                               >
                                                 {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
                                               </button>
@@ -1130,7 +1130,7 @@ export default function OrganisationClient() {
             ))}
           </div>
 
-          {/* User ohne Organisation */}
+          {/* User ohne Unternehmen */}
           {usersWithoutOrg.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -1144,8 +1144,8 @@ export default function OrganisationClient() {
                       <Users className="w-6 h-6" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 text-lg">User ohne Organisation</h3>
-                      <p className="text-sm text-gray-500">{usersWithoutOrg.length} Benutzer sind keiner Organisation zugewiesen</p>
+                      <h3 className="font-semibold text-gray-900 text-lg">User ohne Unternehmen</h3>
+                      <p className="text-sm text-gray-500">{usersWithoutOrg.length} Benutzer sind keinem Unternehmen zugewiesen</p>
                     </div>
                   </div>
                 </div>
@@ -1167,7 +1167,7 @@ export default function OrganisationClient() {
                             <p className="text-xs text-gray-500">{user.email}</p>
                             <div className="flex flex-wrap items-center gap-1 mt-1 text-xs">
                               <span className="px-2 py-0.5 bg-orange-200 text-orange-700 rounded-full">
-                                Keine Organisation
+                                Kein Unternehmen
                               </span>
                               {userTeams.length > 0 ? (
                                 userTeams.map((team) => (
@@ -1205,9 +1205,9 @@ export default function OrganisationClient() {
     );
   }
 
-  // Keine Organisation - Info oder Erstellen anzeigen
+  // Kein Unternehmen - Info oder Erstellen anzeigen
   if (!organization) {
-    // User hat keine Berechtigung, Organisation zu erstellen
+    // User hat keine Berechtigung, Unternehmen zu erstellen
     if (!canCreateOrganization) {
       return (
         <div className="min-h-screen bg-gray-50">
@@ -1220,15 +1220,15 @@ export default function OrganisationClient() {
             >
               <div className="bg-gradient-to-r from-gray-400 to-gray-500 p-6 text-center text-white">
                 <Building2 className="w-12 h-12 mx-auto mb-3" />
-                <h1 className="text-2xl font-bold">Keine Organisation</h1>
-                <p className="mt-2 opacity-90">Sie sind noch keiner Organisation zugeordnet</p>
+                <h1 className="text-2xl font-bold">Kein Unternehmen</h1>
+                <p className="mt-2 opacity-90">Sie sind noch keinem Unternehmen zugeordnet</p>
               </div>
               <div className="p-6 text-center">
                 <p className="text-gray-600 mb-4">
-                  Sie müssen von einem <strong>Admin</strong> oder <strong>Admin Organisation</strong> zu einer Organisation eingeladen werden.
+                  Sie müssen von einem <strong>Admin</strong> oder <strong>Admin Organisation</strong> zu einem Unternehmen eingeladen werden.
                 </p>
                 <p className="text-sm text-gray-500">
-                  Kontaktieren Sie Ihren Administrator, um Zugang zu einer Organisation zu erhalten.
+                  Kontaktieren Sie Ihren Administrator, um Zugang zu einem Unternehmen zu erhalten.
                 </p>
               </div>
             </motion.div>
@@ -1237,7 +1237,7 @@ export default function OrganisationClient() {
       );
     }
 
-    // User kann Organisation erstellen
+    // User kann Unternehmen erstellen
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
@@ -1249,14 +1249,14 @@ export default function OrganisationClient() {
           >
             <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-center text-white">
               <Building2 className="w-12 h-12 mx-auto mb-3" />
-              <h1 className="text-2xl font-bold">Organisation erstellen</h1>
-              <p className="mt-2 opacity-90">Starten Sie mit Ihrer eigenen Organisation</p>
+              <h1 className="text-2xl font-bold">Unternehmen erstellen</h1>
+              <p className="mt-2 opacity-90">Starten Sie mit Ihrem eigenen Unternehmen</p>
             </div>
 
             <form onSubmit={createOrganization} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name der Organisation *
+                  Name des Unternehmens *
                 </label>
                 <input
                   type="text"
@@ -1291,7 +1291,7 @@ export default function OrganisationClient() {
                 ) : (
                   <Plus className="w-5 h-5" />
                 )}
-                Organisation erstellen
+                Unternehmen erstellen
               </button>
             </form>
           </motion.div>
@@ -1462,7 +1462,7 @@ export default function OrganisationClient() {
                 </div>
                 <div className="text-left">
                   <h3 className="font-semibold text-gray-900">Mitglieder ({organization.users.length})</h3>
-                  <p className="text-sm text-gray-500">Alle Mitglieder der Organisation</p>
+                  <p className="text-sm text-gray-500">Alle Mitglieder des Unternehmens</p>
                 </div>
               </div>
               {expandedSection === 'members' ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}

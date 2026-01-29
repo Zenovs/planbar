@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: User zu einer Organisation hinzufügen (auch von anderen Organisationen)
+// POST: User zu einem Unternehmen hinzufügen (auch von anderen Organisationen)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     const { userId, organizationId, orgRole = 'member', moveFromOtherOrg = false } = await request.json();
 
     if (!userId || !organizationId) {
-      return NextResponse.json({ error: 'User-ID und Organisations-ID erforderlich' }, { status: 400 });
+      return NextResponse.json({ error: 'User-ID und Unternehmens-ID erforderlich' }, { status: 400 });
     }
 
     // Prüfen ob Organisation existiert
@@ -153,13 +153,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!organization) {
-      return NextResponse.json({ error: 'Organisation nicht gefunden' }, { status: 404 });
+      return NextResponse.json({ error: 'Unternehmen nicht gefunden' }, { status: 404 });
     }
 
-    // System-Admin kann zu jeder Organisation hinzufügen
+    // System-Admin kann zu jedes Unternehmens hinzufügen
     // Org-Admin nur zu seiner eigenen Organisation
     if (!isSystemAdmin && currentUser.organizationId !== organizationId) {
-      return NextResponse.json({ error: 'Keine Berechtigung für diese Organisation' }, { status: 403 });
+      return NextResponse.json({ error: 'Keine Berechtigung für dieses Unternehmen' }, { status: 403 });
     }
 
     // Prüfen ob User existiert
@@ -190,10 +190,10 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingMembership) {
-      return NextResponse.json({ error: 'User ist bereits in dieser Organisation' }, { status: 400 });
+      return NextResponse.json({ error: 'User ist bereits in diesem Unternehmen' }, { status: 400 });
     }
 
-    // User zur Organisation hinzufügen (Multi-Org: OHNE aus anderer Org zu entfernen)
+    // User zum Unternehmen hinzufügen (Multi-Org: OHNE aus anderer Org zu entfernen)
     // 1. OrganizationMember-Eintrag erstellen
     await prisma.organizationMember.create({
       data: {
@@ -254,7 +254,7 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!currentUser?.organizationId) {
-      return NextResponse.json({ error: 'Keine Organisation gefunden' }, { status: 404 });
+      return NextResponse.json({ error: 'Kein Unternehmen gefunden' }, { status: 404 });
     }
 
     // Nur org_admin, Admin oder Admin Organisation können Rollen ändern
@@ -274,7 +274,7 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!targetUser || targetUser.organizationId !== currentUser.organizationId) {
-      return NextResponse.json({ error: 'User nicht in Ihrer Organisation' }, { status: 404 });
+      return NextResponse.json({ error: 'User nicht in Ihrem Unternehmen' }, { status: 404 });
     }
 
     // Verhindern dass der letzte org_admin degradiert wird
@@ -288,7 +288,7 @@ export async function PUT(request: NextRequest) {
 
       if (orgAdminCount <= 1) {
         return NextResponse.json({ 
-          error: 'Es muss mindestens ein Organisations-Admin vorhanden sein' 
+          error: 'Es muss mindestens ein Unternehmens-Admin vorhanden sein' 
         }, { status: 400 });
       }
     }
@@ -382,14 +382,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
     }
 
-    // System-Admin kann aus jeder Organisation entfernen
+    // System-Admin kann aus jedes Unternehmens entfernen
     // Org-Admin nur aus seiner eigenen Organisation
     if (!isSystemAdmin) {
       if (!currentUser.organizationId || targetUser.organizationId !== currentUser.organizationId) {
-        return NextResponse.json({ error: 'Keine Berechtigung für diese Organisation' }, { status: 403 });
+        return NextResponse.json({ error: 'Keine Berechtigung für dieses Unternehmen' }, { status: 403 });
       }
     } else if (organizationId && targetUser.organizationId !== organizationId) {
-      return NextResponse.json({ error: 'User nicht in dieser Organisation' }, { status: 404 });
+      return NextResponse.json({ error: 'User nicht in diesem Unternehmen' }, { status: 404 });
     }
 
     // User aus Organisation entfernen (nicht löschen!)
