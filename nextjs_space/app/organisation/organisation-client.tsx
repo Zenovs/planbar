@@ -90,6 +90,18 @@ export default function OrganisationClient() {
   const { data: session } = useSession();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);
+  const [usersWithoutOrg, setUsersWithoutOrg] = useState<{
+    id: string;
+    name: string | null;
+    email: string;
+    role: string;
+    image: string | null;
+    teamId?: string | null;
+    weeklyHours?: number;
+    workloadPercent?: number;
+    team?: { id: string; name: string } | null;
+    _count?: { assignedTickets: number };
+  }[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [isOrgAdmin, setIsOrgAdmin] = useState(false);
@@ -157,6 +169,7 @@ export default function OrganisationClient() {
           const allData = await allRes.json();
           if (allRes.ok && allData.organizations) {
             setAllOrganizations(allData.organizations);
+            setUsersWithoutOrg(allData.usersWithoutOrg || []);
           }
         }
         
@@ -416,7 +429,7 @@ export default function OrganisationClient() {
             </div>
 
             {/* Gesamt-Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-6">
               <div className="bg-white rounded-lg p-4 shadow-sm border">
                 <div className="flex items-center gap-2 text-blue-600">
                   <Building2 className="w-5 h-5" />
@@ -431,7 +444,14 @@ export default function OrganisationClient() {
                     {allOrganizations.reduce((sum, org) => sum + (org._count?.users || org.users?.length || 0), 0)}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500">Benutzer gesamt</p>
+                <p className="text-sm text-gray-500">Benutzer in Orgs</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm border">
+                <div className="flex items-center gap-2 text-orange-600">
+                  <User className="w-5 h-5" />
+                  <span className="text-2xl font-bold">{usersWithoutOrg.length}</span>
+                </div>
+                <p className="text-sm text-gray-500">Ohne Organisation</p>
               </div>
               <div className="bg-white rounded-lg p-4 shadow-sm border">
                 <div className="flex items-center gap-2 text-green-600">
@@ -443,7 +463,7 @@ export default function OrganisationClient() {
                 <p className="text-sm text-gray-500">Teams gesamt</p>
               </div>
               <div className="bg-white rounded-lg p-4 shadow-sm border">
-                <div className="flex items-center gap-2 text-orange-600">
+                <div className="flex items-center gap-2 text-yellow-600">
                   <Crown className="w-5 h-5" />
                   <span className="text-2xl font-bold">
                     {allOrganizations.reduce((sum, org) => sum + (org.users?.filter(u => u.orgRole === 'org_admin').length || 0), 0)}
@@ -802,6 +822,70 @@ export default function OrganisationClient() {
               </motion.div>
             ))}
           </div>
+
+          {/* User ohne Organisation */}
+          {usersWithoutOrg.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-8"
+            >
+              <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <div className="p-5 border-b bg-gradient-to-r from-orange-50 to-red-50">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-500 rounded-lg text-white">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-lg">User ohne Organisation</h3>
+                      <p className="text-sm text-gray-500">{usersWithoutOrg.length} Benutzer sind keiner Organisation zugewiesen</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-5 space-y-3">
+                  {usersWithoutOrg.map((user) => {
+                    const systemRoleInfo = getSystemRoleInfo(user.role);
+                    return (
+                      <div
+                        key={user.id}
+                        className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white text-sm font-medium">
+                            {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 text-sm">{user.name || user.email}</p>
+                            <p className="text-xs text-gray-500">{user.email}</p>
+                            <div className="flex items-center gap-2 mt-1 text-xs">
+                              <span className="px-2 py-0.5 bg-orange-200 text-orange-700 rounded-full">
+                                Keine Organisation
+                              </span>
+                              {user.team ? (
+                                <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                                  <Users className="w-3 h-3" />
+                                  {user.team.name}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 bg-gray-200 text-gray-500 rounded-full">
+                                  Kein Team
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
+                            {systemRoleInfo.label}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </main>
       </div>
     );

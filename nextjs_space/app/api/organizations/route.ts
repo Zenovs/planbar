@@ -79,8 +79,38 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' },
       });
 
+      // User ohne Organisation laden
+      const usersWithoutOrg = await prisma.user.findMany({
+        where: {
+          organizationId: null,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          image: true,
+          teamId: true,
+          weeklyHours: true,
+          workloadPercent: true,
+          team: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          _count: {
+            select: {
+              assignedTickets: true,
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+      });
+
       return NextResponse.json({
         organizations,
+        usersWithoutOrg,
         isAdmin: true,
       });
     }
