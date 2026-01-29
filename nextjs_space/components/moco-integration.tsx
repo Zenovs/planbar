@@ -23,6 +23,7 @@ import { de } from 'date-fns/locale';
 
 interface MocoIntegrationProps {
   onClose?: () => void;
+  onSyncComplete?: () => void;
 }
 
 interface IntegrationStatus {
@@ -38,7 +39,7 @@ interface IntegrationStatus {
   } | null;
 }
 
-export function MocoIntegration({ onClose }: MocoIntegrationProps) {
+export function MocoIntegration({ onClose, onSyncComplete }: MocoIntegrationProps) {
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,10 +62,7 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
       const res = await fetch('/api/moco/integration');
       const data = await res.json();
       setStatus(data);
-      if (data.integration) {
-        setInstanceDomain(data.integration.instanceDomain);
-        setMocoEmail(data.integration.mocoEmail || '');
-      }
+      // Maskierte Daten nicht in Eingabefelder laden - bei Bearbeitung müssen neue Daten eingegeben werden
     } catch (error) {
       console.error('Fehler beim Laden:', error);
       toast.error('Fehler beim Laden der Integration');
@@ -106,10 +104,36 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
         throw new Error(data.error || 'Fehler beim Speichern');
       }
 
-      toast.success(data.message || 'Integration erfolgreich gespeichert');
-      setApiKey('');
+      // Sofort Status optimistisch setzen, damit Formular schliesst
+      setStatus({
+        hasIntegration: true,
+        integration: data.integration ? {
+          instanceDomain: data.integration.instanceDomain,
+          mocoEmail: data.integration.mocoEmail,
+          lastSyncAt: null,
+          lastSyncStatus: null,
+          lastSyncError: null,
+          isActive: true,
+          createdAt: new Date().toISOString()
+        } : null
+      });
+      
+      // Formular schliessen und Felder leeren
       setShowForm(false);
+      setApiKey('');
+      setInstanceDomain('');
+      setMocoEmail('');
+      
+      // Erfolgsmeldung anzeigen
+      toast.success(data.message || 'Integration erfolgreich gespeichert');
+      
+      // Status nochmals laden für aktuelle Daten
       loadStatus();
+      
+      // Callback aufrufen um zum Kalender zu wechseln
+      if (onSyncComplete) {
+        onSyncComplete();
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Fehler beim Speichern');
     } finally {
@@ -129,6 +153,11 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
 
       toast.success(data.message || 'Sync erfolgreich');
       loadStatus();
+      
+      // Callback aufrufen um zum Kalender zu wechseln und Daten neu zu laden
+      if (onSyncComplete) {
+        onSyncComplete();
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Sync fehlgeschlagen');
     } finally {
@@ -286,7 +315,12 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
                 Jetzt synchronisieren
               </button>
               <button
-                onClick={() => setShowForm(true)}
+                onClick={() => {
+                  setApiKey('');
+                  setInstanceDomain('');
+                  setMocoEmail('');
+                  setShowForm(true);
+                }}
                 className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors text-sm font-medium"
               >
                 <Settings className="w-4 h-4" />
@@ -302,28 +336,40 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
           </div>
         )}
 
-        {/* Formular */}
-        <AnimatePresence>
+        {/* Formular - nur anzeigen wenn keine Integration oder showForm aktiv */}
+        <AnimatePresence mode="wait">
           {(!status?.hasIntegration || showForm) && (
             <motion.form
+              key="moco-form"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
               onSubmit={handleSave}
-              className="space-y-4"
+              className="space-y-4 overflow-hidden"
             >
               {showForm && status?.hasIntegration && (
-                <div className="flex items-center justify-between pb-2 border-b dark:border-gray-700">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    API-Key aktualisieren
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    &times;
-                  </button>
+                <div className="pb-3 border-b dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Integration aktualisieren
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForm(false);
+                        setApiKey('');
+                        setInstanceDomain('');
+                        setMocoEmail('');
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Aus Sicherheitsgründen müssen alle Daten neu eingegeben werden.
+                  </p>
                 </div>
               )}
 

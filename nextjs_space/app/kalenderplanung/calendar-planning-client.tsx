@@ -256,7 +256,13 @@ export function CalendarPlanningClient({
 
         {/* Tab Content */}
         {activeTab === 'moco' ? (
-          <MocoIntegration />
+          <MocoIntegration 
+            onSyncComplete={() => {
+              // Nach Sync zum Kalender wechseln und Daten neu laden
+              setActiveTab('calendar');
+              loadAbsences();
+            }}
+          />
         ) : (
           <>
             {/* Filter */}

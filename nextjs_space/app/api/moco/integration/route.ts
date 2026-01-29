@@ -5,6 +5,29 @@ import prisma from '@/lib/db';
 import { encrypt, isValidApiKey } from '@/lib/encryption';
 import { testMocoConnection } from '@/lib/moco-api';
 
+// Hilfsfunktion zum Maskieren der E-Mail
+function maskEmail(email: string): string {
+  const [localPart, domain] = email.split('@');
+  if (!localPart || !domain) return '***@***';
+  
+  const maskedLocal = localPart.length <= 2 
+    ? '*'.repeat(localPart.length) 
+    : localPart[0] + '*'.repeat(Math.min(localPart.length - 2, 5)) + localPart[localPart.length - 1];
+  
+  const domainParts = domain.split('.');
+  const maskedDomain = domainParts[0].length <= 2 
+    ? '*'.repeat(domainParts[0].length) 
+    : domainParts[0][0] + '*'.repeat(Math.min(domainParts[0].length - 2, 4)) + domainParts[0][domainParts[0].length - 1];
+  
+  return `${maskedLocal}@${maskedDomain}.${domainParts.slice(1).join('.')}`;
+}
+
+// Hilfsfunktion zum Maskieren der Domain
+function maskDomain(domain: string): string {
+  if (domain.length <= 3) return '*'.repeat(domain.length);
+  return domain[0] + '*'.repeat(Math.min(domain.length - 2, 6)) + domain[domain.length - 1];
+}
+
 // GET: Holt den aktuellen MOCO-Integrationsstatus für den User
 export async function GET() {
   try {
@@ -39,8 +62,9 @@ export async function GET() {
     return NextResponse.json({
       hasIntegration: !!integration,
       integration: integration ? {
-        instanceDomain: integration.instanceDomain,
-        mocoEmail: integration.mocoEmail,
+        // Sensible Daten maskiert zurückgeben
+        instanceDomain: maskDomain(integration.instanceDomain),
+        mocoEmail: integration.mocoEmail ? maskEmail(integration.mocoEmail) : null,
         lastSyncAt: integration.lastSyncAt,
         lastSyncStatus: integration.lastSyncStatus,
         lastSyncError: integration.lastSyncError,
@@ -149,8 +173,9 @@ export async function POST(request: NextRequest) {
       success: true,
       message: `Verbindung erfolgreich hergestellt für ${testResult.userName}`,
       integration: {
-        instanceDomain: integration.instanceDomain,
-        mocoEmail: integration.mocoEmail,
+        // Maskierte Daten zurückgeben
+        instanceDomain: maskDomain(integration.instanceDomain),
+        mocoEmail: integration.mocoEmail ? maskEmail(integration.mocoEmail) : null,
         isActive: integration.isActive
       }
     });

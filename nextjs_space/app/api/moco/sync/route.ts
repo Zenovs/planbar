@@ -94,77 +94,34 @@ export async function POST() {
       }
     });
 
-    // Abwesenheiten gruppieren - NUR aufeinanderfolgende Tage zusammenfassen!
+    // KEINE Gruppierung - jeder MOCO-Tag wird als einzelner Eintrag gespeichert
     const schedules = result.data;
     
-    // Sortiere nach Datum
-    const sortedSchedules = [...schedules].sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    console.log('Verarbeite', schedules.length, 'MOCO Schedules (ohne Gruppierung)...');
 
-    console.log('Verarbeite', sortedSchedules.length, 'Schedules...');
-
-    // Gruppiere nur aufeinanderfolgende Tage
-    const absenceGroups: Array<{ 
-      title: string; 
-      type: string; 
-      color: string; 
-      startDate: Date; 
-      endDate: Date;
-      description: string | null;
-      assignmentId: number;
-    }> = [];
-
-    for (const schedule of sortedSchedules) {
-      if (!schedule.assignment) continue;
-      
-      const absenceName = schedule.assignment.name;
-      const assignmentId = schedule.assignment.id;
-      const date = new Date(schedule.date);
-      const { type, color } = mapMocoAbsenceType(absenceName);
-      
-      console.log(`Schedule: ${schedule.date} - ${absenceName}`);
-      
-      // Prüfe ob der letzte Eintrag mit gleichem assignment fortgesetzt werden kann
-      const lastGroup = absenceGroups.length > 0 ? absenceGroups[absenceGroups.length - 1] : null;
-      
-      if (lastGroup && lastGroup.assignmentId === assignmentId) {
-        // Prüfe ob Tage aufeinanderfolgen (max 3 Tage Abstand für Wochenenden)
-        const daysDiff = Math.floor((date.getTime() - lastGroup.endDate.getTime()) / (1000 * 60 * 60 * 24));
+    // Jeden MOCO-Eintrag einzeln als Absence speichern
+    const absenceEntries = schedules
+      .filter(schedule => schedule.assignment)
+      .map(schedule => {
+        const absenceName = schedule.assignment!.name;
+        const date = new Date(schedule.date);
+        const { type, color } = mapMocoAbsenceType(absenceName);
         
-        if (daysDiff <= 3) {
-          // Erweitere den bestehenden Eintrag
-          lastGroup.endDate = date;
-          continue;
-        }
-      }
-      
-      // Neuer Eintrag
-      absenceGroups.push({
-        title: `[MOCO] ${absenceName}`,
-        type,
-        color: schedule.assignment.color || color,
-        startDate: date,
-        endDate: date,
-        description: schedule.comment,
-        assignmentId
+        console.log(`MOCO Eintrag: ${schedule.date} - ${absenceName}`);
+        
+        return {
+          title: `[MOCO] ${absenceName}`,
+          type,
+          startDate: date,
+          endDate: date,  // Gleiches Datum = 1 Tag
+          allDay: true,
+          description: schedule.comment,
+          color: schedule.assignment!.color || color,
+          userId: user.id
+        };
       });
-    }
     
-    console.log(`${absenceGroups.length} Abwesenheits-Blöcke erstellt`);
-    const groupedAbsences = absenceGroups;
-
-    // Abwesenheiten als Planbar Absences speichern
-    const absenceEntries = groupedAbsences.map(absence => ({
-      title: absence.title,
-      type: absence.type,
-      startDate: absence.startDate,
-      endDate: absence.endDate,
-      allDay: true,
-      description: absence.description,
-      color: absence.color,
-      userId: user.id
-    }));
+    console.log(`${absenceEntries.length} einzelne Abwesenheits-Einträge erstellt`);
 
     if (absenceEntries.length > 0) {
       await prisma.absence.createMany({

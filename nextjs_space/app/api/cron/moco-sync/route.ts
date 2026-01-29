@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { fetchMocoSchedules } from '@/lib/moco-api';
-import { format, subDays, addMonths } from 'date-fns';
+import { format, subMonths, addMonths } from 'date-fns';
 
 // Mapping von MOCO Abwesenheitstypen zu Planbar-Typen
 function mapMocoAbsenceType(mocoName: string): { type: string; color: string } {
@@ -55,22 +55,24 @@ export async function GET(request: NextRequest) {
 
     const results: { userId: string; success: boolean; entries?: number; error?: string }[] = [];
 
-    // Zeitraum: 30 Tage zurück bis 6 Monate in die Zukunft
+    // Zeitraum: 12 Monate zurück bis 12 Monate in die Zukunft
     const today = new Date();
-    const fromDate = format(subDays(today, 30), 'yyyy-MM-dd');
-    const toDate = format(addMonths(today, 6), 'yyyy-MM-dd');
+    const fromDate = format(subMonths(today, 12), 'yyyy-MM-dd');
+    const toDate = format(addMonths(today, 12), 'yyyy-MM-dd');
 
     // Jede Integration einzeln synchronisieren
     for (const integration of integrations) {
       try {
         console.log(`Sync für User ${integration.user.email}...`);
 
+        // Mit E-Mail-Filter für exakte User-Zuordnung
         const result = await fetchMocoSchedules(
           integration.apiKeyEncrypted,
           integration.apiKeyIv,
           integration.instanceDomain,
           fromDate,
-          toDate
+          toDate,
+          integration.mocoEmail || undefined
         );
 
         if (!result.success || !result.data) {
@@ -100,53 +102,26 @@ export async function GET(request: NextRequest) {
           }
         });
 
-        // Abwesenheiten gruppieren (zusammenhängende Tage zu einem Eintrag)
+        // KEINE Gruppierung - jeder MOCO-Tag wird als einzelner Eintrag gespeichert
         const schedules = result.data;
-        const groupedAbsences: Map<string, { 
-          title: string; 
-          type: string; 
-          color: string; 
-          startDate: Date; 
-          endDate: Date;
-          description: string | null;
-        }> = new Map();
-
-        for (const schedule of schedules) {
-          // assignment enthält die Abwesenheitsinfo (nicht absence!)
-          if (!schedule.assignment) continue;
-          
-          const absenceName = schedule.assignment.name;
-          const absenceKey = `${absenceName}-${schedule.assignment.id}`;
-          const date = new Date(schedule.date);
-          const { type, color } = mapMocoAbsenceType(absenceName);
-          
-          if (groupedAbsences.has(absenceKey)) {
-            const existing = groupedAbsences.get(absenceKey)!;
-            if (date < existing.startDate) existing.startDate = date;
-            if (date > existing.endDate) existing.endDate = date;
-          } else {
-            groupedAbsences.set(absenceKey, {
+        const absenceEntries = schedules
+          .filter(schedule => schedule.assignment)
+          .map(schedule => {
+            const absenceName = schedule.assignment!.name;
+            const date = new Date(schedule.date);
+            const { type, color } = mapMocoAbsenceType(absenceName);
+            
+            return {
               title: `[MOCO] ${absenceName}`,
               type,
-              color: schedule.assignment.color || color,
               startDate: date,
               endDate: date,
-              description: schedule.comment
-            });
-          }
-        }
-
-        // Abwesenheiten als Planbar Absences speichern
-        const absenceEntries = Array.from(groupedAbsences.values()).map(absence => ({
-          title: absence.title,
-          type: absence.type,
-          startDate: absence.startDate,
-          endDate: absence.endDate,
-          allDay: true,
-          description: absence.description,
-          color: absence.color,
-          userId: integration.userId
-        }));
+              allDay: true,
+              description: schedule.comment,
+              color: schedule.assignment!.color || color,
+              userId: integration.userId
+            };
+          });
 
         if (absenceEntries.length > 0) {
           await prisma.absence.createMany({

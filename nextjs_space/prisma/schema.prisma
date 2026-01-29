@@ -9,103 +9,88 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-// Organisation (Multi-Tenant)
 model Organization {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
-  slug        String   @unique  // URL-freundlicher Name
+  slug        String      @unique
   description String?
   logo        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Beziehungen
-  users       User[]
-  teams       Team[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   invites     OrgInvite[]
+  teams       Team[]
+  users       User[]
 
   @@map("organizations")
 }
 
-// Einladungen zu einer Organisation
 model OrgInvite {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   email          String
-  token          String   @unique
-  role           String   @default("member")  // Rolle nach Beitritt
+  token          String       @unique
+  role           String       @default("member")
   expiresAt      DateTime
-  accepted       Boolean  @default(false)
-  createdAt      DateTime @default(now())
-
+  accepted       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
   invitedById    String?
-  invitedBy      User?    @relation("InvitedUsers", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitedBy      User?        @relation("InvitedUsers", fields: [invitedById], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([email, organizationId])
   @@map("org_invites")
 }
 
 model User {
-  id                 String    @id @default(cuid())
-  name               String?
-  email              String    @unique
-  password           String
-  role               String    @default("member")
-  orgRole            String    @default("member")  // Rolle innerhalb der Organisation: "org_admin", "projektleiter", "koordinator", "member"
-  emailVerified      Boolean   @default(false)  // E-Mail-Verifizierung
-  verificationCode   String?                     // 6-stelliger Verifizierungscode
-  verificationExpires DateTime?                  // Ablaufzeit des Codes
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  image              String?
-  imagePublic        Boolean   @default(false)
-  emailNotifications Boolean   @default(true)
-  emailReportFrequency String? @default("none") // "none", "daily", "weekly"
-  desktopNotifications Boolean @default(false)
-  
-  // Organisation
-  organizationId     String?
-  organization       Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  sentInvites        OrgInvite[]   @relation("InvitedUsers")
-  
-  // Subscription / Bezahlung
-  subscriptionType     String    @default("free")    // "free" oder "pay"
-  trialStartDate       DateTime?                      // Beginn der 14-Tage Trial
-  trialEndDate         DateTime?                      // Ende der Trial
-  stripeCustomerId     String?                        // Stripe Customer ID
-  stripeSubscriptionId String?                        // Stripe Subscription ID
-  subscriptionStatus   String    @default("active")  // "active", "trialing", "expired", "canceled"
-  dailyRate            Float     @default(0.15)      // CHF pro Monat pro User (Standard: 0.15 CHF)
-  
-  // Pensum / Arbeitszeit
-  weeklyHours        Float     @default(42)    // Soll-Stunden pro Woche
-  workloadPercent    Int       @default(100)   // Pensum in Prozent (z.B. 80% = 33.6h)
-  
-  // Design-Einstellungen
-  designPrimaryColor   String?   @default("#3b82f6")
-  designSecondaryColor String?   @default("#8b5cf6")
-  designAccentColor    String?   @default("#ec4899")
-  designBorderRadius   String?   @default("medium")
-  designLayoutDensity  String?   @default("standard")
-  designBackgroundImage String?
-  designBackgroundPublic Boolean @default(false)
-
-  accounts         Account[]
-  sessions         Session[]
-  createdTickets   Ticket[]  @relation("CreatedTickets")
-  assignedTickets  Ticket[]  @relation("AssignedTickets")
-  managedTickets   Ticket[]  @relation("ManagedTickets")
-  assignedSubTasks SubTask[] @relation("AssignedSubTasks")
-  ticketAssignees  TicketAssignee[]
-  subTaskAssignees SubTaskAssignee[]
-  teamId           String?
-  team             Team?     @relation(fields: [teamId], references: [id])
-  teamMemberships  TeamMember[]
-  notes            Note[]
-  absences         Absence[]
-  mocoIntegration  MocoIntegration?
+  id                     String            @id @default(cuid())
+  name                   String?
+  email                  String            @unique
+  password               String
+  role                   String            @default("member")
+  orgRole                String            @default("member")
+  emailVerified          Boolean           @default(false)
+  verificationCode       String?
+  verificationExpires    DateTime?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  image                  String?
+  imagePublic            Boolean           @default(false)
+  emailNotifications     Boolean           @default(true)
+  emailReportFrequency   String?           @default("none")
+  desktopNotifications   Boolean           @default(false)
+  organizationId         String?
+  subscriptionType       String            @default("free")
+  trialStartDate         DateTime?
+  trialEndDate           DateTime?
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  subscriptionStatus     String            @default("active")
+  dailyRate              Float             @default(0.15)
+  weeklyHours            Float             @default(42)
+  workloadPercent        Int               @default(100)
+  designPrimaryColor     String?           @default("#3b82f6")
+  designSecondaryColor   String?           @default("#8b5cf6")
+  designAccentColor      String?           @default("#ec4899")
+  designBorderRadius     String?           @default("medium")
+  designLayoutDensity    String?           @default("standard")
+  designBackgroundImage  String?
+  designBackgroundPublic Boolean           @default(false)
+  teamId                 String?
+  absences               Absence[]
+  accounts               Account[]
+  mocoIntegration        MocoIntegration?
+  notes                  Note[]
+  sentInvites            OrgInvite[]       @relation("InvitedUsers")
+  sessions               Session[]
+  assignedSubTasks       SubTask[]         @relation("AssignedSubTasks")
+  subTaskAssignees       SubTaskAssignee[]
+  teamMemberships        TeamMember[]
+  ticketAssignees        TicketAssignee[]
+  assignedTickets        Ticket[]          @relation("AssignedTickets")
+  createdTickets         Ticket[]          @relation("CreatedTickets")
+  managedTickets         Ticket[]          @relation("ManagedTickets")
+  organization           Organization?     @relation(fields: [organizationId], references: [id])
+  team                   Team?             @relation(fields: [teamId], references: [id])
 
   @@map("users")
 }
@@ -123,8 +108,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
@@ -150,21 +134,18 @@ model VerificationToken {
 }
 
 model Team {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  color       String   @default("#3b82f6")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Organisation
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  color          String        @default("#3b82f6")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-
-  members     User[]
-  teamMembers TeamMember[]
-  tickets     Ticket[]
-  templates   Template[]
+  teamMembers    TeamMember[]
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  templates      Template[]
+  tickets        Ticket[]
+  members        User[]
 
   @@map("teams")
 }
@@ -173,102 +154,85 @@ model TeamMember {
   id              String   @id @default(cuid())
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
-  // Pensum für dieses Team
   weeklyHours     Float    @default(42)
   workloadPercent Int      @default(100)
-  
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
   teamId          String
   team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, teamId])
   @@map("team_members")
 }
 
 model Ticket {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  status      String    @default("open")
-  priority    String    @default("medium")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  createdById String
-  createdBy   User   @relation("CreatedTickets", fields: [createdById], references: [id])
-
-  assignedToId String?
-  assignedTo   User?   @relation("AssignedTickets", fields: [assignedToId], references: [id])
-
+  id               String           @id @default(cuid())
+  title            String
+  description      String?
+  status           String           @default("open")
+  priority         String           @default("medium")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  createdById      String
+  assignedToId     String?
   projectManagerId String?
-  projectManager   User?   @relation("ManagedTickets", fields: [projectManagerId], references: [id])
-
-  teamId String?
-  team   Team?   @relation(fields: [teamId], references: [id])
-
-  shareToken   String?   @unique
-  shareEnabled Boolean   @default(false)
-  
-  estimatedHours Float?
-  
-  subTasks     SubTask[]
-  assignees    TicketAssignee[]
-  notes        Note[]
-  milestones   Milestone[]
+  teamId           String?
+  shareToken       String?          @unique
+  shareEnabled     Boolean          @default(false)
+  estimatedHours   Float?
+  milestones       Milestone[]
+  notes            Note[]
+  subTasks         SubTask[]
+  assignees        TicketAssignee[]
+  assignedTo       User?            @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  createdBy        User             @relation("CreatedTickets", fields: [createdById], references: [id])
+  projectManager   User?            @relation("ManagedTickets", fields: [projectManagerId], references: [id])
+  team             Team?            @relation(fields: [teamId], references: [id])
 
   @@map("tickets")
 }
 
-// Neue Models für Features
-
 model SubTask {
-  id             String   @id @default(cuid())
+  id             String            @id @default(cuid())
   title          String
-  description    String?  @db.Text
-  completed      Boolean  @default(false)
-  status         String   @default("open") // open, in_progress, done
-  position       Int      @default(0)
+  description    String?
+  completed      Boolean           @default(false)
+  status         String            @default("open")
+  position       Int               @default(0)
   dueDate        DateTime?
   estimatedHours Float?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  ticketId   String
-  ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  assigneeId String?
-  assignee   User?  @relation("AssignedSubTasks", fields: [assigneeId], references: [id], onDelete: SetNull)
-  assignees  SubTaskAssignee[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  ticketId       String
+  assigneeId     String?
+  assignee       User?             @relation("AssignedSubTasks", fields: [assigneeId], references: [id])
+  ticket         Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assignees      SubTaskAssignee[]
 
   @@map("sub_tasks")
 }
 
 model Template {
-  id          String   @id @default(cuid())
+  id          String              @id @default(cuid())
   name        String
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  teamId String
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
-  subTickets TemplateSubTicket[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  teamId      String
+  subTickets  TemplateSubTicket[]
+  team        Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([name, teamId])
   @@map("templates")
 }
 
 model TemplateSubTicket {
-  id          String @id @default(cuid())
+  id          String   @id @default(cuid())
   title       String
   description String?
-  order       Int    @default(0)
-
-  templateId String
-  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  order       Int      @default(0)
+  templateId  String
+  template    Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   @@map("template_sub_tickets")
 }
@@ -276,12 +240,10 @@ model TemplateSubTicket {
 model TicketAssignee {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-
-  ticketId String
-  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticketId  String
+  userId    String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([ticketId, userId])
   @@map("ticket_assignees")
@@ -290,12 +252,10 @@ model TicketAssignee {
 model SubTaskAssignee {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-
   subTaskId String
-  subTask   SubTask @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  subTask   SubTask  @relation(fields: [subTaskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([subTaskId, userId])
   @@map("subtask_assignees")
@@ -308,45 +268,38 @@ model Note {
   noteDate  DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  ticketId String
-  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-
-  authorId String
-  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  ticketId  String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@map("notes")
 }
 
-// Meilensteine für Projekt-Timeline
 model Milestone {
-  id            String    @id @default(cuid())
-  title         String
-  description   String?
-  dueDate       DateTime
-  completed     Boolean   @default(false)
-  position      Int       @default(0)
-  color         String    @default("gray")  // "green", "red", "gray", "blue"
-  responsibility String?  // z.B. "Kunde", "Fotograf", "Entwickler"
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  ticketId      String
-  ticket        Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-
-  // Abhängigkeiten
-  dependsOnId   String?
-  dependsOn     Milestone?  @relation("MilestoneDependency", fields: [dependsOnId], references: [id], onDelete: SetNull)
-  dependents    Milestone[] @relation("MilestoneDependency")
+  id             String      @id @default(cuid())
+  title          String
+  description    String?
+  dueDate        DateTime
+  completed      Boolean     @default(false)
+  position       Int         @default(0)
+  color          String      @default("gray")
+  responsibility String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  ticketId       String
+  dependsOnId    String?
+  dependsOn      Milestone?  @relation("MilestoneDependency", fields: [dependsOnId], references: [id])
+  dependents     Milestone[] @relation("MilestoneDependency")
+  ticket         Ticket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@map("milestones")
 }
 
-// Abwesenheiten / Kalenderplanung
 model Absence {
   id          String   @id @default(cuid())
   title       String
-  type        String   // "vacation" | "workshop" | "sick" | "other"
+  type        String
   startDate   DateTime
   endDate     DateTime
   allDay      Boolean  @default(true)
@@ -354,31 +307,28 @@ model Absence {
   color       String?  @default("#ef4444")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("absences")
 }
 
-// Ausgaben für Kosten-Dashboard
 model Expense {
-  id          String   @id @default(cuid())
-  title       String
-  amount      Float                          // Betrag in CHF
-  type        String                         // "domain", "server", "software", "other"
-  recurring   Boolean  @default(false)       // Wiederkehrende Kosten?
-  interval    String?                        // "monthly", "yearly"
-  startDate   DateTime @default(now())       // Ab wann
-  endDate     DateTime?                      // Bis wann (null = laufend)
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String    @id @default(cuid())
+  title     String
+  amount    Float
+  type      String
+  recurring Boolean   @default(false)
+  interval  String?
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@map("expenses")
 }
 
-// App-Einstellungen (z.B. Stripe-Konfiguration)
 model AppSettings {
   id                      String   @id @default(cuid())
   stripeConfigured        Boolean  @default(false)
@@ -390,42 +340,37 @@ model AppSettings {
   @@map("app_settings")
 }
 
-// MOCO-Integration für Kalenderabgleich
 model MocoIntegration {
-  id                  String    @id @default(cuid())
-  apiKeyEncrypted     String    // Verschlüsselter API-Key
-  apiKeyIv            String    // Initialization Vector für Verschlüsselung
-  instanceDomain      String    // z.B. "meinefirma" für meinefirma.mocoapp.com
-  mocoEmail           String?   // MOCO Login-E-Mail für User-Validierung
-  lastSyncAt          DateTime? // Letzter erfolgreicher Sync
-  lastSyncStatus      String?   // "success" | "error"
-  lastSyncError       String?   // Fehlermeldung falls vorhanden
-  isActive            Boolean   @default(true)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  userId              String    @unique
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  calendarEntries     MocoCalendarEntry[]
+  id              String              @id @default(cuid())
+  apiKeyEncrypted String
+  apiKeyIv        String
+  instanceDomain  String
+  lastSyncAt      DateTime?
+  lastSyncStatus  String?
+  lastSyncError   String?
+  isActive        Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  userId          String              @unique
+  mocoEmail       String?
+  calendarEntries MocoCalendarEntry[]
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("moco_integrations")
 }
 
-// Synchronisierte MOCO Kalendereinträge
 model MocoCalendarEntry {
-  id              String    @id @default(cuid())
-  mocoId          String    // Original-ID von MOCO
-  date            DateTime  // Datum des Eintrags
-  hours           Float     // Gebuchte Stunden
-  description     String?   // Beschreibung
-  projectName     String?   // Projektname aus MOCO
-  taskName        String?   // Task-Name aus MOCO
-  billable        Boolean   @default(false)
-  syncedAt        DateTime  @default(now())
-
-  integrationId   String
-  integration     MocoIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  id            String          @id @default(cuid())
+  mocoId        String
+  date          DateTime
+  hours         Float
+  description   String?
+  projectName   String?
+  taskName      String?
+  billable      Boolean         @default(false)
+  syncedAt      DateTime        @default(now())
+  integrationId String
+  integration   MocoIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
 
   @@unique([mocoId, integrationId])
   @@map("moco_calendar_entries")
