@@ -80,7 +80,7 @@ export default function SettingsClient({ isAdmin = true }: SettingsClientProps) 
                 <li>Benutzer entfernen</li>
               </ul>
               <Button
-                onClick={() => router.push('/organisation')}
+                onClick={() => router.push('/unternehmen')}
                 className="flex items-center gap-2"
               >
                 <Building2 className="w-4 h-4" />

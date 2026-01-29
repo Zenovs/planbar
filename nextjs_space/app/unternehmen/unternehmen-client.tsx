@@ -120,7 +120,7 @@ const SYSTEM_ROLES = [
   { value: 'member', label: 'Mitglied', color: 'bg-gray-500' },
 ];
 
-export default function OrganisationClient() {
+export default function UnternehmenClient() {
   const { data: session } = useSession();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);

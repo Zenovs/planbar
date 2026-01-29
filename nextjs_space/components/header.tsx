@@ -45,7 +45,7 @@ export function Header() {
     // Kosten nur für Admins sichtbar
     ...(isAdmin ? [{ href: '/kosten', label: 'Kosten', icon: Wallet }] : []),
     // Unternehmen für Admin und Admin Unternehmen sichtbar
-    ...(canManageOrganizations ? [{ href: '/organisation', label: 'Unternehmen', icon: Building2 }] : []),
+    ...(canManageOrganizations ? [{ href: '/unternehmen', label: 'Unternehmen', icon: Building2 }] : []),
   ];
 
   return (
@@ -121,7 +121,7 @@ export function Header() {
                 </DropdownMenuItem>
                 {!canManageOrganizations && (
                   <DropdownMenuItem asChild>
-                    <Link href="/organisation" className="cursor-pointer">
+                    <Link href="/unternehmen" className="cursor-pointer">
                       <Building2 className="w-4 h-4 mr-2" />
                       Unternehmen
                     </Link>
@@ -208,7 +208,7 @@ export function Header() {
                 </Link>
                 {!canManageOrganizations && (
                   <Link 
-                    href="/organisation" 
+                    href="/unternehmen" 
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 min-h-[48px]"
                   >
