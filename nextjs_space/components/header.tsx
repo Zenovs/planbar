@@ -28,6 +28,8 @@ export function Header() {
   // Case-insensitive Rollenprüfung
   const userRole = session?.user?.role?.toLowerCase() || '';
   const isAdmin = userRole === 'admin' || userRole === 'administrator';
+  const isAdminOrganisation = userRole === 'admin_organisation' || userRole === 'admin organisation';
+  const canManageOrganizations = isAdmin || isAdminOrganisation;
   const isMitglied = userRole === 'mitglied';
   
   const navItems = [
@@ -42,6 +44,8 @@ export function Header() {
     ...(!isAdmin && !isMitglied ? [{ href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays }] : []),
     // Kosten nur für Admins sichtbar
     ...(isAdmin ? [{ href: '/kosten', label: 'Kosten', icon: Wallet }] : []),
+    // Organisation für Admin und Admin Organisation sichtbar
+    ...(canManageOrganizations ? [{ href: '/organisation', label: 'Organisation', icon: Building2 }] : []),
   ];
 
   return (
@@ -115,13 +119,15 @@ export function Header() {
                     Profil bearbeiten
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/organisation" className="cursor-pointer">
-                    <Building2 className="w-4 h-4 mr-2" />
-                    Organisation
-                  </Link>
-                </DropdownMenuItem>
-                {['admin', 'Administrator', 'ADMIN', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
+                {!canManageOrganizations && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/organisation" className="cursor-pointer">
+                      <Building2 className="w-4 h-4 mr-2" />
+                      Organisation
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {['admin', 'Administrator', 'ADMIN', 'admin_organisation', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="cursor-pointer">
                       <Settings className="w-4 h-4 mr-2" />
@@ -200,15 +206,17 @@ export function Header() {
                   <User className="w-5 h-5" />
                   <span className="text-base">Profil bearbeiten</span>
                 </Link>
-                <Link 
-                  href="/organisation" 
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 min-h-[48px]"
-                >
-                  <Building2 className="w-5 h-5" />
-                  <span className="text-base">Organisation</span>
-                </Link>
-                {['admin', 'Administrator', 'ADMIN', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
+                {!canManageOrganizations && (
+                  <Link 
+                    href="/organisation" 
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 min-h-[48px]"
+                  >
+                    <Building2 className="w-5 h-5" />
+                    <span className="text-base">Organisation</span>
+                  </Link>
+                )}
+                {['admin', 'Administrator', 'ADMIN', 'admin_organisation', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
                   <Link 
                     href="/settings" 
                     onClick={() => setMobileMenuOpen(false)}

@@ -24,6 +24,8 @@ import {
   Send,
   Clock,
   Settings,
+  Eye,
+  Layers,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -32,6 +34,7 @@ interface Organization {
   name: string;
   slug: string;
   description: string | null;
+  _count?: { users: number; teams: number };
   users: {
     id: string;
     name: string | null;
@@ -66,13 +69,18 @@ const ORG_ROLES = [
 export default function OrganisationClient() {
   const { data: session } = useSession();
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);
+  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [isOrgAdmin, setIsOrgAdmin] = useState(false);
   const [canCreateOrganization, setCanCreateOrganization] = useState(false);
+  const [isSystemAdmin, setIsSystemAdmin] = useState(false);
+  const [userRole, setUserRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string>('members');
+  const [expandedOrg, setExpandedOrg] = useState<string | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
@@ -89,6 +97,7 @@ export default function OrganisationClient() {
 
   const fetchOrganization = async () => {
     try {
+      // Erst normale Anfrage
       const res = await fetch('/api/organizations');
       const data = await res.json();
       
@@ -96,6 +105,21 @@ export default function OrganisationClient() {
         setOrganization(data.organization);
         setIsOrgAdmin(data.isOrgAdmin);
         setCanCreateOrganization(data.canCreateOrganization || false);
+        setUserRole(data.userRole || '');
+        
+        const role = data.userRole?.toLowerCase() || '';
+        const isSysAdmin = role === 'admin' || role === 'administrator';
+        setIsSystemAdmin(isSysAdmin);
+        
+        // Wenn System-Admin, alle Organisationen laden
+        if (isSysAdmin) {
+          const allRes = await fetch('/api/organizations?all=true');
+          const allData = await allRes.json();
+          if (allRes.ok && allData.organizations) {
+            setAllOrganizations(allData.organizations);
+          }
+        }
+        
         if (!data.organization && data.canCreateOrganization) {
           setShowCreateOrg(true);
         }
@@ -236,7 +260,30 @@ export default function OrganisationClient() {
   };
 
   const getRoleInfo = (role: string) => {
-    return ORG_ROLES.find(r => r.value === role) || ORG_ROLES[3];
+    return ORG_ROLES.find(r => r.value === role) || ORG_ROLES[4];
+  };
+
+  const deleteOrganization = async (orgId: string, orgName: string) => {
+    if (!confirm(`Organisation "${orgName}" wirklich löschen? Alle Teams und Mitgliederzuordnungen werden entfernt!`)) return;
+
+    setProcessing(orgId);
+    try {
+      const res = await fetch(`/api/organizations?id=${orgId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        toast.success(`Organisation "${orgName}" gelöscht`);
+        fetchOrganization();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Fehler beim Löschen');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Löschen');
+    } finally {
+      setProcessing(null);
+    }
   };
 
   if (loading) {
@@ -246,6 +293,284 @@ export default function OrganisationClient() {
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
+      </div>
+    );
+  }
+
+  // Admin-Übersicht: Alle Organisationen anzeigen (auch wenn Admin selbst keine Org hat)
+  if (isSystemAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        
+        <main className="max-w-6xl mx-auto px-4 py-6 sm:px-6">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl text-white">
+                  <Layers className="w-8 h-8" />
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Alle Organisationen</h1>
+                  <p className="text-gray-500 mt-1">Admin-Übersicht aller {allOrganizations.length} Organisationen</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateOrg(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:opacity-90 transition-opacity"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="hidden sm:inline">Neue Organisation</span>
+              </button>
+            </div>
+
+            {/* Gesamt-Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+              <div className="bg-white rounded-lg p-4 shadow-sm border">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <Building2 className="w-5 h-5" />
+                  <span className="text-2xl font-bold">{allOrganizations.length}</span>
+                </div>
+                <p className="text-sm text-gray-500">Organisationen</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm border">
+                <div className="flex items-center gap-2 text-purple-600">
+                  <Users className="w-5 h-5" />
+                  <span className="text-2xl font-bold">
+                    {allOrganizations.reduce((sum, org) => sum + (org._count?.users || org.users?.length || 0), 0)}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500">Benutzer gesamt</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm border">
+                <div className="flex items-center gap-2 text-green-600">
+                  <Shield className="w-5 h-5" />
+                  <span className="text-2xl font-bold">
+                    {allOrganizations.reduce((sum, org) => sum + (org._count?.teams || org.teams?.length || 0), 0)}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500">Teams gesamt</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm border">
+                <div className="flex items-center gap-2 text-orange-600">
+                  <Crown className="w-5 h-5" />
+                  <span className="text-2xl font-bold">
+                    {allOrganizations.reduce((sum, org) => sum + (org.users?.filter(u => u.orgRole === 'org_admin').length || 0), 0)}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500">Org-Admins</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Organisation erstellen Modal */}
+          <AnimatePresence>
+            {showCreateOrg && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                onClick={() => setShowCreateOrg(false)}
+              >
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+                >
+                  <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold">Neue Organisation</h2>
+                      <button onClick={() => setShowCreateOrg(false)} className="p-1 hover:bg-white/20 rounded">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  <form onSubmit={createOrganization} className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                      <input
+                        type="text"
+                        value={orgName}
+                        onChange={(e) => setOrgName(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="z.B. Meine Agentur GmbH"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+                      <textarea
+                        value={orgDescription}
+                        onChange={(e) => setOrgDescription(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Kurze Beschreibung..."
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateOrg(false)}
+                        className="flex-1 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50"
+                      >
+                        Abbrechen
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={processing === 'create'}
+                        className="flex-1 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {processing === 'create' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                        Erstellen
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Organisationen-Liste */}
+          <div className="space-y-4">
+            {allOrganizations.length === 0 && (
+              <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
+                <Building2 className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Keine Organisationen</h3>
+                <p className="text-gray-500 mb-4">Es wurden noch keine Organisationen erstellt.</p>
+                <button
+                  onClick={() => setShowCreateOrg(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:opacity-90"
+                >
+                  <Plus className="w-5 h-5" />
+                  Erste Organisation erstellen
+                </button>
+              </div>
+            )}
+            {allOrganizations.map((org) => (
+              <motion.div
+                key={org.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-xl shadow-sm border overflow-hidden"
+              >
+                <button
+                  onClick={() => setExpandedOrg(expandedOrg === org.id ? null : org.id)}
+                  className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                      <Building2 className="w-6 h-6" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-gray-900 text-lg">{org.name}</h3>
+                      <p className="text-sm text-gray-500">
+                        {org._count?.users || org.users?.length || 0} Mitglieder · {org._count?.teams || org.teams?.length || 0} Teams
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteOrganization(org.id, org.name);
+                      }}
+                      disabled={processing === org.id}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Organisation löschen"
+                    >
+                      {processing === org.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                    </button>
+                    {expandedOrg === org.id ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {expandedOrg === org.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="border-t"
+                    >
+                      <div className="p-5 space-y-6">
+                        {/* Teams */}
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            <Shield className="w-4 h-4 text-purple-600" />
+                            Teams ({org.teams?.length || 0})
+                          </h4>
+                          {org.teams && org.teams.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {org.teams.map((team) => (
+                                <div
+                                  key={team.id}
+                                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                                >
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: team.color }}
+                                  />
+                                  <div>
+                                    <p className="font-medium text-gray-900">{team.name}</p>
+                                    <p className="text-xs text-gray-500">{team._count?.members || 0} Mitglieder</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">Keine Teams</p>
+                          )}
+                        </div>
+
+                        {/* Mitglieder */}
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            <Users className="w-4 h-4 text-blue-600" />
+                            Mitglieder ({org.users?.length || 0})
+                          </h4>
+                          {org.users && org.users.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {org.users.map((user) => {
+                                const roleInfo = getRoleInfo(user.orgRole);
+                                const RoleIcon = roleInfo.icon;
+                                return (
+                                  <div
+                                    key={user.id}
+                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                                        {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                                      </div>
+                                      <div>
+                                        <p className="font-medium text-gray-900 text-sm">{user.name || user.email}</p>
+                                        <p className="text-xs text-gray-500">{user.email}</p>
+                                      </div>
+                                    </div>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleInfo.color}`}>
+                                      <RoleIcon className="w-3 h-3 inline mr-1" />
+                                      {roleInfo.label}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">Keine Mitglieder</p>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </div>
+        </main>
       </div>
     );
   }
