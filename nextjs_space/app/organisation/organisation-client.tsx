@@ -167,7 +167,7 @@ export default function OrganisationClient() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
-  // Hilfsfunktion: Alle Mitglieder einer Organisation (aus users + members kombiniert)
+  // Hilfsfunktion: Alle Mitglieder einer Organisation (aus users + members + teamMembers kombiniert)
   const getOrgMembers = (org: Organization): OrgUser[] => {
     const memberMap = new Map<string, OrgUser>();
     
@@ -194,6 +194,30 @@ export default function OrganisationClient() {
             workloadPercent: member.user.workloadPercent,
             teamMemberships: member.user.teamMemberships,
             organizationMemberships: member.user.organizationMemberships,
+          });
+        }
+      });
+    }
+    
+    // 3. User aus Team-Mitgliedschaften hinzufügen (User die in Teams dieser Org sind)
+    if (org.teams) {
+      org.teams.forEach((team: any) => {
+        if (team.teamMembers) {
+          team.teamMembers.forEach((tm: any) => {
+            if (tm.user && !memberMap.has(tm.user.id)) {
+              memberMap.set(tm.user.id, {
+                id: tm.user.id,
+                name: tm.user.name,
+                email: tm.user.email,
+                role: tm.user.role,
+                orgRole: tm.user.orgRole || 'member',
+                image: tm.user.image,
+                weeklyHours: tm.user.weeklyHours,
+                workloadPercent: tm.user.workloadPercent,
+                teamMemberships: tm.user.teamMemberships,
+                organizationMemberships: tm.user.organizationMemberships,
+              });
+            }
           });
         }
       });
@@ -402,12 +426,41 @@ export default function OrganisationClient() {
     return [];
   };
 
-  // Hilfsfunktion: Anderes Unternehmenen eines Users ermitteln (für Multi-Org-Badge)
+  // Hilfsfunktion: Andere Unternehmen eines Users ermitteln (für Multi-Org-Badge)
+  // Berücksichtigt sowohl OrganizationMemberships als auch Team-basierte Zugehörigkeiten
   const getOtherOrgs = (user: OrgUser, currentOrgId: string) => {
-    if (user.organizationMemberships && user.organizationMemberships.length > 1) {
-      return user.organizationMemberships.filter(om => om.organizationId !== currentOrgId);
+    const otherOrgIds = new Set<string>();
+    const otherOrgs: { organizationId: string; organization: { id: string; name: string } }[] = [];
+    
+    // 1. Aus OrganizationMemberships
+    if (user.organizationMemberships) {
+      user.organizationMemberships.forEach(om => {
+        if (om.organizationId !== currentOrgId && !otherOrgIds.has(om.organizationId)) {
+          otherOrgIds.add(om.organizationId);
+          otherOrgs.push(om);
+        }
+      });
     }
-    return [];
+    
+    // 2. Aus Team-Mitgliedschaften (Teams gehören zu Organisationen)
+    if (user.teamMemberships) {
+      user.teamMemberships.forEach((tm: any) => {
+        const teamOrgId = tm.team?.organizationId;
+        if (teamOrgId && teamOrgId !== currentOrgId && !otherOrgIds.has(teamOrgId)) {
+          otherOrgIds.add(teamOrgId);
+          // Finde den Org-Namen aus allOrganizations
+          const orgInfo = allOrganizations.find(o => o.id === teamOrgId);
+          if (orgInfo) {
+            otherOrgs.push({
+              organizationId: teamOrgId,
+              organization: { id: teamOrgId, name: orgInfo.name }
+            });
+          }
+        }
+      });
+    }
+    
+    return otherOrgs;
   };
 
   // Verfügbare User laden (alle User, die nicht in der Ziel-Org sind)

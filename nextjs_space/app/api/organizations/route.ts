@@ -130,6 +130,47 @@ export async function GET(request: NextRequest) {
               name: true,
               color: true,
               _count: { select: { teamMembers: true } },
+              teamMembers: {
+                select: {
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true,
+                      role: true,
+                      orgRole: true,
+                      image: true,
+                      organizationId: true,
+                      weeklyHours: true,
+                      workloadPercent: true,
+                      teamMemberships: {
+                        select: {
+                          team: {
+                            select: {
+                              id: true,
+                              name: true,
+                              color: true,
+                              organizationId: true,
+                            },
+                          },
+                        },
+                      },
+                      organizationMemberships: {
+                        select: {
+                          organizationId: true,
+                          orgRole: true,
+                          organization: {
+                            select: {
+                              id: true,
+                              name: true,
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
           _count: {
