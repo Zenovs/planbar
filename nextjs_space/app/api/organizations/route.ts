@@ -256,6 +256,29 @@ export async function GET(request: NextRequest) {
                     name: true,
                   },
                 },
+                teamMemberships: {
+                  select: {
+                    team: {
+                      select: {
+                        id: true,
+                        name: true,
+                        color: true,
+                      },
+                    },
+                  },
+                },
+                organizationMemberships: {
+                  select: {
+                    organizationId: true,
+                    orgRole: true,
+                    organization: {
+                      select: {
+                        id: true,
+                        name: true,
+                      },
+                    },
+                  },
+                },
                 _count: {
                   select: {
                     assignedTickets: true,
@@ -275,6 +298,29 @@ export async function GET(request: NextRequest) {
                     email: true,
                     role: true,
                     image: true,
+                    teamMemberships: {
+                      select: {
+                        team: {
+                          select: {
+                            id: true,
+                            name: true,
+                            color: true,
+                          },
+                        },
+                      },
+                    },
+                    organizationMemberships: {
+                      select: {
+                        organizationId: true,
+                        orgRole: true,
+                        organization: {
+                          select: {
+                            id: true,
+                            name: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
               },
@@ -311,6 +357,29 @@ export async function GET(request: NextRequest) {
                     orgRole: true,
                     role: true,
                     image: true,
+                    teamMemberships: {
+                      select: {
+                        team: {
+                          select: {
+                            id: true,
+                            name: true,
+                            color: true,
+                          },
+                        },
+                      },
+                    },
+                    organizationMemberships: {
+                      select: {
+                        organizationId: true,
+                        orgRole: true,
+                        organization: {
+                          select: {
+                            id: true,
+                            name: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
                 members: {
@@ -325,6 +394,29 @@ export async function GET(request: NextRequest) {
                         email: true,
                         role: true,
                         image: true,
+                        teamMemberships: {
+                          select: {
+                            team: {
+                              select: {
+                                id: true,
+                                name: true,
+                                color: true,
+                              },
+                            },
+                          },
+                        },
+                        organizationMemberships: {
+                          select: {
+                            organizationId: true,
+                            orgRole: true,
+                            organization: {
+                              select: {
+                                id: true,
+                                name: true,
+                              },
+                            },
+                          },
+                        },
                       },
                     },
                   },
@@ -511,7 +603,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE: Organisation löschen (nur für System-Admins)
+// DELETE: Organisation löschen (System-Admins oder Admin Unternehmen der jeweiligen Org)
 export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -522,11 +614,13 @@ export async function DELETE(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
+      include: {
+        organizationMemberships: true,
+      },
     });
 
-    // Nur System-Admins dürfen Unternehmen löschen
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Keine Berechtigung - nur Admins können Unternehmen löschen' }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -534,6 +628,18 @@ export async function DELETE(request: NextRequest) {
 
     if (!orgId) {
       return NextResponse.json({ error: 'Unternehmens-ID erforderlich' }, { status: 400 });
+    }
+
+    // Berechtigung prüfen: System-Admin ODER Admin Unternehmen in dieser Org
+    const isSystemAdmin = user.role === 'admin';
+    const isPrimaryOrgAdmin = user.organizationId === orgId && 
+      (user.orgRole === 'org_admin' || user.orgRole === 'admin_organisation');
+    const membership = user.organizationMemberships?.find(m => m.organizationId === orgId);
+    const isMembershipAdmin = membership && 
+      (membership.orgRole === 'org_admin' || membership.orgRole === 'admin_organisation');
+
+    if (!isSystemAdmin && !isPrimaryOrgAdmin && !isMembershipAdmin) {
+      return NextResponse.json({ error: 'Keine Berechtigung - nur Admin Unternehmen können dieses Unternehmen löschen' }, { status: 403 });
     }
 
     // Prüfen ob Organisation existiert

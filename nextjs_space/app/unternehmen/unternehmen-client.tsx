@@ -1366,7 +1366,7 @@ export default function UnternehmenClient() {
       <div className="min-h-screen bg-gray-50">
         <Header />
         
-        <main className="max-w-4xl mx-auto px-4 py-6 sm:px-6">
+        <main className="max-w-5xl mx-auto px-4 py-6 sm:px-6">
           {/* Header */}
           <div className="mb-6">
             <div className="flex items-center justify-between">
@@ -1393,6 +1393,106 @@ export default function UnternehmenClient() {
             </div>
           </div>
 
+          {/* Mitglied hinzufügen Modal für User-Ansicht */}
+          <AnimatePresence>
+            {showAddMemberModal && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                onClick={() => {
+                  setShowAddMemberModal(null);
+                  setSelectedUserToAdd('');
+                }}
+              >
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden max-h-[80vh] flex flex-col"
+                >
+                  <div className="bg-gradient-to-r from-green-500 to-teal-600 p-6 text-white flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold flex items-center gap-2">
+                        <UserPlus className="w-6 h-6" />
+                        Mitglied hinzufügen
+                      </h2>
+                      <button 
+                        onClick={() => {
+                          setShowAddMemberModal(null);
+                          setSelectedUserToAdd('');
+                        }} 
+                        className="p-1 hover:bg-white/20 rounded"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                    {availableUsers.length > 0 ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Benutzer auswählen
+                          </label>
+                          <select
+                            value={selectedUserToAdd}
+                            onChange={(e) => setSelectedUserToAdd(e.target.value)}
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                          >
+                            <option value="">-- Benutzer wählen --</option>
+                            {availableUsers.map((user) => (
+                              <option key={user.id} value={user.id}>
+                                {user.name || user.email} ({user.email})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddMemberModal(null);
+                              setSelectedUserToAdd('');
+                            }}
+                            className="flex-1 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50"
+                          >
+                            Abbrechen
+                          </button>
+                          <button
+                            onClick={() => addMemberToOrg(showAddMemberModal)}
+                            disabled={!selectedUserToAdd || processing === 'adding'}
+                            className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                            {processing === 'adding' ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
+                            Hinzufügen
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-4">
+                        <Users className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                        <p className="text-gray-500">Keine Benutzer zum Hinzufügen verfügbar.</p>
+                        <button
+                          onClick={() => {
+                            setShowAddMemberModal(null);
+                            setSelectedUserToAdd('');
+                          }}
+                          className="mt-4 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          Schließen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Organisationen-Liste */}
           {allOrganizations.length === 0 ? (
             <motion.div
@@ -1417,9 +1517,9 @@ export default function UnternehmenClient() {
             <div className="space-y-4">
               {allOrganizations.map((org) => {
                 const orgRoleInfo = getRoleInfo(org.userOrgRole || 'member');
-                const memberCount = (org.users?.length || 0) + (org.members?.length || 0);
+                const memberCount = getOrgMembers(org).length;
                 const teamCount = org.teams?.length || org._count?.teams || 0;
-                const canInvite = isAdminInOrg(org);
+                const canManage = isAdminInOrg(org);
 
                 return (
                   <motion.div
@@ -1428,7 +1528,11 @@ export default function UnternehmenClient() {
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-white rounded-xl shadow-sm border overflow-hidden"
                   >
-                    <div className="p-5">
+                    {/* Header - klickbar für Admin Unternehmen */}
+                    <button
+                      onClick={() => canManage ? setExpandedOrg(expandedOrg === org.id ? null : org.id) : null}
+                      className={`w-full p-5 text-left ${canManage ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default'}`}
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold">
@@ -1451,17 +1555,32 @@ export default function UnternehmenClient() {
                         </div>
                         
                         <div className="flex items-center gap-2">
-                          {canInvite && (
-                            <button
-                              onClick={() => {
-                                setInviteOrgId(org.id);
-                                setShowInviteModal(true);
-                              }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                            >
-                              <Mail className="w-4 h-4" />
-                              <span className="hidden sm:inline">Einladen</span>
-                            </button>
+                          {canManage && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setInviteOrgId(org.id);
+                                  setShowInviteModal(true);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                              >
+                                <Mail className="w-4 h-4" />
+                                <span className="hidden sm:inline">Einladen</span>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteOrganization(org.id, org.name);
+                                }}
+                                disabled={processing === org.id}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Unternehmen löschen"
+                              >
+                                {processing === org.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                              </button>
+                              {expandedOrg === org.id ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                            </>
                           )}
                         </div>
                       </div>
@@ -1477,7 +1596,194 @@ export default function UnternehmenClient() {
                           <span>{teamCount} Teams</span>
                         </div>
                       </div>
-                    </div>
+                    </button>
+
+                    {/* Erweiterte Ansicht für Admin Unternehmen */}
+                    <AnimatePresence>
+                      {expandedOrg === org.id && canManage && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="border-t"
+                        >
+                          <div className="p-5 space-y-6">
+                            {/* Teams */}
+                            <div>
+                              <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                                <Shield className="w-4 h-4 text-purple-600" />
+                                Teams ({org.teams?.length || 0})
+                              </h4>
+                              {org.teams && org.teams.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {org.teams.map((team) => (
+                                    <div
+                                      key={team.id}
+                                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border"
+                                    >
+                                      <div
+                                        className="w-4 h-4 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: team.color }}
+                                      />
+                                      <div>
+                                        <p className="font-medium text-gray-900">{team.name}</p>
+                                        <p className="text-xs text-gray-500">{team._count?.teamMembers || 0} Mitglieder</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500 italic">Keine Teams</p>
+                              )}
+                            </div>
+
+                            {/* Mitglieder mit Verwaltung */}
+                            <div>
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                                  <Users className="w-4 h-4 text-blue-600" />
+                                  Mitglieder ({getOrgMembers(org).length})
+                                </h4>
+                                <button
+                                  onClick={() => {
+                                    setShowAddMemberModal(org.id);
+                                    fetchAvailableUsers(org.id);
+                                  }}
+                                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  Mitglied hinzufügen
+                                </button>
+                              </div>
+                              {getOrgMembers(org).length > 0 ? (
+                                <div className="space-y-2">
+                                  {getOrgMembers(org).map((user) => {
+                                    const systemRoleInfo = getSystemRoleInfo(user.orgRole);
+                                    const userTeams = getUserTeams(user);
+                                    const isCurrentUser = user.email === session?.user?.email;
+
+                                    return (
+                                      <div
+                                        key={user.id}
+                                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 border"
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                                            {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                                          </div>
+                                          <div>
+                                            <p className="font-medium text-gray-900 text-sm">
+                                              {user.name || user.email}
+                                              {isCurrentUser && <span className="text-gray-400 text-xs ml-1">(Sie)</span>}
+                                            </p>
+                                            <p className="text-xs text-gray-500">{user.email}</p>
+                                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                              {userTeams.length > 0 ? (
+                                                userTeams.map((team) => (
+                                                  <span 
+                                                    key={team.id} 
+                                                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border"
+                                                    style={{ 
+                                                      backgroundColor: team.color + '15', 
+                                                      borderColor: team.color + '40',
+                                                      color: team.color 
+                                                    }}
+                                                  >
+                                                    <div 
+                                                      className="w-2 h-2 rounded-full"
+                                                      style={{ backgroundColor: team.color }}
+                                                    />
+                                                    {team.name}
+                                                  </span>
+                                                ))
+                                              ) : (
+                                                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded-md border border-gray-200">
+                                                  Kein Team
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {/* Rolle und Aktions-Buttons */}
+                                        <div className="flex items-center gap-2">
+                                          {editingUserRole === user.id && editingUserOrgId === org.id ? (
+                                            /* Rollen-Bearbeitungsmodus */
+                                            <div className="flex items-center gap-2">
+                                              <select
+                                                value={newRole}
+                                                onChange={(e) => setNewRole(e.target.value)}
+                                                className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                              >
+                                                {ORG_ROLES.map((role) => (
+                                                  <option key={role.value} value={role.value}>
+                                                    {role.label}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                              <button
+                                                onClick={() => updateUserRole(user.id, newRole)}
+                                                disabled={processing === user.id}
+                                                className="p-1.5 text-white bg-green-500 hover:bg-green-600 rounded-lg"
+                                                title="Speichern"
+                                              >
+                                                {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                              </button>
+                                              <button
+                                                onClick={() => {
+                                                  setEditingUserRole(null);
+                                                  setEditingUserOrgId(null);
+                                                  setNewRole('');
+                                                }}
+                                                className="p-1.5 text-white bg-gray-400 hover:bg-gray-500 rounded-lg"
+                                                title="Abbrechen"
+                                              >
+                                                <X className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            /* Normale Anzeige */
+                                            <>
+                                              <button
+                                                onClick={() => startEditingRole(user.id, user.orgRole, org.id)}
+                                                className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color} hover:opacity-80 transition-opacity cursor-pointer`}
+                                                title="Klicken zum Bearbeiten"
+                                              >
+                                                {systemRoleInfo.label}
+                                              </button>
+                                              {!isCurrentUser && (
+                                                <>
+                                                  <button
+                                                    onClick={() => startEditingRole(user.id, user.orgRole, org.id)}
+                                                    className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"
+                                                    title="Rolle bearbeiten"
+                                                  >
+                                                    <Edit2 className="w-4 h-4" />
+                                                  </button>
+                                                  <button
+                                                    onClick={() => removeMemberFromOrg(user.id, user.name || user.email, org.id)}
+                                                    disabled={processing === user.id}
+                                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                                                    title="Aus Unternehmen entfernen"
+                                                  >
+                                                    {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserMinus className="w-4 h-4" />}
+                                                  </button>
+                                                </>
+                                              )}
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500 italic">Keine Mitglieder</p>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 );
               })}
