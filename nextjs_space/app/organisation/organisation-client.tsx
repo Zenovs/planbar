@@ -735,10 +735,14 @@ export default function OrganisationClient() {
                                             </p>
                                             <p className="text-xs text-gray-500">{user.email}</p>
                                             <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                              {user.team && (
-                                                <span className="flex items-center gap-1">
+                                              {user.team ? (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
                                                   <Users className="w-3 h-3" />
                                                   {user.team.name}
+                                                </span>
+                                              ) : (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-200 text-gray-500 rounded-full">
+                                                  Kein Team
                                                 </span>
                                               )}
                                               <span className="flex items-center gap-1">
@@ -749,15 +753,10 @@ export default function OrganisationClient() {
                                           </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                          <div className="flex flex-col items-end gap-1">
-                                            <span className={`px-2 py-0.5 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
-                                              {systemRoleInfo.label}
-                                            </span>
-                                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${roleInfo.color}`}>
-                                              <RoleIcon className="w-3 h-3" />
-                                              {roleInfo.label}
-                                            </span>
-                                          </div>
+                                          {/* Nur eine Rolle anzeigen - die System-Rolle */}
+                                          <span className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
+                                            {systemRoleInfo.label}
+                                          </span>
                                           {!isCurrentUser && (
                                             <div className="flex gap-1">
                                               <button
@@ -1204,10 +1203,14 @@ export default function OrganisationClient() {
                                   </p>
                                   <p className="text-sm text-gray-500">{member.email}</p>
                                   <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                                    {member.team && (
-                                      <span className="flex items-center gap-1">
+                                    {member.team ? (
+                                      <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
                                         <Users className="w-3 h-3" />
                                         {member.team.name}
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-200 text-gray-500 rounded-full">
+                                        Kein Team
                                       </span>
                                     )}
                                     <span className="flex items-center gap-1">
@@ -1222,15 +1225,10 @@ export default function OrganisationClient() {
                               </div>
 
                               <div className="flex items-center gap-3">
-                                <div className="flex flex-col items-end gap-1">
-                                  <span className={`px-2 py-0.5 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
-                                    {systemRoleInfo.label}
-                                  </span>
-                                  <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${roleInfo.color}`}>
-                                    <RoleIcon className="w-3 h-3" />
-                                    {roleInfo.label}
-                                  </span>
-                                </div>
+                                {/* Nur eine Rolle anzeigen - die System-Rolle */}
+                                <span className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
+                                  {systemRoleInfo.label}
+                                </span>
 
                                 {(isOrgAdmin || isSystemAdmin) && !isCurrentUser && (
                                   <div className="flex gap-1">
