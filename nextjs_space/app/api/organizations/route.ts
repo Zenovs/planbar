@@ -54,9 +54,72 @@ export async function GET(request: NextRequest) {
                   name: true,
                 },
               },
+              teamMemberships: {
+                select: {
+                  team: {
+                    select: {
+                      id: true,
+                      name: true,
+                      color: true,
+                    },
+                  },
+                },
+              },
+              organizationMemberships: {
+                select: {
+                  organizationId: true,
+                  orgRole: true,
+                  organization: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
               _count: {
                 select: {
                   assignedTickets: true,
+                },
+              },
+            },
+          },
+          members: {
+            select: {
+              id: true,
+              userId: true,
+              orgRole: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true,
+                  image: true,
+                  weeklyHours: true,
+                  workloadPercent: true,
+                  teamMemberships: {
+                    select: {
+                      team: {
+                        select: {
+                          id: true,
+                          name: true,
+                          color: true,
+                        },
+                      },
+                    },
+                  },
+                  organizationMemberships: {
+                    select: {
+                      organizationId: true,
+                      organization: {
+                        select: {
+                          id: true,
+                          name: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -79,10 +142,13 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' },
       });
 
-      // User ohne Organisation laden
+      // User ohne Organisation laden (weder in users noch in members)
       const usersWithoutOrg = await prisma.user.findMany({
         where: {
-          organizationId: null,
+          AND: [
+            { organizationId: null },
+            { organizationMemberships: { none: {} } },
+          ],
         },
         select: {
           id: true,
@@ -97,6 +163,17 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
+            },
+          },
+          teamMemberships: {
+            select: {
+              team: {
+                select: {
+                  id: true,
+                  name: true,
+                  color: true,
+                },
+              },
             },
           },
           _count: {

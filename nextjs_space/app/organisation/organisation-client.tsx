@@ -30,24 +30,54 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+interface TeamMembership {
+  team: { id: string; name: string; color: string };
+}
+
+interface OrgMembership {
+  organizationId: string;
+  orgRole?: string;
+  organization: { id: string; name: string };
+}
+
+interface OrgUser {
+  id: string;
+  name: string | null;
+  email: string;
+  orgRole: string;
+  role: string;
+  image: string | null;
+  teamId?: string | null;
+  weeklyHours?: number;
+  workloadPercent?: number;
+  team?: { id: string; name: string } | null;
+  teamMemberships?: TeamMembership[];
+  organizationMemberships?: OrgMembership[];
+  _count?: { assignedTickets: number };
+}
+
 interface Organization {
   id: string;
   name: string;
   slug: string;
   description: string | null;
   _count?: { users: number; teams: number };
-  users: {
+  users: OrgUser[];
+  members?: {
     id: string;
-    name: string | null;
-    email: string;
+    userId: string;
     orgRole: string;
-    role: string;
-    image: string | null;
-    teamId?: string | null;
-    weeklyHours?: number;
-    workloadPercent?: number;
-    team?: { id: string; name: string } | null;
-    _count?: { assignedTickets: number };
+    user: {
+      id: string;
+      name: string | null;
+      email: string;
+      role: string;
+      image: string | null;
+      weeklyHours?: number;
+      workloadPercent?: number;
+      teamMemberships?: TeamMembership[];
+      organizationMemberships?: OrgMembership[];
+    };
   }[];
   teams: {
     id: string;
@@ -100,6 +130,7 @@ export default function OrganisationClient() {
     weeklyHours?: number;
     workloadPercent?: number;
     team?: { id: string; name: string } | null;
+    teamMemberships?: TeamMembership[];
     _count?: { assignedTickets: number };
   }[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
@@ -312,6 +343,22 @@ export default function OrganisationClient() {
 
   const getSystemRoleInfo = (role: string) => {
     return SYSTEM_ROLES.find(r => r.value === role.toLowerCase()) || SYSTEM_ROLES[4];
+  };
+
+  // Hilfsfunktion: Teams eines Users ermitteln (aus teamMemberships)
+  const getUserTeams = (user: OrgUser | { teamMemberships?: TeamMembership[] }) => {
+    if (user.teamMemberships && user.teamMemberships.length > 0) {
+      return user.teamMemberships.map(tm => tm.team);
+    }
+    return [];
+  };
+
+  // Hilfsfunktion: Andere Organisationen eines Users ermitteln (für Multi-Org-Badge)
+  const getOtherOrgs = (user: OrgUser, currentOrgId: string) => {
+    if (user.organizationMemberships && user.organizationMemberships.length > 1) {
+      return user.organizationMemberships.filter(om => om.organizationId !== currentOrgId);
+    }
+    return [];
   };
 
   const removeMember = async (userId: string, userName: string) => {
@@ -636,177 +683,73 @@ export default function OrganisationClient() {
                           )}
                         </div>
 
-                        {/* Mitglieder mit Bearbeitungsfunktion */}
+                        {/* Mitglieder - nur Ansicht für Admin */}
                         <div>
                           <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                             <Users className="w-4 h-4 text-blue-600" />
                             Mitglieder ({org.users?.length || 0})
                           </h4>
                           {org.users && org.users.length > 0 ? (
-                            <div className="space-y-3">
+                            <div className="space-y-2">
                               {org.users.map((user) => {
-                                const roleInfo = getRoleInfo(user.orgRole);
                                 const systemRoleInfo = getSystemRoleInfo(user.role);
-                                const RoleIcon = roleInfo.icon;
+                                const userTeams = getUserTeams(user);
+                                const otherOrgs = getOtherOrgs(user, org.id);
                                 const isCurrentUser = user.email === session?.user?.email;
 
                                 return (
                                   <div
                                     key={user.id}
-                                    className="border rounded-lg overflow-hidden"
+                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
                                   >
-                                    {editingMember === user.id ? (
-                                      // Bearbeitungsmodus
-                                      <div className="p-4 bg-blue-50 border-l-4 border-blue-500">
-                                        <div className="flex items-center gap-3 mb-4">
-                                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                                            {(user.name || user.email)[0].toUpperCase()}
-                                          </div>
-                                          <div>
-                                            <p className="font-medium text-gray-900">{user.name || 'Kein Name'}</p>
-                                            <p className="text-sm text-gray-500">{user.email}</p>
-                                          </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                                          <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Rolle</label>
-                                            <select
-                                              value={editUserData.role}
-                                              onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
-                                              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                                            >
-                                              {SYSTEM_ROLES.map((role) => (
-                                                <option key={role.value} value={role.value}>{role.label}</option>
-                                              ))}
-                                            </select>
-                                          </div>
-                                          <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
-                                            <select
-                                              value={editUserData.teamId || 'none'}
-                                              onChange={(e) => setEditUserData({ ...editUserData, teamId: e.target.value === 'none' ? '' : e.target.value })}
-                                              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                                            >
-                                              <option value="none">Kein Team</option>
-                                              {allTeams.map((t) => (
-                                                <option key={t.id} value={t.id}>{t.name}</option>
-                                              ))}
-                                            </select>
-                                          </div>
-                                          <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Wochenstunden</label>
-                                            <input
-                                              type="number"
-                                              min="0"
-                                              max="60"
-                                              step="0.5"
-                                              value={editUserData.weeklyHours}
-                                              onChange={(e) => setEditUserData({ ...editUserData, weeklyHours: parseFloat(e.target.value) || 0 })}
-                                              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Pensum (%)</label>
-                                            <input
-                                              type="number"
-                                              min="0"
-                                              max="100"
-                                              value={editUserData.workloadPercent}
-                                              onChange={(e) => setEditUserData({ ...editUserData, workloadPercent: parseInt(e.target.value) || 0 })}
-                                              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                                            />
-                                          </div>
-                                        </div>
-
-                                        <div className="text-sm text-gray-600 mb-4">
-                                          Verfügbare Stunden/Woche: {((editUserData.weeklyHours * editUserData.workloadPercent) / 100).toFixed(1)}h
-                                        </div>
-
-                                        <div className="flex gap-2">
-                                          <button
-                                            onClick={() => updateUserFull(user.id)}
-                                            disabled={processing === user.id}
-                                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                                          >
-                                            {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                            Speichern
-                                          </button>
-                                          <button
-                                            onClick={() => setEditingMember(null)}
-                                            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
-                                          >
-                                            <X className="w-4 h-4" />
-                                            Abbrechen
-                                          </button>
-                                        </div>
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                                        {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
                                       </div>
-                                    ) : (
-                                      // Ansichtsmodus
-                                      <div className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100">
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                                            {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
-                                          </div>
-                                          <div>
-                                            <p className="font-medium text-gray-900 text-sm">
-                                              {user.name || user.email}
-                                              {isCurrentUser && <span className="text-gray-400 text-xs ml-1">(Sie)</span>}
-                                            </p>
-                                            <p className="text-xs text-gray-500">{user.email}</p>
-                                            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                              {user.team ? (
-                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
-                                                  <Users className="w-3 h-3" />
-                                                  {user.team.name}
-                                                </span>
-                                              ) : (
-                                                <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-200 text-gray-500 rounded-full">
-                                                  Kein Team
-                                                </span>
-                                              )}
-                                              <span className="flex items-center gap-1">
-                                                <Clock className="w-3 h-3" />
-                                                {user.workloadPercent || 100}%
+                                      <div>
+                                        <p className="font-medium text-gray-900 text-sm">
+                                          {user.name || user.email}
+                                          {isCurrentUser && <span className="text-gray-400 text-xs ml-1">(Sie)</span>}
+                                        </p>
+                                        <p className="text-xs text-gray-500">{user.email}</p>
+                                        <div className="flex flex-wrap items-center gap-1 mt-1">
+                                          {/* Teams anzeigen */}
+                                          {userTeams.length > 0 ? (
+                                            userTeams.map((team) => (
+                                              <span 
+                                                key={team.id} 
+                                                className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full"
+                                                style={{ backgroundColor: team.color + '20', color: team.color }}
+                                              >
+                                                <Users className="w-3 h-3" />
+                                                {team.name}
                                               </span>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          {/* Nur eine Rolle anzeigen - die System-Rolle */}
-                                          <span className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
-                                            {systemRoleInfo.label}
-                                          </span>
-                                          {!isCurrentUser && (
-                                            <div className="flex gap-1">
-                                              <button
-                                                onClick={() => {
-                                                  setEditingMember(user.id);
-                                                  setEditUserData({
-                                                    role: user.role.toLowerCase(),
-                                                    teamId: user.teamId || '',
-                                                    weeklyHours: user.weeklyHours || 42,
-                                                    workloadPercent: user.workloadPercent || 100,
-                                                  });
-                                                }}
-                                                className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"
-                                                title="Bearbeiten"
-                                              >
-                                                <Edit2 className="w-4 h-4" />
-                                              </button>
-                                              <button
-                                                onClick={() => deleteUser(user.id, user.name || user.email)}
-                                                disabled={processing === user.id}
-                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50"
-                                                title="Löschen"
-                                              >
-                                                {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                              </button>
-                                            </div>
+                                            ))
+                                          ) : (
+                                            <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-500 rounded-full">
+                                              Kein Team
+                                            </span>
                                           )}
+                                          {/* Multi-Org Badge */}
+                                          {otherOrgs.length > 0 && (
+                                            <span 
+                                              className="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full"
+                                              title={`Auch in: ${otherOrgs.map(o => o.organization.name).join(', ')}`}
+                                            >
+                                              +{otherOrgs.length} Org{otherOrgs.length > 1 ? 's' : ''}
+                                            </span>
+                                          )}
+                                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                                            <Clock className="w-3 h-3" />
+                                            {user.workloadPercent || 100}%
+                                          </span>
                                         </div>
                                       </div>
-                                    )}
+                                    </div>
+                                    {/* Nur Rolle anzeigen - keine Bearbeitung für Admin */}
+                                    <span className={`px-2 py-1 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
+                                      {systemRoleInfo.label}
+                                    </span>
                                   </div>
                                 );
                               })}
@@ -845,6 +788,7 @@ export default function OrganisationClient() {
                 <div className="p-5 space-y-3">
                   {usersWithoutOrg.map((user) => {
                     const systemRoleInfo = getSystemRoleInfo(user.role);
+                    const userTeams = getUserTeams(user as any);
                     return (
                       <div
                         key={user.id}
@@ -857,15 +801,21 @@ export default function OrganisationClient() {
                           <div>
                             <p className="font-medium text-gray-900 text-sm">{user.name || user.email}</p>
                             <p className="text-xs text-gray-500">{user.email}</p>
-                            <div className="flex items-center gap-2 mt-1 text-xs">
+                            <div className="flex flex-wrap items-center gap-1 mt-1 text-xs">
                               <span className="px-2 py-0.5 bg-orange-200 text-orange-700 rounded-full">
                                 Keine Organisation
                               </span>
-                              {user.team ? (
-                                <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
-                                  <Users className="w-3 h-3" />
-                                  {user.team.name}
-                                </span>
+                              {userTeams.length > 0 ? (
+                                userTeams.map((team) => (
+                                  <span 
+                                    key={team.id}
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+                                    style={{ backgroundColor: team.color + '20', color: team.color }}
+                                  >
+                                    <Users className="w-3 h-3" />
+                                    {team.name}
+                                  </span>
+                                ))
                               ) : (
                                 <span className="px-2 py-0.5 bg-gray-200 text-gray-500 rounded-full">
                                   Kein Team
