@@ -107,17 +107,18 @@ export async function getMocoCurrentUser(
 
 /**
  * Sucht einen MOCO User anhand seiner E-Mail-Adresse
- * Wird verwendet, um sicherzustellen, dass nur eigene Daten synchronisiert werden
+ * Hinweis: Viele API-Keys haben keine Berechtigung für /users (403)
+ * In diesem Fall wird der API-Key-Besitzer verwendet
  */
 export async function findMocoUserByEmail(
   apiKey: string,
   instanceDomain: string,
   email: string
-): Promise<{ success: boolean; userId?: number; userName?: string; error?: string }> {
+): Promise<{ success: boolean; userId?: number; userName?: string; error?: string; fallbackToSession?: boolean }> {
   try {
     const baseUrl = `https://${instanceDomain}.mocoapp.com/api/v1`;
     
-    // Alle User abrufen und nach E-Mail filtern
+    // Versuche alle User abzurufen
     const response = await fetch(`${baseUrl}/users`, {
       method: 'GET',
       headers: {
@@ -125,6 +126,15 @@ export async function findMocoUserByEmail(
         'Content-Type': 'application/json',
       },
     });
+
+    // Bei 403 (keine Berechtigung) → Fallback auf Session-User
+    if (response.status === 403) {
+      console.log('MOCO /users nicht erlaubt (403), verwende Session-User');
+      return { 
+        success: true, 
+        fallbackToSession: true 
+      };
+    }
 
     if (!response.ok) {
       return { success: false, error: `Users API Fehler: ${response.status}` };
@@ -134,9 +144,11 @@ export async function findMocoUserByEmail(
     const matchingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     
     if (!matchingUser) {
+      // E-Mail nicht gefunden, aber wir erlauben trotzdem den Sync mit dem API-Key-Besitzer
+      console.log(`E-Mail "${email}" nicht in MOCO gefunden, verwende Session-User`);
       return { 
-        success: false, 
-        error: `Kein MOCO-Benutzer mit E-Mail "${email}" gefunden. Bitte prüfen Sie die eingegebene E-Mail-Adresse.` 
+        success: true, 
+        fallbackToSession: true 
       };
     }
 
@@ -169,30 +181,35 @@ export async function fetchMocoSchedules(
     let mocoUserId: number;
     let mocoUserName: string | undefined;
     
-    // Wenn eine E-Mail angegeben ist, User über E-Mail suchen
+    // Zuerst immer den Session-User (API-Key-Besitzer) holen
+    const sessionResult = await getMocoCurrentUser(apiKey, instanceDomain);
+    if (!sessionResult.success || !sessionResult.userId) {
+      return {
+        success: false,
+        error: sessionResult.error || 'Konnte MOCO User nicht ermitteln'
+      };
+    }
+    
+    // Wenn eine E-Mail angegeben ist, versuche User über E-Mail zu finden
     if (mocoEmail) {
-      console.log(`MOCO: Suche User mit E-Mail: ${mocoEmail}`);
+      console.log(`MOCO: Versuche User mit E-Mail zu finden: ${mocoEmail}`);
       const userByEmail = await findMocoUserByEmail(apiKey, instanceDomain, mocoEmail);
-      if (!userByEmail.success || !userByEmail.userId) {
-        return {
-          success: false,
-          error: userByEmail.error || `MOCO-User mit E-Mail "${mocoEmail}" nicht gefunden`
-        };
+      
+      if (userByEmail.success && userByEmail.userId && !userByEmail.fallbackToSession) {
+        // E-Mail-User gefunden
+        mocoUserId = userByEmail.userId;
+        mocoUserName = userByEmail.userName;
+        console.log(`MOCO User per E-Mail gefunden: ${mocoUserName} (ID: ${mocoUserId})`);
+      } else {
+        // Fallback auf Session-User (bei 403 oder E-Mail nicht gefunden)
+        mocoUserId = sessionResult.userId;
+        mocoUserName = sessionResult.userName;
+        console.log(`MOCO: Verwende Session-User: ${mocoUserName} (ID: ${mocoUserId})`);
       }
-      mocoUserId = userByEmail.userId;
-      mocoUserName = userByEmail.userName;
-      console.log(`MOCO User per E-Mail gefunden: ${mocoUserName} (ID: ${mocoUserId})`);
     } else {
-      // Fallback: API-Key Besitzer verwenden
-      const userResult = await getMocoCurrentUser(apiKey, instanceDomain);
-      if (!userResult.success || !userResult.userId) {
-        return {
-          success: false,
-          error: userResult.error || 'Konnte MOCO User nicht ermitteln'
-        };
-      }
-      mocoUserId = userResult.userId;
-      mocoUserName = userResult.userName;
+      // Keine E-Mail angegeben → API-Key Besitzer verwenden
+      mocoUserId = sessionResult.userId;
+      mocoUserName = sessionResult.userName;
       console.log(`MOCO User (API-Key Owner): ${mocoUserName} (ID: ${mocoUserId})`);
     }
     
@@ -327,28 +344,34 @@ export async function testMocoConnection(
     }
     
     const data = await response.json();
-    console.log(`MOCO Test: Verbindung OK für ${data.firstname} ${data.lastname}`);
     
-    // Wenn eine E-Mail angegeben wurde, validieren dass dieser User existiert
-    if (mocoEmail) {
-      const userByEmail = await findMocoUserByEmail(apiKey, instanceDomain, mocoEmail);
-      if (!userByEmail.success) {
-        return {
-          success: false,
-          error: userByEmail.error || `E-Mail "${mocoEmail}" in MOCO nicht gefunden`
-        };
+    // Session gibt nur id und uuid zurück, wir brauchen mehr Details
+    // Versuche Schedules abzurufen um den User-Namen zu bekommen
+    const schedulesTest = await fetch(`${baseUrl}/schedules?from=2026-01-01&to=2026-01-02&user_id=${data.id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Token token=${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    let userName = `User ${data.id}`;
+    if (schedulesTest.ok) {
+      const schedules = await schedulesTest.json();
+      if (Array.isArray(schedules) && schedules.length > 0 && schedules[0].user) {
+        userName = `${schedules[0].user.firstname} ${schedules[0].user.lastname}`;
       }
-      return {
-        success: true,
-        userName: userByEmail.userName,
-        userEmail: mocoEmail
-      };
     }
+    
+    console.log(`MOCO Test: Verbindung OK für ${userName}`);
+    
+    // E-Mail-Validierung überspringen (viele API-Keys haben keine /users Berechtigung)
+    // Die E-Mail wird nur als Referenz gespeichert
     
     return {
       success: true,
-      userName: `${data.firstname} ${data.lastname}`,
-      userEmail: data.email
+      userName: userName,
+      userEmail: mocoEmail || data.email
     };
   } catch (error) {
     console.error('MOCO Test Exception:', error);
