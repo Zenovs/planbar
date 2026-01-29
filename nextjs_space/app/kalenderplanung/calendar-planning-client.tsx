@@ -16,11 +16,13 @@ import {
   Heart,
   Coffee,
   Filter,
-  Link2
+  Link2,
+  LayoutGrid,
+  Calendar
 } from 'lucide-react';
 import { MocoIntegration } from '@/components/moco-integration';
 import { toast } from 'sonner';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isWithinInterval, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addYears, subYears, isWithinInterval, parseISO, startOfYear, endOfYear, eachMonthOfInterval } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 interface Absence {
@@ -65,6 +67,7 @@ export function CalendarPlanningClient({
   const [selectedUserId, setSelectedUserId] = useState<string>(canViewOthers ? '' : currentUser.id);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<'calendar' | 'moco'>('calendar');
+  const [viewMode, setViewMode] = useState<'month' | 'year'>('month');
   
   // Form state
   const [formData, setFormData] = useState({
@@ -89,13 +92,24 @@ export function CalendarPlanningClient({
 
   useEffect(() => {
     loadAbsences();
-  }, [currentDate, selectedUserId]);
+  }, [currentDate, selectedUserId, viewMode]);
 
   const loadAbsences = async () => {
     setLoading(true);
     try {
-      const start = format(subMonths(monthStart, 1), 'yyyy-MM-dd');
-      const end = format(addMonths(monthEnd, 1), 'yyyy-MM-dd');
+      let start: string, end: string;
+      
+      if (viewMode === 'year') {
+        // Für Jahresansicht: ganzes Jahr laden
+        const yearStart = startOfYear(currentDate);
+        const yearEnd = endOfYear(currentDate);
+        start = format(yearStart, 'yyyy-MM-dd');
+        end = format(yearEnd, 'yyyy-MM-dd');
+      } else {
+        // Für Monatsansicht: Monat +/- 1 Monat
+        start = format(subMonths(monthStart, 1), 'yyyy-MM-dd');
+        end = format(addMonths(monthEnd, 1), 'yyyy-MM-dd');
+      }
       
       let url = `/api/absences?startDate=${start}&endDate=${end}`;
       if (selectedUserId) {
@@ -194,7 +208,33 @@ export function CalendarPlanningClient({
 
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
+  const prevYear = () => setCurrentDate(subYears(currentDate, 1));
+  const nextYear = () => setCurrentDate(addYears(currentDate, 1));
   const goToToday = () => setCurrentDate(new Date());
+  
+  // Navigation bei Klick auf Eintrag
+  const navigateToAbsence = (absence: Absence) => {
+    const absenceDate = parseISO(absence.startDate);
+    setCurrentDate(absenceDate);
+    setViewMode('month');
+  };
+  
+  // Für Jahresansicht: Monate des Jahres
+  const monthsOfYear = eachMonthOfInterval({
+    start: startOfYear(currentDate),
+    end: endOfYear(currentDate)
+  });
+  
+  // Abwesenheiten für einen Monat (Jahresansicht)
+  const getAbsencesForMonth = (month: Date): Absence[] => {
+    const monthStartDate = startOfMonth(month);
+    const monthEndDate = endOfMonth(month);
+    return absences.filter(absence => {
+      const start = parseISO(absence.startDate.split('T')[0]);
+      const end = parseISO(absence.endDate.split('T')[0]);
+      return (start <= monthEndDate && end >= monthStartDate);
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
@@ -297,7 +337,7 @@ export function CalendarPlanningClient({
           <div className="p-4 bg-gradient-to-r from-blue-500 to-purple-600">
             <div className="flex items-center justify-between">
               <button
-                onClick={prevMonth}
+                onClick={viewMode === 'year' ? prevYear : prevMonth}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
               >
                 <ChevronLeft className="w-6 h-6" />
@@ -305,7 +345,10 @@ export function CalendarPlanningClient({
               
               <div className="text-center">
                 <h2 className="text-xl sm:text-2xl font-bold text-white">
-                  {format(currentDate, 'MMMM yyyy', { locale: de })}
+                  {viewMode === 'year' 
+                    ? format(currentDate, 'yyyy', { locale: de })
+                    : format(currentDate, 'MMMM yyyy', { locale: de })
+                  }
                 </h2>
                 <button
                   onClick={goToToday}
@@ -316,79 +359,161 @@ export function CalendarPlanningClient({
               </div>
 
               <button
-                onClick={nextMonth}
+                onClick={viewMode === 'year' ? nextYear : nextMonth}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
               >
                 <ChevronRight className="w-6 h-6" />
               </button>
             </div>
+            
+            {/* View Toggle */}
+            <div className="flex justify-center mt-3 gap-2">
+              <button
+                onClick={() => setViewMode('month')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  viewMode === 'month' 
+                    ? 'bg-white text-purple-600' 
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                Monat
+              </button>
+              <button
+                onClick={() => setViewMode('year')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  viewMode === 'year' 
+                    ? 'bg-white text-purple-600' 
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+                Jahr
+              </button>
+            </div>
           </div>
 
-          {/* Wochentage */}
-          <div className="grid grid-cols-7 bg-gray-50 border-b">
-            {weekDays.map(day => (
-              <div key={day} className="p-2 text-center text-sm font-medium text-gray-600">
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Kalender Grid */}
-          <div className="grid grid-cols-7">
-            {/* Leere Tage vor dem Monatsbeginn */}
-            {emptyDays.map((_, index) => (
-              <div key={`empty-${index}`} className="min-h-[100px] sm:min-h-[120px] p-1 bg-gray-50 border-b border-r"></div>
-            ))}
-
-            {/* Tage des Monats */}
-            {daysInMonth.map((day, index) => {
-              const dayAbsences = getAbsencesForDay(day);
-              const isToday = isSameDay(day, new Date());
-              const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-
-              return (
-                <div
-                  key={day.toISOString()}
-                  onClick={() => openModalForDate(day)}
-                  className={`min-h-[100px] sm:min-h-[120px] p-1 border-b border-r cursor-pointer hover:bg-blue-50 transition-colors ${
-                    isWeekend ? 'bg-gray-50' : 'bg-white'
-                  }`}
-                >
-                  <div className={`text-sm font-medium mb-1 w-7 h-7 flex items-center justify-center rounded-full ${
-                    isToday ? 'bg-blue-500 text-white' : 'text-gray-700'
-                  }`}>
-                    {format(day, 'd')}
+          {viewMode === 'month' ? (
+            <>
+              {/* Wochentage */}
+              <div className="grid grid-cols-7 bg-gray-50 border-b">
+                {weekDays.map(day => (
+                  <div key={day} className="p-2 text-center text-sm font-medium text-gray-600">
+                    {day}
                   </div>
+                ))}
+              </div>
 
-                  {/* Abwesenheiten */}
-                  <div className="space-y-0.5 overflow-hidden">
-                    {dayAbsences.slice(0, 3).map((absence, i) => {
-                      const typeInfo = getTypeInfo(absence.type);
-                      return (
-                        <div
-                          key={absence.id}
-                          className="text-xs px-1.5 py-0.5 rounded truncate text-white"
-                          style={{ backgroundColor: absence.color || typeInfo.color }}
-                          title={`${absence.title} - ${absence.user.name || absence.user.email}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {canViewOthers && (
-                            <span className="font-medium">
-                              {absence.user.name?.split(' ')[0] || absence.user.email.split('@')[0]}:
-                            </span>
-                          )}{' '}
-                          {absence.title}
-                        </div>
-                      );
-                    })}
-                    {dayAbsences.length > 3 && (
-                      <div className="text-xs text-gray-500 px-1">+{dayAbsences.length - 3} mehr</div>
+              {/* Kalender Grid */}
+              <div className="grid grid-cols-7">
+                {/* Leere Tage vor dem Monatsbeginn */}
+                {emptyDays.map((_, index) => (
+                  <div key={`empty-${index}`} className="min-h-[100px] sm:min-h-[120px] p-1 bg-gray-50 border-b border-r"></div>
+                ))}
+
+                {/* Tage des Monats */}
+                {daysInMonth.map((day, index) => {
+                  const dayAbsences = getAbsencesForDay(day);
+                  const isToday = isSameDay(day, new Date());
+                  const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      onClick={() => openModalForDate(day)}
+                      className={`min-h-[100px] sm:min-h-[120px] p-1 border-b border-r cursor-pointer hover:bg-blue-50 transition-colors ${
+                        isWeekend ? 'bg-gray-50' : 'bg-white'
+                      }`}
+                    >
+                      <div className={`text-sm font-medium mb-1 w-7 h-7 flex items-center justify-center rounded-full ${
+                        isToday ? 'bg-blue-500 text-white' : 'text-gray-700'
+                      }`}>
+                        {format(day, 'd')}
+                      </div>
+
+                      {/* Abwesenheiten */}
+                      <div className="space-y-0.5 overflow-hidden">
+                        {dayAbsences.slice(0, 3).map((absence, i) => {
+                          const typeInfo = getTypeInfo(absence.type);
+                          return (
+                            <div
+                              key={absence.id}
+                              className="text-xs px-1.5 py-0.5 rounded truncate text-white"
+                              style={{ backgroundColor: absence.color || typeInfo.color }}
+                              title={`${absence.title} - ${absence.user.name || absence.user.email}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {canViewOthers && (
+                                <span className="font-medium">
+                                  {absence.user.name?.split(' ')[0] || absence.user.email.split('@')[0]}:
+                                </span>
+                              )}{' '}
+                              {absence.title}
+                            </div>
+                          );
+                        })}
+                        {dayAbsences.length > 3 && (
+                          <div className="text-xs text-gray-500 px-1">+{dayAbsences.length - 3} mehr</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            /* Jahresansicht */
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
+              {monthsOfYear.map(month => {
+                const monthAbsences = getAbsencesForMonth(month);
+                const isCurrentMonth = isSameMonth(month, new Date());
+                
+                return (
+                  <div
+                    key={month.toISOString()}
+                    onClick={() => {
+                      setCurrentDate(month);
+                      setViewMode('month');
+                    }}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${
+                      isCurrentMonth 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <h3 className={`font-semibold text-lg mb-2 ${
+                      isCurrentMonth ? 'text-blue-700' : 'text-gray-900'
+                    }`}>
+                      {format(month, 'MMMM', { locale: de })}
+                    </h3>
+                    
+                    {monthAbsences.length > 0 ? (
+                      <div className="space-y-1">
+                        {monthAbsences.slice(0, 4).map(absence => {
+                          const typeInfo = getTypeInfo(absence.type);
+                          return (
+                            <div
+                              key={absence.id}
+                              className="text-xs px-2 py-1 rounded truncate text-white"
+                              style={{ backgroundColor: absence.color || typeInfo.color }}
+                              title={absence.title}
+                            >
+                              {absence.title.replace('[MOCO] ', '')}
+                            </div>
+                          );
+                        })}
+                        {monthAbsences.length > 4 && (
+                          <div className="text-xs text-gray-500">+{monthAbsences.length - 4} weitere</div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400">Keine Einträge</p>
                     )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Legende */}
@@ -416,15 +541,21 @@ export function CalendarPlanningClient({
           <div className="mt-6 bg-white rounded-xl shadow-md overflow-hidden">
             <div className="p-4 border-b bg-gray-50">
               <h3 className="font-semibold text-gray-900">Eingetragene Abwesenheiten</h3>
+              <p className="text-xs text-gray-500 mt-1">Klicken Sie auf einen Eintrag, um zum entsprechenden Monat zu navigieren</p>
             </div>
             <ul className="divide-y">
               {absences.map(absence => {
                 const typeInfo = getTypeInfo(absence.type);
                 const Icon = typeInfo.icon;
-                const canDelete = isAdmin || absence.user.id === currentUser.id;
+                const isMocoEntry = absence.title.startsWith('[MOCO]');
+                const canDelete = !isMocoEntry && (isAdmin || absence.user.id === currentUser.id);
 
                 return (
-                  <li key={absence.id} className="p-4 hover:bg-gray-50">
+                  <li 
+                    key={absence.id} 
+                    className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => navigateToAbsence(absence)}
+                  >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-3">
                         <div
@@ -434,11 +565,19 @@ export function CalendarPlanningClient({
                           <Icon className="w-5 h-5" style={{ color: absence.color }} />
                         </div>
                         <div>
-                          <div className="font-medium text-gray-900">{absence.title}</div>
+                          <div className="font-medium text-gray-900 flex items-center gap-2">
+                            {absence.title}
+                            {isMocoEntry && (
+                              <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
+                                MOCO
+                              </span>
+                            )}
+                          </div>
                           <div className="text-sm text-gray-600">
                             {format(parseISO(absence.startDate), 'dd.MM.yyyy', { locale: de })}
-                            {' - '}
-                            {format(parseISO(absence.endDate), 'dd.MM.yyyy', { locale: de })}
+                            {absence.startDate !== absence.endDate && (
+                              <> - {format(parseISO(absence.endDate), 'dd.MM.yyyy', { locale: de })}</>
+                            )}
                           </div>
                           {canViewOthers && (
                             <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
@@ -454,8 +593,12 @@ export function CalendarPlanningClient({
 
                       {canDelete && (
                         <button
-                          onClick={() => handleDeleteAbsence(absence.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAbsence(absence.id);
+                          }}
                           className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Löschen"
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
