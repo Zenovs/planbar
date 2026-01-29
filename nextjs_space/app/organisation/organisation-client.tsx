@@ -616,35 +616,178 @@ export default function OrganisationClient() {
                           )}
                         </div>
 
-                        {/* Mitglieder */}
+                        {/* Mitglieder mit Bearbeitungsfunktion */}
                         <div>
                           <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                             <Users className="w-4 h-4 text-blue-600" />
                             Mitglieder ({org.users?.length || 0})
                           </h4>
                           {org.users && org.users.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-3">
                               {org.users.map((user) => {
                                 const roleInfo = getRoleInfo(user.orgRole);
+                                const systemRoleInfo = getSystemRoleInfo(user.role);
                                 const RoleIcon = roleInfo.icon;
+                                const isCurrentUser = user.email === session?.user?.email;
+
                                 return (
                                   <div
                                     key={user.id}
-                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                                    className="border rounded-lg overflow-hidden"
                                   >
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                                        {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                                    {editingMember === user.id ? (
+                                      // Bearbeitungsmodus
+                                      <div className="p-4 bg-blue-50 border-l-4 border-blue-500">
+                                        <div className="flex items-center gap-3 mb-4">
+                                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                                            {(user.name || user.email)[0].toUpperCase()}
+                                          </div>
+                                          <div>
+                                            <p className="font-medium text-gray-900">{user.name || 'Kein Name'}</p>
+                                            <p className="text-sm text-gray-500">{user.email}</p>
+                                          </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                                          <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Rolle</label>
+                                            <select
+                                              value={editUserData.role}
+                                              onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
+                                              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                            >
+                                              {SYSTEM_ROLES.map((role) => (
+                                                <option key={role.value} value={role.value}>{role.label}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                          <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
+                                            <select
+                                              value={editUserData.teamId || 'none'}
+                                              onChange={(e) => setEditUserData({ ...editUserData, teamId: e.target.value === 'none' ? '' : e.target.value })}
+                                              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                            >
+                                              <option value="none">Kein Team</option>
+                                              {allTeams.map((t) => (
+                                                <option key={t.id} value={t.id}>{t.name}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                          <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Wochenstunden</label>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max="60"
+                                              step="0.5"
+                                              value={editUserData.weeklyHours}
+                                              onChange={(e) => setEditUserData({ ...editUserData, weeklyHours: parseFloat(e.target.value) || 0 })}
+                                              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Pensum (%)</label>
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max="100"
+                                              value={editUserData.workloadPercent}
+                                              onChange={(e) => setEditUserData({ ...editUserData, workloadPercent: parseInt(e.target.value) || 0 })}
+                                              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="text-sm text-gray-600 mb-4">
+                                          Verfügbare Stunden/Woche: {((editUserData.weeklyHours * editUserData.workloadPercent) / 100).toFixed(1)}h
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                          <button
+                                            onClick={() => updateUserFull(user.id)}
+                                            disabled={processing === user.id}
+                                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                                          >
+                                            {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                            Speichern
+                                          </button>
+                                          <button
+                                            onClick={() => setEditingMember(null)}
+                                            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
+                                          >
+                                            <X className="w-4 h-4" />
+                                            Abbrechen
+                                          </button>
+                                        </div>
                                       </div>
-                                      <div>
-                                        <p className="font-medium text-gray-900 text-sm">{user.name || user.email}</p>
-                                        <p className="text-xs text-gray-500">{user.email}</p>
+                                    ) : (
+                                      // Ansichtsmodus
+                                      <div className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                                            {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                                          </div>
+                                          <div>
+                                            <p className="font-medium text-gray-900 text-sm">
+                                              {user.name || user.email}
+                                              {isCurrentUser && <span className="text-gray-400 text-xs ml-1">(Sie)</span>}
+                                            </p>
+                                            <p className="text-xs text-gray-500">{user.email}</p>
+                                            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                                              {user.team && (
+                                                <span className="flex items-center gap-1">
+                                                  <Users className="w-3 h-3" />
+                                                  {user.team.name}
+                                                </span>
+                                              )}
+                                              <span className="flex items-center gap-1">
+                                                <Clock className="w-3 h-3" />
+                                                {user.workloadPercent || 100}%
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <div className="flex flex-col items-end gap-1">
+                                            <span className={`px-2 py-0.5 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
+                                              {systemRoleInfo.label}
+                                            </span>
+                                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${roleInfo.color}`}>
+                                              <RoleIcon className="w-3 h-3" />
+                                              {roleInfo.label}
+                                            </span>
+                                          </div>
+                                          {!isCurrentUser && (
+                                            <div className="flex gap-1">
+                                              <button
+                                                onClick={() => {
+                                                  setEditingMember(user.id);
+                                                  setEditUserData({
+                                                    role: user.role.toLowerCase(),
+                                                    teamId: user.teamId || '',
+                                                    weeklyHours: user.weeklyHours || 42,
+                                                    workloadPercent: user.workloadPercent || 100,
+                                                  });
+                                                }}
+                                                className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"
+                                                title="Bearbeiten"
+                                              >
+                                                <Edit2 className="w-4 h-4" />
+                                              </button>
+                                              <button
+                                                onClick={() => deleteUser(user.id, user.name || user.email)}
+                                                disabled={processing === user.id}
+                                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                                                title="Löschen"
+                                              >
+                                                {processing === user.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleInfo.color}`}>
-                                      <RoleIcon className="w-3 h-3 inline mr-1" />
-                                      {roleInfo.label}
-                                    </span>
+                                    )}
                                   </div>
                                 );
                               })}

@@ -127,7 +127,7 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                 )}
-                {['admin', 'Administrator', 'ADMIN', 'admin_organisation', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
+                {['admin_organisation', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="cursor-pointer">
                       <Settings className="w-4 h-4 mr-2" />
@@ -216,7 +216,7 @@ export function Header() {
                     <span className="text-base">Organisationen</span>
                   </Link>
                 )}
-                {['admin', 'Administrator', 'ADMIN', 'admin_organisation', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
+                {['admin_organisation', 'projektleiter', 'Projektleiter'].includes(session?.user?.role || '') && (
                   <Link 
                     href="/settings" 
                     onClick={() => setMobileMenuOpen(false)}
