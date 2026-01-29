@@ -4,14 +4,20 @@
  * 
  * Rollen-Hierarchie (von oben nach unten):
  * 1. Admin - Vollzugriff auf alles
- * 2. Projektleiter - Teams & Benutzer verwalten, keine System-Einstellungen
- * 3. Koordinator - Team-Tasks sehen und zuweisen
- * 4. Mitglied - Nur eigene Daten
+ * 2. Admin Organisation - Organisationen & Teams erstellen/verwalten
+ * 3. Projektleiter - Teams & Benutzer verwalten, keine System-Einstellungen
+ * 4. Koordinator - Team-Tasks sehen und zuweisen
+ * 5. Mitglied - Nur eigene Daten
  */
 
 export function isAdmin(role: string | null | undefined): boolean {
   const normalizedRole = role?.toLowerCase();
   return normalizedRole === 'admin' || normalizedRole === 'administrator';
+}
+
+export function isAdminOrganisation(role: string | null | undefined): boolean {
+  const normalizedRole = role?.toLowerCase();
+  return normalizedRole === 'admin_organisation' || normalizedRole === 'admin organisation';
 }
 
 export function isProjektleiter(role: string | null | undefined): boolean {
@@ -24,29 +30,42 @@ export function isKoordinator(role: string | null | undefined): boolean {
   return normalizedRole === 'koordinator';
 }
 
+export function isAdminOrAdminOrganisation(role: string | null | undefined): boolean {
+  return isAdmin(role) || isAdminOrganisation(role);
+}
+
 export function isAdminOrProjektleiter(role: string | null | undefined): boolean {
-  return isAdmin(role) || isProjektleiter(role);
+  return isAdmin(role) || isAdminOrganisation(role) || isProjektleiter(role);
 }
 
 export function isAdminOrKoordinator(role: string | null | undefined): boolean {
-  return isAdmin(role) || isKoordinator(role);
+  return isAdmin(role) || isAdminOrganisation(role) || isKoordinator(role);
 }
 
 export function isProjektleiterOrHigher(role: string | null | undefined): boolean {
-  return isAdmin(role) || isProjektleiter(role);
+  return isAdmin(role) || isAdminOrganisation(role) || isProjektleiter(role);
+}
+
+export function isAdminOrganisationOrHigher(role: string | null | undefined): boolean {
+  return isAdmin(role) || isAdminOrganisation(role);
 }
 
 export function isKoordinatorOrHigher(role: string | null | undefined): boolean {
-  return isAdmin(role) || isProjektleiter(role) || isKoordinator(role);
+  return isAdmin(role) || isAdminOrganisation(role) || isProjektleiter(role) || isKoordinator(role);
+}
+
+export function canManageOrganizations(role: string | null | undefined): boolean {
+  // Nur Admin und Admin Organisation können Organisationen erstellen/verwalten
+  return isAdminOrAdminOrganisation(role);
 }
 
 export function canManageUsers(role: string | null | undefined): boolean {
-  // Admins und Projektleiter können Benutzer verwalten
+  // Admins, Admin Organisation und Projektleiter können Benutzer verwalten
   return isAdminOrProjektleiter(role);
 }
 
 export function canManageTeams(role: string | null | undefined): boolean {
-  // Admins und Projektleiter können Teams verwalten
+  // Admins, Admin Organisation und Projektleiter können Teams verwalten
   return isAdminOrProjektleiter(role);
 }
 
@@ -56,7 +75,7 @@ export function canManageTeam(role: string | null | undefined): boolean {
 }
 
 export function canAssignTasks(role: string | null | undefined): boolean {
-  // Admins, Projektleiter und Koordinatoren können Tasks zuweisen
+  // Admins, Admin Organisation, Projektleiter und Koordinatoren können Tasks zuweisen
   return isKoordinatorOrHigher(role);
 }
 
@@ -66,7 +85,7 @@ export function canViewAllData(role: string | null | undefined): boolean {
 }
 
 export function canViewTeamData(role: string | null | undefined): boolean {
-  // Admins, Projektleiter und Koordinatoren sehen Team-Daten
+  // Admins, Admin Organisation, Projektleiter und Koordinatoren sehen Team-Daten
   return isKoordinatorOrHigher(role);
 }
 

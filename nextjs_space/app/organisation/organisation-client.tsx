@@ -57,6 +57,7 @@ interface Organization {
 
 const ORG_ROLES = [
   { value: 'org_admin', label: 'Org-Admin', icon: Crown, color: 'text-yellow-600 bg-yellow-100' },
+  { value: 'admin_organisation', label: 'Admin Organisation', icon: Building2, color: 'text-orange-600 bg-orange-100' },
   { value: 'projektleiter', label: 'Projektleiter', icon: Shield, color: 'text-purple-600 bg-purple-100' },
   { value: 'koordinator', label: 'Koordinator', icon: Users, color: 'text-blue-600 bg-blue-100' },
   { value: 'member', label: 'Mitglied', icon: User, color: 'text-gray-600 bg-gray-100' },
@@ -66,6 +67,7 @@ export default function OrganisationClient() {
   const { data: session } = useSession();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [isOrgAdmin, setIsOrgAdmin] = useState(false);
+  const [canCreateOrganization, setCanCreateOrganization] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -93,7 +95,8 @@ export default function OrganisationClient() {
       if (res.ok) {
         setOrganization(data.organization);
         setIsOrgAdmin(data.isOrgAdmin);
-        if (!data.organization) {
+        setCanCreateOrganization(data.canCreateOrganization || false);
+        if (!data.organization && data.canCreateOrganization) {
           setShowCreateOrg(true);
         }
       }
@@ -247,8 +250,39 @@ export default function OrganisationClient() {
     );
   }
 
-  // Keine Organisation - Erstellen anzeigen
-  if (!organization || showCreateOrg) {
+  // Keine Organisation - Info oder Erstellen anzeigen
+  if (!organization) {
+    // User hat keine Berechtigung, Organisation zu erstellen
+    if (!canCreateOrganization) {
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <Header />
+          <main className="max-w-xl mx-auto px-4 py-12">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-2xl shadow-lg overflow-hidden"
+            >
+              <div className="bg-gradient-to-r from-gray-400 to-gray-500 p-6 text-center text-white">
+                <Building2 className="w-12 h-12 mx-auto mb-3" />
+                <h1 className="text-2xl font-bold">Keine Organisation</h1>
+                <p className="mt-2 opacity-90">Sie sind noch keiner Organisation zugeordnet</p>
+              </div>
+              <div className="p-6 text-center">
+                <p className="text-gray-600 mb-4">
+                  Sie müssen von einem <strong>Admin</strong> oder <strong>Admin Organisation</strong> zu einer Organisation eingeladen werden.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Kontaktieren Sie Ihren Administrator, um Zugang zu einer Organisation zu erhalten.
+                </p>
+              </div>
+            </motion.div>
+          </main>
+        </div>
+      );
+    }
+
+    // User kann Organisation erstellen
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />

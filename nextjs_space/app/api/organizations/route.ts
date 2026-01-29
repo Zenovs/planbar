@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { canManageOrganizations, isAdmin } from '@/lib/auth-helpers';
 
 // Helper: Slug aus Namen erstellen
 function createSlug(name: string): string {
@@ -112,7 +113,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       organization: userWithOrg?.organization,
       orgRole: userWithOrg?.orgRole,
+      userRole: userWithOrg?.role,
       isOrgAdmin: userWithOrg?.orgRole === 'org_admin' || userWithOrg?.role === 'admin',
+      canCreateOrganization: canManageOrganizations(userWithOrg?.role),
     });
   } catch (error) {
     console.error('Error fetching organization:', error);
@@ -135,6 +138,13 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
+    }
+
+    // Nur Admin oder Admin Organisation können Organisationen erstellen
+    if (!canManageOrganizations(user.role)) {
+      return NextResponse.json({ 
+        error: 'Keine Berechtigung - nur Admin oder Admin Organisation können Organisationen erstellen' 
+      }, { status: 403 });
     }
 
     // Prüfen ob User bereits in einer Organisation ist
@@ -206,8 +216,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Keine Organisation gefunden' }, { status: 404 });
     }
 
-    // Nur org_admin oder System-Admin können bearbeiten
-    if (user.orgRole !== 'org_admin' && user.role !== 'admin') {
+    // Nur org_admin, Admin oder Admin Organisation können bearbeiten
+    if (user.orgRole !== 'org_admin' && !canManageOrganizations(user.role)) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }
 

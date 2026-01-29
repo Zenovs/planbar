@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { canManageOrganizations } from '@/lib/auth-helpers';
 
 // PUT: Rolle eines Mitglieds ändern
 export async function PUT(request: NextRequest) {
@@ -20,8 +21,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Keine Organisation gefunden' }, { status: 404 });
     }
 
-    // Nur org_admin oder System-Admin können Rollen ändern
-    if (currentUser.orgRole !== 'org_admin' && currentUser.role !== 'admin') {
+    // Nur org_admin, Admin oder Admin Organisation können Rollen ändern
+    if (currentUser.orgRole !== 'org_admin' && !canManageOrganizations(currentUser.role)) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }
 
@@ -56,8 +57,8 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const validOrgRoles = ['member', 'koordinator', 'projektleiter', 'org_admin'];
-    const validRoles = ['member', 'Mitglied', 'koordinator', 'projektleiter', 'admin'];
+    const validOrgRoles = ['member', 'koordinator', 'projektleiter', 'admin_organisation', 'org_admin'];
+    const validRoles = ['member', 'Mitglied', 'koordinator', 'projektleiter', 'admin_organisation', 'admin'];
 
     const updateData: any = {};
     
@@ -66,6 +67,8 @@ export async function PUT(request: NextRequest) {
       // Wenn org_admin, auch System-Rolle auf admin setzen
       if (orgRole === 'org_admin') {
         updateData.role = 'admin';
+      } else if (orgRole === 'admin_organisation') {
+        updateData.role = 'admin_organisation';
       } else if (orgRole === 'projektleiter') {
         updateData.role = 'projektleiter';
       } else if (orgRole === 'koordinator') {
@@ -115,7 +118,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Keine Organisation gefunden' }, { status: 404 });
     }
 
-    if (currentUser.orgRole !== 'org_admin' && currentUser.role !== 'admin') {
+    if (currentUser.orgRole !== 'org_admin' && !canManageOrganizations(currentUser.role)) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }
 
