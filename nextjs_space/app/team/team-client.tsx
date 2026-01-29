@@ -566,7 +566,7 @@ export default function TeamClient() {
             </div>
             {canManageUsers && (
               <div className="flex gap-2 w-full sm:w-auto">
-                {isAdmin && (
+                {(isAdmin || isProjektleiter) && (
                   <Button
                     onClick={() => setShowAddTeamModal(true)}
                     className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-purple-600 text-white min-h-[44px]"
@@ -577,8 +577,8 @@ export default function TeamClient() {
                 )}
                 <Button
                   onClick={() => setShowAddUserModal(true)}
-                  variant={isAdmin ? "outline" : "default"}
-                  className={`flex-1 sm:flex-none min-h-[44px] ${!isAdmin ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : ''}`}
+                  variant={(isAdmin || isProjektleiter) ? "outline" : "default"}
+                  className={`flex-1 sm:flex-none min-h-[44px] ${!(isAdmin || isProjektleiter) ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : ''}`}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   <span>Benutzer</span>
