@@ -45,6 +45,20 @@ export async function GET(request: NextRequest) {
               orgRole: true,
               role: true,
               image: true,
+              teamId: true,
+              weeklyHours: true,
+              workloadPercent: true,
+              team: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+              _count: {
+                select: {
+                  assignedTickets: true,
+                },
+              },
             },
           },
           teams: {
@@ -85,6 +99,20 @@ export async function GET(request: NextRequest) {
                 orgRole: true,
                 role: true,
                 image: true,
+                teamId: true,
+                weeklyHours: true,
+                workloadPercent: true,
+                team: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+                _count: {
+                  select: {
+                    assignedTickets: true,
+                  },
+                },
               },
             },
             teams: {

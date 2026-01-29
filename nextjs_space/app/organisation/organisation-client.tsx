@@ -26,6 +26,7 @@ import {
   Settings,
   Eye,
   Layers,
+  Save,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -42,6 +43,11 @@ interface Organization {
     orgRole: string;
     role: string;
     image: string | null;
+    teamId?: string | null;
+    weeklyHours?: number;
+    workloadPercent?: number;
+    team?: { id: string; name: string } | null;
+    _count?: { assignedTickets: number };
   }[];
   teams: {
     id: string;
@@ -58,6 +64,12 @@ interface Organization {
   }[];
 }
 
+interface Team {
+  id: string;
+  name: string;
+  color: string;
+}
+
 const ORG_ROLES = [
   { value: 'org_admin', label: 'Org-Admin', icon: Crown, color: 'text-yellow-600 bg-yellow-100' },
   { value: 'admin_organisation', label: 'Admin Organisation', icon: Building2, color: 'text-orange-600 bg-orange-100' },
@@ -66,11 +78,20 @@ const ORG_ROLES = [
   { value: 'member', label: 'Mitglied', icon: User, color: 'text-gray-600 bg-gray-100' },
 ];
 
+const SYSTEM_ROLES = [
+  { value: 'admin', label: 'Admin', color: 'bg-red-500' },
+  { value: 'admin_organisation', label: 'Admin Organisation', color: 'bg-orange-500' },
+  { value: 'projektleiter', label: 'Projektleiter', color: 'bg-purple-500' },
+  { value: 'koordinator', label: 'Koordinator', color: 'bg-blue-500' },
+  { value: 'member', label: 'Mitglied', color: 'bg-gray-500' },
+];
+
 export default function OrganisationClient() {
   const { data: session } = useSession();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [isOrgAdmin, setIsOrgAdmin] = useState(false);
   const [canCreateOrganization, setCanCreateOrganization] = useState(false);
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
@@ -79,6 +100,12 @@ export default function OrganisationClient() {
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [editingMember, setEditingMember] = useState<string | null>(null);
+  const [editUserData, setEditUserData] = useState<{
+    role: string;
+    teamId: string;
+    weeklyHours: number;
+    workloadPercent: number;
+  }>({ role: '', teamId: '', weeklyHours: 42, workloadPercent: 100 });
   const [expandedSection, setExpandedSection] = useState<string>('members');
   const [expandedOrg, setExpandedOrg] = useState<string | null>(null);
   const [processing, setProcessing] = useState<string | null>(null);
@@ -93,7 +120,20 @@ export default function OrganisationClient() {
 
   useEffect(() => {
     fetchOrganization();
+    fetchTeams();
   }, []);
+
+  const fetchTeams = async () => {
+    try {
+      const res = await fetch('/api/teams');
+      if (res.ok) {
+        const data = await res.json();
+        setAllTeams(data.teams || data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load teams:', error);
+    }
+  };
 
   const fetchOrganization = async () => {
     try {
@@ -120,9 +160,7 @@ export default function OrganisationClient() {
           }
         }
         
-        if (!data.organization && data.canCreateOrganization) {
-          setShowCreateOrg(true);
-        }
+        // Popup nicht automatisch öffnen - Admin sieht Übersicht
       }
     } catch (error) {
       console.error('Error:', error);
@@ -209,6 +247,58 @@ export default function OrganisationClient() {
     } finally {
       setProcessing(null);
     }
+  };
+
+  // Vollständiges Benutzer-Update (Rolle, Team, Stunden, Pensum)
+  const updateUserFull = async (userId: string) => {
+    setProcessing(userId);
+    try {
+      const res = await fetch(`/api/users?id=${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editUserData),
+      });
+
+      if (res.ok) {
+        toast.success('Benutzer aktualisiert');
+        setEditingMember(null);
+        fetchOrganization();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Fehler beim Aktualisieren');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Aktualisieren');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const deleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`${userName} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+
+    setProcessing(userId);
+    try {
+      const res = await fetch(`/api/users?id=${userId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        toast.success('Benutzer gelöscht');
+        fetchOrganization();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Fehler beim Löschen');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Löschen');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const getSystemRoleInfo = (role: string) => {
+    return SYSTEM_ROLES.find(r => r.value === role.toLowerCase()) || SYSTEM_ROLES[4];
   };
 
   const removeMember = async (userId: string, userName: string) => {
@@ -849,68 +939,178 @@ export default function OrganisationClient() {
                   <div className="p-5 space-y-3">
                     {organization.users.map((member) => {
                       const roleInfo = getRoleInfo(member.orgRole);
+                      const systemRoleInfo = getSystemRoleInfo(member.role);
                       const RoleIcon = roleInfo.icon;
                       const isCurrentUser = member.email === session?.user?.email;
 
                       return (
                         <div
                           key={member.id}
-                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                          className="border rounded-lg hover:bg-gray-50 overflow-hidden"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                              {(member.name || member.email)[0].toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">
-                                {member.name || 'Kein Name'}
-                                {isCurrentUser && <span className="text-gray-400 text-sm ml-2">(Sie)</span>}
-                              </p>
-                              <p className="text-sm text-gray-500">{member.email}</p>
-                            </div>
-                          </div>
+                          {editingMember === member.id ? (
+                            // Vollständiger Bearbeitungsmodus
+                            <div className="p-4 bg-blue-50 border-l-4 border-blue-500">
+                              <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                                  {(member.name || member.email)[0].toUpperCase()}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900">{member.name || 'Kein Name'}</p>
+                                  <p className="text-sm text-gray-500">{member.email}</p>
+                                </div>
+                              </div>
 
-                          <div className="flex items-center gap-3">
-                            {editingMember === member.id ? (
-                              <div className="flex items-center gap-2">
-                                <select
-                                  defaultValue={member.orgRole}
-                                  onChange={(e) => updateMemberRole(member.id, e.target.value)}
-                                  className="px-3 py-1.5 border rounded-lg text-sm"
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                                {/* System-Rolle */}
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Rolle</label>
+                                  <select
+                                    value={editUserData.role}
+                                    onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    {SYSTEM_ROLES
+                                      .filter(r => isSystemAdmin || r.value !== 'admin')
+                                      .map((role) => (
+                                      <option key={role.value} value={role.value}>{role.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Team */}
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Team</label>
+                                  <select
+                                    value={editUserData.teamId || 'none'}
+                                    onChange={(e) => setEditUserData({ ...editUserData, teamId: e.target.value === 'none' ? '' : e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="none">Kein Team</option>
+                                    {allTeams.map((t) => (
+                                      <option key={t.id} value={t.id}>{t.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Wochenstunden */}
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Wochenstunden</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="60"
+                                    step="0.5"
+                                    value={editUserData.weeklyHours}
+                                    onChange={(e) => setEditUserData({ ...editUserData, weeklyHours: parseFloat(e.target.value) || 0 })}
+                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+
+                                {/* Pensum */}
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Pensum (%)</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={editUserData.workloadPercent}
+                                    onChange={(e) => setEditUserData({ ...editUserData, workloadPercent: parseInt(e.target.value) || 0 })}
+                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="text-sm text-gray-600 mb-4">
+                                Verfügbare Stunden/Woche: {((editUserData.weeklyHours * editUserData.workloadPercent) / 100).toFixed(1)}h
+                              </div>
+
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => updateUserFull(member.id)}
                                   disabled={processing === member.id}
+                                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
                                 >
-                                  {ORG_ROLES.map((role) => (
-                                    <option key={role.value} value={role.value}>{role.label}</option>
-                                  ))}
-                                </select>
+                                  {processing === member.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Save className="w-4 h-4" />
+                                  )}
+                                  Speichern
+                                </button>
                                 <button
                                   onClick={() => setEditingMember(null)}
-                                  className="p-1.5 text-gray-400 hover:text-gray-600"
+                                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
                                 >
                                   <X className="w-4 h-4" />
+                                  Abbrechen
                                 </button>
                               </div>
-                            ) : (
-                              <>
-                                <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${roleInfo.color}`}>
-                                  <RoleIcon className="w-4 h-4" />
-                                  {roleInfo.label}
-                                </span>
+                            </div>
+                          ) : (
+                            // Normaler Anzeigemodus
+                            <div className="flex items-center justify-between p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                                  {(member.name || member.email)[0].toUpperCase()}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900">
+                                    {member.name || 'Kein Name'}
+                                    {isCurrentUser && <span className="text-gray-400 text-sm ml-2">(Sie)</span>}
+                                  </p>
+                                  <p className="text-sm text-gray-500">{member.email}</p>
+                                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                                    {member.team && (
+                                      <span className="flex items-center gap-1">
+                                        <Users className="w-3 h-3" />
+                                        {member.team.name}
+                                      </span>
+                                    )}
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3" />
+                                      {member.workloadPercent || 100}% ({(((member.weeklyHours || 42) * (member.workloadPercent || 100)) / 100).toFixed(1)}h/Woche)
+                                    </span>
+                                    {member._count?.assignedTickets !== undefined && (
+                                      <span>{member._count.assignedTickets} Projekte</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
 
-                                {isOrgAdmin && !isCurrentUser && (
+                              <div className="flex items-center gap-3">
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className={`px-2 py-0.5 text-xs rounded-full text-white ${systemRoleInfo.color}`}>
+                                    {systemRoleInfo.label}
+                                  </span>
+                                  <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${roleInfo.color}`}>
+                                    <RoleIcon className="w-3 h-3" />
+                                    {roleInfo.label}
+                                  </span>
+                                </div>
+
+                                {(isOrgAdmin || isSystemAdmin) && !isCurrentUser && (
                                   <div className="flex gap-1">
                                     <button
-                                      onClick={() => setEditingMember(member.id)}
+                                      onClick={() => {
+                                        setEditingMember(member.id);
+                                        setEditUserData({
+                                          role: member.role.toLowerCase(),
+                                          teamId: member.teamId || '',
+                                          weeklyHours: member.weeklyHours || 42,
+                                          workloadPercent: member.workloadPercent || 100,
+                                        });
+                                      }}
                                       className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg"
-                                      title="Rolle ändern"
+                                      title="Bearbeiten"
                                     >
                                       <Edit2 className="w-4 h-4" />
                                     </button>
                                     <button
-                                      onClick={() => removeMember(member.id, member.name || member.email)}
+                                      onClick={() => deleteUser(member.id, member.name || member.email)}
                                       disabled={processing === member.id}
                                       className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-50"
-                                      title="Entfernen"
+                                      title="Löschen"
                                     >
                                       {processing === member.id ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -920,9 +1120,9 @@ export default function OrganisationClient() {
                                     </button>
                                   </div>
                                 )}
-                              </>
-                            )}
-                          </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
