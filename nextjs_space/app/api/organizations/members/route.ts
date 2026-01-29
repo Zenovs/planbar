@@ -309,7 +309,7 @@ export async function PUT(request: NextRequest) {
 
       if (orgAdminCount <= 1) {
         return NextResponse.json({ 
-          error: 'Es muss mindestens ein Unternehmens-Admin vorhanden sein' 
+          error: 'Es muss mindestens ein Admin Unternehmen vorhanden sein' 
         }, { status: 400 });
       }
     }

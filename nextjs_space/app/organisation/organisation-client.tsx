@@ -102,8 +102,8 @@ interface Team {
 }
 
 const ORG_ROLES = [
-  { value: 'org_admin', label: 'Org-Admin', icon: Crown, color: 'text-yellow-600 bg-yellow-100' },
-  { value: 'admin_organisation', label: 'Admin Unternehmen', icon: Building2, color: 'text-orange-600 bg-orange-100' },
+  { value: 'org_admin', label: 'Admin Unternehmen', icon: Crown, color: 'text-orange-600 bg-orange-100' },
+  { value: 'admin_organisation', label: 'Admin Unternehmen', icon: Crown, color: 'text-orange-600 bg-orange-100' },
   { value: 'projektleiter', label: 'Projektleiter', icon: Shield, color: 'text-purple-600 bg-purple-100' },
   { value: 'koordinator', label: 'Koordinator', icon: Users, color: 'text-blue-600 bg-blue-100' },
   { value: 'member', label: 'Mitglied', icon: User, color: 'text-gray-600 bg-gray-100' },
@@ -111,7 +111,7 @@ const ORG_ROLES = [
 
 const SYSTEM_ROLES = [
   { value: 'admin', label: 'Admin', color: 'bg-red-500' },
-  { value: 'org_admin', label: 'Unternehmens-Admin', color: 'bg-yellow-500' },
+  { value: 'org_admin', label: 'Admin Unternehmen', color: 'bg-orange-500' },
   { value: 'admin_organisation', label: 'Admin Unternehmen', color: 'bg-orange-500' },
   { value: 'projektleiter', label: 'Projektleiter', color: 'bg-purple-500' },
   { value: 'koordinator', label: 'Koordinator', color: 'bg-blue-500' },
@@ -777,7 +777,7 @@ export default function OrganisationClient() {
                     {allOrganizations.reduce((sum, org) => sum + getOrgMembers(org).filter(u => u.orgRole === 'org_admin').length, 0)}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500">Unternehmens-Admins</p>
+                <p className="text-sm text-gray-500">Admin Unternehmen</p>
               </div>
             </div>
           </div>
