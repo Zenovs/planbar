@@ -4,7 +4,7 @@
  * 
  * Rollen-Hierarchie (von oben nach unten):
  * 1. Admin - Vollzugriff auf alles
- * 2. Admin Organisation - Organisationen & Teams erstellen/verwalten
+ * 2. Admin Unternehmen - Organisationen & Teams erstellen/verwalten
  * 3. Projektleiter - Teams & Benutzer verwalten, keine System-Einstellungen
  * 4. Koordinator - Team-Tasks sehen und zuweisen
  * 5. Mitglied - Nur eigene Daten
@@ -55,17 +55,17 @@ export function isKoordinatorOrHigher(role: string | null | undefined): boolean 
 }
 
 export function canManageOrganizations(role: string | null | undefined): boolean {
-  // Nur Admin und Admin Organisation können Organisationen erstellen/verwalten
+  // Nur Admin und Admin Unternehmen können Organisationen erstellen/verwalten
   return isAdminOrAdminOrganisation(role);
 }
 
 export function canManageUsers(role: string | null | undefined): boolean {
-  // Admins, Admin Organisation und Projektleiter können Benutzer verwalten
+  // Admins, Admin Unternehmen und Projektleiter können Benutzer verwalten
   return isAdminOrProjektleiter(role);
 }
 
 export function canManageTeams(role: string | null | undefined): boolean {
-  // Admins, Admin Organisation und Projektleiter können Teams verwalten
+  // Admins, Admin Unternehmen und Projektleiter können Teams verwalten
   return isAdminOrProjektleiter(role);
 }
 
@@ -75,7 +75,7 @@ export function canManageTeam(role: string | null | undefined): boolean {
 }
 
 export function canAssignTasks(role: string | null | undefined): boolean {
-  // Admins, Admin Organisation, Projektleiter und Koordinatoren können Tasks zuweisen
+  // Admins, Admin Unternehmen, Projektleiter und Koordinatoren können Tasks zuweisen
   return isKoordinatorOrHigher(role);
 }
 
@@ -85,7 +85,7 @@ export function canViewAllData(role: string | null | undefined): boolean {
 }
 
 export function canViewTeamData(role: string | null | undefined): boolean {
-  // Admins, Admin Organisation, Projektleiter und Koordinatoren sehen Team-Daten
+  // Admins, Admin Unternehmen, Projektleiter und Koordinatoren sehen Team-Daten
   return isKoordinatorOrHigher(role);
 }
 

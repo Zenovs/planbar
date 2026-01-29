@@ -103,7 +103,7 @@ interface Team {
 
 const ORG_ROLES = [
   { value: 'org_admin', label: 'Org-Admin', icon: Crown, color: 'text-yellow-600 bg-yellow-100' },
-  { value: 'admin_organisation', label: 'Admin Organisation', icon: Building2, color: 'text-orange-600 bg-orange-100' },
+  { value: 'admin_organisation', label: 'Admin Unternehmen', icon: Building2, color: 'text-orange-600 bg-orange-100' },
   { value: 'projektleiter', label: 'Projektleiter', icon: Shield, color: 'text-purple-600 bg-purple-100' },
   { value: 'koordinator', label: 'Koordinator', icon: Users, color: 'text-blue-600 bg-blue-100' },
   { value: 'member', label: 'Mitglied', icon: User, color: 'text-gray-600 bg-gray-100' },
@@ -111,7 +111,7 @@ const ORG_ROLES = [
 
 const SYSTEM_ROLES = [
   { value: 'admin', label: 'Admin', color: 'bg-red-500' },
-  { value: 'admin_organisation', label: 'Admin Organisation', color: 'bg-orange-500' },
+  { value: 'admin_organisation', label: 'Admin Unternehmen', color: 'bg-orange-500' },
   { value: 'projektleiter', label: 'Projektleiter', color: 'bg-purple-500' },
   { value: 'koordinator', label: 'Koordinator', color: 'bg-blue-500' },
   { value: 'member', label: 'Mitglied', color: 'bg-gray-500' },
@@ -1225,7 +1225,7 @@ export default function OrganisationClient() {
               </div>
               <div className="p-6 text-center">
                 <p className="text-gray-600 mb-4">
-                  Sie müssen von einem <strong>Admin</strong> oder <strong>Admin Organisation</strong> zu einem Unternehmen eingeladen werden.
+                  Sie müssen von einem <strong>Admin</strong> oder <strong>Admin Unternehmen</strong> zu einem Unternehmen eingeladen werden.
                 </p>
                 <p className="text-sm text-gray-500">
                   Kontaktieren Sie Ihren Administrator, um Zugang zu einem Unternehmen zu erhalten.

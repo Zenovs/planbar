@@ -275,10 +275,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
     }
 
-    // Nur Admin oder Admin Organisation können Unternehmen erstellen
+    // Nur Admin oder Admin Unternehmen können Unternehmen erstellen
     if (!canManageOrganizations(user.role)) {
       return NextResponse.json({ 
-        error: 'Keine Berechtigung - nur Admin oder Admin Organisation können Unternehmen erstellen' 
+        error: 'Keine Berechtigung - nur Admin oder Admin Unternehmen können Unternehmen erstellen' 
       }, { status: 403 });
     }
 
@@ -339,7 +339,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Kein Unternehmen gefunden' }, { status: 404 });
     }
 
-    // Nur org_admin, Admin oder Admin Organisation können bearbeiten
+    // Nur org_admin, Admin oder Admin Unternehmen können bearbeiten
     if (user.orgRole !== 'org_admin' && !canManageOrganizations(user.role)) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }

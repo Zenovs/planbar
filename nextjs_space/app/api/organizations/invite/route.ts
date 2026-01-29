@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Keine Organisation gefunden' }, { status: 404 });
     }
 
-    // Nur org_admin, Admin oder Admin Organisation können einladen
+    // Nur org_admin, Admin oder Admin Unternehmen können einladen
     if (user.orgRole !== 'org_admin' && !canManageOrganizations(user.role)) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
                 <strong>${user.organization.name}</strong> auf Planbar beizutreten.
               </p>
               <p style="color: #4b5563; font-size: 14px;">
-                Ihre Rolle: <strong>${assignedRole === 'org_admin' ? 'Organisation Admin' : assignedRole === 'admin_organisation' ? 'Admin Organisation' : assignedRole === 'projektleiter' ? 'Projektleiter' : assignedRole === 'koordinator' ? 'Koordinator' : 'Mitglied'}</strong>
+                Ihre Rolle: <strong>${assignedRole === 'org_admin' ? 'Unternehmens-Admin' : assignedRole === 'admin_organisation' ? 'Admin Unternehmen' : assignedRole === 'projektleiter' ? 'Projektleiter' : assignedRole === 'koordinator' ? 'Koordinator' : 'Mitglied'}</strong>
               </p>
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${inviteUrl}" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Keine Organisation gefunden' }, { status: 404 });
     }
 
-    // Nur org_admin, Admin oder Admin Organisation können Einladungen sehen
+    // Nur org_admin, Admin oder Admin Unternehmen können Einladungen sehen
     if (user.orgRole !== 'org_admin' && !canManageOrganizations(user.role)) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }

@@ -44,7 +44,7 @@ export function Header() {
     ...(!isAdmin && !isMitglied ? [{ href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays }] : []),
     // Kosten nur für Admins sichtbar
     ...(isAdmin ? [{ href: '/kosten', label: 'Kosten', icon: Wallet }] : []),
-    // Unternehmen für Admin und Admin Organisation sichtbar
+    // Unternehmen für Admin und Admin Unternehmen sichtbar
     ...(canManageOrganizations ? [{ href: '/organisation', label: 'Unternehmen', icon: Building2 }] : []),
   ];
 

@@ -257,7 +257,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Kein Unternehmen gefunden' }, { status: 404 });
     }
 
-    // Nur org_admin, Admin oder Admin Organisation können Rollen ändern
+    // Nur org_admin, Admin oder Admin Unternehmen können Rollen ändern
     if (currentUser.orgRole !== 'org_admin' && !canManageOrganizations(currentUser.role)) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }
