@@ -110,7 +110,6 @@ const ORG_ROLES = [
 
 const SYSTEM_ROLES = [
   { value: 'admin', label: 'Admin', color: 'bg-red-500' },
-  { value: 'org_admin', label: 'Admin Unternehmen', color: 'bg-orange-500' },
   { value: 'admin_organisation', label: 'Admin Unternehmen', color: 'bg-orange-500' },
   { value: 'projektleiter', label: 'Projektleiter', color: 'bg-purple-500' },
   { value: 'koordinator', label: 'Koordinator', color: 'bg-blue-500' },
@@ -440,7 +439,9 @@ export default function OrganisationClient() {
   };
 
   const getSystemRoleInfo = (role: string) => {
-    return SYSTEM_ROLES.find(r => r.value === role.toLowerCase()) || SYSTEM_ROLES[5]; // Fallback: Mitglied
+    // org_admin auf admin_organisation mappen (gleiche Rolle, verschiedene DB-Werte)
+    const normalizedRole = role.toLowerCase() === 'org_admin' ? 'admin_organisation' : role.toLowerCase();
+    return SYSTEM_ROLES.find(r => r.value === normalizedRole) || SYSTEM_ROLES[4]; // Fallback: Mitglied
   };
 
   // Hilfsfunktion: Teams eines Users ermitteln (aus teamMemberships)
@@ -670,7 +671,9 @@ export default function OrganisationClient() {
   };
 
   const getRoleInfo = (role: string) => {
-    return ORG_ROLES.find(r => r.value === role) || ORG_ROLES[3]; // Fallback: Mitglied
+    // org_admin auf admin_organisation mappen (gleiche Rolle, verschiedene DB-Werte)
+    const normalizedRole = role === 'org_admin' ? 'admin_organisation' : role;
+    return ORG_ROLES.find(r => r.value === normalizedRole) || ORG_ROLES[3]; // Fallback: Mitglied
   };
 
   const deleteOrganization = async (orgId: string, orgName: string) => {
