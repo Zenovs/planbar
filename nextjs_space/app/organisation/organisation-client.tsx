@@ -102,7 +102,6 @@ interface Team {
 }
 
 const ORG_ROLES = [
-  { value: 'org_admin', label: 'Admin Unternehmen', icon: Crown, color: 'text-orange-600 bg-orange-100' },
   { value: 'admin_organisation', label: 'Admin Unternehmen', icon: Crown, color: 'text-orange-600 bg-orange-100' },
   { value: 'projektleiter', label: 'Projektleiter', icon: Shield, color: 'text-purple-600 bg-purple-100' },
   { value: 'koordinator', label: 'Koordinator', icon: Users, color: 'text-blue-600 bg-blue-100' },
@@ -441,7 +440,7 @@ export default function OrganisationClient() {
   };
 
   const getSystemRoleInfo = (role: string) => {
-    return SYSTEM_ROLES.find(r => r.value === role.toLowerCase()) || SYSTEM_ROLES[4];
+    return SYSTEM_ROLES.find(r => r.value === role.toLowerCase()) || SYSTEM_ROLES[5]; // Fallback: Mitglied
   };
 
   // Hilfsfunktion: Teams eines Users ermitteln (aus teamMemberships)
@@ -671,7 +670,7 @@ export default function OrganisationClient() {
   };
 
   const getRoleInfo = (role: string) => {
-    return ORG_ROLES.find(r => r.value === role) || ORG_ROLES[4];
+    return ORG_ROLES.find(r => r.value === role) || ORG_ROLES[3]; // Fallback: Mitglied
   };
 
   const deleteOrganization = async (orgId: string, orgName: string) => {
