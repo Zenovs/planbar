@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, description, status, priority, assignedToId, projectManagerId, teamId, templateId, subTasks, estimatedHours } = body;
+    const { title, description, status, priority, assignedToId, projectManagerId, teamId, templateId, subTasks, estimatedHours, mocoProjectId } = body;
     
     if (!title) {
       return NextResponse.json(
@@ -232,6 +232,7 @@ export async function POST(req: NextRequest) {
       teamId: finalTeamId || null,
       createdById: session.user.id,
       estimatedHours: estimatedHours || null,
+      mocoProjectId: mocoProjectId || null,
     };
 
     // Create sub-tasks from request or template

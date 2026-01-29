@@ -28,7 +28,8 @@ import {
   BellOff,
   List,
   LayoutGrid,
-  GripVertical
+  GripVertical,
+  Link2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -100,6 +101,7 @@ interface Projekt {
   shareToken: string | null;
   shareEnabled: boolean;
   estimatedHours?: number | null;
+  mocoProjectId?: string | null;
   assignedTo?: User | null;
   createdBy?: User | null;
   team?: Team | null;
@@ -312,6 +314,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
     teamId: ticket.teamId || 'none',
     projectManagerId: ticket.projectManagerId || 'none',
     estimatedHours: ticket.estimatedHours?.toString() || '',
+    mocoProjectId: ticket.mocoProjectId || '',
   });
 
   // Ressourcen laden (basierend auf SubTask-Deadlines)
@@ -354,6 +357,7 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
           teamId: formData.teamId === 'none' ? null : formData.teamId,
           projectManagerId: formData.projectManagerId === 'none' ? null : formData.projectManagerId,
           estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : null,
+          mocoProjectId: formData.mocoProjectId || null,
         }),
       });
 
@@ -827,6 +831,33 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
                   ) : (
                     <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
                       {ticket.estimatedHours ? `${ticket.estimatedHours} Stunden` : 'Nicht festgelegt'}
+                    </p>
+                  )}
+                </div>
+
+                {/* MOCO Projekt-ID */}
+                <div>
+                  <Label className="text-sm font-medium flex items-center gap-1">
+                    <Link2 size={14} />
+                    MOCO Projekt-ID
+                  </Label>
+                  {isEditing ? (
+                    <Input
+                      type="text"
+                      value={formData.mocoProjectId}
+                      onChange={(e) => setFormData({ ...formData, mocoProjectId: e.target.value })}
+                      className="mt-2 w-48"
+                      placeholder="z.B. 123456789"
+                    />
+                  ) : (
+                    <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">
+                      {ticket.mocoProjectId ? (
+                        <span className="font-mono bg-purple-50 text-purple-700 px-2 py-1 rounded">
+                          {ticket.mocoProjectId}
+                        </span>
+                      ) : (
+                        'Nicht verknüpft'
+                      )}
                     </p>
                   )}
                 </div>

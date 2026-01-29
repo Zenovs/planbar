@@ -67,7 +67,7 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { title, description, status, priority, assignedToId, teamId, estimatedHours, projectManagerId } = body;
+    const { title, description, status, priority, assignedToId, teamId, estimatedHours, projectManagerId, mocoProjectId } = body;
 
     // Get old ticket data for comparison
     const oldTicket = await prisma.ticket.findUnique({
@@ -95,6 +95,7 @@ export async function PATCH(
     if (status !== undefined) updateData.status = status;
     if (priority !== undefined) updateData.priority = priority;
     if (estimatedHours !== undefined) updateData.estimatedHours = estimatedHours;
+    if (mocoProjectId !== undefined) updateData.mocoProjectId = mocoProjectId;
     
     if (assignedToId !== undefined) {
       updateData.assignedToId = assignedToId;

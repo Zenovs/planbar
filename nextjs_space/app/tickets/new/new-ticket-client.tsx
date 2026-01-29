@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Save, Plus, X, Users, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Save, Plus, X, Users, AlertTriangle, Clock, CheckCircle, Link2 } from 'lucide-react';
 import Link from 'next/link';
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, SimpleUser } from '@/lib/types';
 import { toast } from 'sonner';
@@ -72,6 +72,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
     projectManagerId: '',
     teamId: '',
     estimatedHours: '',
+    mocoProjectId: '',
     subTasks: [] as SubTaskForm[],
   });
   const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
@@ -227,6 +228,7 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
           teamId: formData.teamId || null,
           templateId: selectedTemplateId || null,
           estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : null,
+          mocoProjectId: formData.mocoProjectId || null,
         }),
       });
 
@@ -318,23 +320,42 @@ export function NewTicketClient({ users }: NewTicketClientProps) {
             </div>
 
             {/* Vorgabezeit für das Projekt */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Clock className="w-4 h-4 inline mr-1" />
-                Vorgabezeit (Stunden)
-              </label>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                value={formData.estimatedHours}
-                onChange={(e) => setFormData({ ...formData, estimatedHours: e.target.value })}
-                className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="z.B. 40"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Geschätzte Stunden für das gesamte Projekt
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Clock className="w-4 h-4 inline mr-1" />
+                  Vorgabezeit (Stunden)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={formData.estimatedHours}
+                  onChange={(e) => setFormData({ ...formData, estimatedHours: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="z.B. 40"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Geschätzte Stunden für das gesamte Projekt
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Link2 className="w-4 h-4 inline mr-1" />
+                  MOCO Projekt-ID (optional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.mocoProjectId}
+                  onChange={(e) => setFormData({ ...formData, mocoProjectId: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="z.B. 123456789"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ID aus MOCO für Zeiterfassung-Verknüpfung
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

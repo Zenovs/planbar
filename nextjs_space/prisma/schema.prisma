@@ -180,6 +180,7 @@ model Ticket {
   shareToken       String?          @unique
   shareEnabled     Boolean          @default(false)
   estimatedHours   Float?
+  mocoProjectId    String?          // MOCO Projekt-ID für Integration
   milestones       Milestone[]
   notes            Note[]
   subTasks         SubTask[]
