@@ -167,6 +167,41 @@ export default function OrganisationClient() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
+  // Hilfsfunktion: Alle Mitglieder einer Organisation (aus users + members kombiniert)
+  const getOrgMembers = (org: Organization): OrgUser[] => {
+    const memberMap = new Map<string, OrgUser>();
+    
+    // 1. User mit primärer organizationId hinzufügen
+    if (org.users) {
+      org.users.forEach(user => {
+        memberMap.set(user.id, user);
+      });
+    }
+    
+    // 2. User aus OrganizationMember hinzufügen (können andere orgRole haben)
+    if (org.members) {
+      org.members.forEach(member => {
+        if (!memberMap.has(member.user.id)) {
+          // User ist nur über OrganizationMember verbunden
+          memberMap.set(member.user.id, {
+            id: member.user.id,
+            name: member.user.name,
+            email: member.user.email,
+            role: member.user.role,
+            orgRole: member.orgRole || 'member',
+            image: member.user.image,
+            weeklyHours: member.user.weeklyHours,
+            workloadPercent: member.user.workloadPercent,
+            teamMemberships: member.user.teamMemberships,
+            organizationMemberships: member.user.organizationMemberships,
+          });
+        }
+      });
+    }
+    
+    return Array.from(memberMap.values());
+  };
+
   // Form states
   const [orgName, setOrgName] = useState('');
   const [orgDescription, setOrgDescription] = useState('');
@@ -628,7 +663,7 @@ export default function OrganisationClient() {
                 <div className="flex items-center gap-2 text-purple-600">
                   <Users className="w-5 h-5" />
                   <span className="text-2xl font-bold">
-                    {allOrganizations.reduce((sum, org) => sum + (org._count?.users || org.users?.length || 0), 0)}
+                    {allOrganizations.reduce((sum, org) => sum + getOrgMembers(org).length, 0)}
                   </span>
                 </div>
                 <p className="text-sm text-gray-500">Benutzer in Orgs</p>
@@ -653,7 +688,7 @@ export default function OrganisationClient() {
                 <div className="flex items-center gap-2 text-yellow-600">
                   <Crown className="w-5 h-5" />
                   <span className="text-2xl font-bold">
-                    {allOrganizations.reduce((sum, org) => sum + (org.users?.filter(u => u.orgRole === 'org_admin').length || 0), 0)}
+                    {allOrganizations.reduce((sum, org) => sum + getOrgMembers(org).filter(u => u.orgRole === 'org_admin').length, 0)}
                   </span>
                 </div>
                 <p className="text-sm text-gray-500">Org-Admins</p>
@@ -907,7 +942,7 @@ export default function OrganisationClient() {
                     <div className="text-left">
                       <h3 className="font-semibold text-gray-900 text-lg">{org.name}</h3>
                       <p className="text-sm text-gray-500">
-                        {org._count?.users || org.users?.length || 0} Mitglieder · {org._count?.teams || org.teams?.length || 0} Teams
+                        {getOrgMembers(org).length} Mitglieder · {org._count?.teams || org.teams?.length || 0} Teams
                       </p>
                     </div>
                   </div>
@@ -970,7 +1005,7 @@ export default function OrganisationClient() {
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="font-medium text-gray-900 flex items-center gap-2">
                               <Users className="w-4 h-4 text-blue-600" />
-                              Mitglieder ({org.users?.length || 0})
+                              Mitglieder ({getOrgMembers(org).length})
                             </h4>
                             <button
                               onClick={() => {
@@ -983,9 +1018,9 @@ export default function OrganisationClient() {
                               Mitglied hinzufügen
                             </button>
                           </div>
-                          {org.users && org.users.length > 0 ? (
+                          {getOrgMembers(org).length > 0 ? (
                             <div className="space-y-2">
-                              {org.users.map((user) => {
+                              {getOrgMembers(org).map((user) => {
                                 const systemRoleInfo = getSystemRoleInfo(user.role);
                                 const userTeams = getUserTeams(user);
                                 const otherOrgs = getOtherOrgs(user, org.id);
