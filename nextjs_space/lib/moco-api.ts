@@ -290,6 +290,8 @@ export async function testMocoConnection(
     const baseUrl = `https://${instanceDomain}.mocoapp.com/api/v1`;
     const url = `${baseUrl}/session`;
     
+    console.log(`MOCO Test: Verbindung zu ${baseUrl}...`);
+    
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -299,13 +301,33 @@ export async function testMocoConnection(
     });
     
     if (!response.ok) {
+      const statusCode = response.status;
+      let errorMessage = '';
+      
+      switch (statusCode) {
+        case 401:
+          errorMessage = 'Ungültiger API-Key. Bitte prüfen Sie, ob der API-Key korrekt kopiert wurde.';
+          break;
+        case 403:
+          errorMessage = 'Zugriff verweigert. Der API-Key hat keine Berechtigung für diese MOCO-Instanz. Bitte prüfen Sie: 1) Ist die Domain korrekt? 2) Hat Ihr Account API-Zugriff?';
+          break;
+        case 404:
+          errorMessage = `MOCO-Instanz "${instanceDomain}" nicht gefunden. Bitte prüfen Sie die Domain (ohne .mocoapp.com).`;
+          break;
+        default:
+          errorMessage = `MOCO API Fehler: ${statusCode}`;
+      }
+      
+      console.error(`MOCO Test fehlgeschlagen: ${statusCode}`, await response.text().catch(() => ''));
+      
       return {
         success: false,
-        error: `Verbindung fehlgeschlagen: ${response.status}`
+        error: errorMessage
       };
     }
     
     const data = await response.json();
+    console.log(`MOCO Test: Verbindung OK für ${data.firstname} ${data.lastname}`);
     
     // Wenn eine E-Mail angegeben wurde, validieren dass dieser User existiert
     if (mocoEmail) {
@@ -329,9 +351,10 @@ export async function testMocoConnection(
       userEmail: data.email
     };
   } catch (error) {
+    console.error('MOCO Test Exception:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Verbindungsfehler'
+      error: error instanceof Error ? error.message : 'Verbindungsfehler - bitte Domain und API-Key prüfen'
     };
   }
 }
