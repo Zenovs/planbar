@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { canManageOrganizations, isAdmin } from '@/lib/auth-helpers';
 
-// GET: Alle Benutzer ohne Organisation abrufen (für Admin)
+// GET: Benutzer abrufen (für Admin) - alle oder gefiltert
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -21,10 +21,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }
 
-    // Alle User laden, optional gefiltert
     const { searchParams } = new URL(request.url);
     const withoutOrg = searchParams.get('withoutOrg') === 'true';
     const orgId = searchParams.get('orgId');
+    const excludeOrgId = searchParams.get('excludeOrgId'); // NEU: User nicht in dieser Org
+    const allUsers = searchParams.get('all') === 'true'; // NEU: Alle User für Hinzufügen-Dialog
 
     let users;
     if (withoutOrg) {
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
           email: true,
           role: true,
           image: true,
+          organizationId: true,
         },
         orderBy: { name: 'asc' },
       });
@@ -55,6 +57,33 @@ export async function GET(request: NextRequest) {
           role: true,
           orgRole: true,
           image: true,
+          organizationId: true,
+        },
+        orderBy: { name: 'asc' },
+      });
+    } else if (excludeOrgId || allUsers) {
+      // NEU: Alle User die NICHT in der angegebenen Organisation sind (für Hinzufügen)
+      users = await prisma.user.findMany({
+        where: excludeOrgId ? {
+          OR: [
+            { organizationId: null },
+            { organizationId: { not: excludeOrgId } },
+          ],
+        } : undefined,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          orgRole: true,
+          organizationId: true,
+          image: true,
+          organization: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
         orderBy: { name: 'asc' },
       });
@@ -69,6 +98,12 @@ export async function GET(request: NextRequest) {
           orgRole: true,
           organizationId: true,
           image: true,
+          organization: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
         orderBy: { name: 'asc' },
       });
@@ -81,7 +116,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: User zu einer Organisation hinzufügen
+// POST: User zu einer Organisation hinzufügen (auch von anderen Organisationen)
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -106,7 +141,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
     }
 
-    const { userId, organizationId, orgRole = 'member' } = await request.json();
+    const { userId, organizationId, orgRole = 'member', moveFromOtherOrg = false } = await request.json();
 
     if (!userId || !organizationId) {
       return NextResponse.json({ error: 'User-ID und Organisations-ID erforderlich' }, { status: 400 });
@@ -130,23 +165,45 @@ export async function POST(request: NextRequest) {
     // Prüfen ob User existiert
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
+      include: {
+        organization: true,
+      },
     });
 
     if (!targetUser) {
       return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
     }
 
-    // Prüfen ob User bereits in einer Organisation ist
-    if (targetUser.organizationId) {
-      return NextResponse.json({ error: 'User ist bereits in einer Organisation' }, { status: 400 });
+    // Prüfen ob User bereits in der Ziel-Organisation ist
+    if (targetUser.organizationId === organizationId) {
+      return NextResponse.json({ error: 'User ist bereits in dieser Organisation' }, { status: 400 });
     }
 
-    // User zur Organisation hinzufügen
+    // Prüfen ob User in einer anderen Organisation ist
+    if (targetUser.organizationId && !moveFromOtherOrg) {
+      // User ist in anderer Org - Frontend muss bestätigen
+      return NextResponse.json({ 
+        error: 'User ist bereits in einer anderen Organisation',
+        requiresConfirmation: true,
+        currentOrg: targetUser.organization?.name || 'Unbekannt',
+      }, { status: 409 });
+    }
+
+    // Wenn User aus anderer Org verschoben wird, alte Team-Mitgliedschaften entfernen
+    if (targetUser.organizationId && moveFromOtherOrg) {
+      // TeamMember-Einträge der alten Org löschen
+      await prisma.teamMember.deleteMany({
+        where: { userId },
+      });
+    }
+
+    // User zur Organisation hinzufügen (oder verschieben)
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         organizationId: organizationId,
         orgRole: orgRole,
+        teamId: null, // Team zurücksetzen bei Wechsel
       },
       select: {
         id: true,

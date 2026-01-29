@@ -144,8 +144,21 @@ export default function OrganisationClient() {
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState<string | null>(null); // orgId
-  const [availableUsers, setAvailableUsers] = useState<{id: string; name: string | null; email: string; role: string}[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<{
+    id: string; 
+    name: string | null; 
+    email: string; 
+    role: string;
+    organizationId: string | null;
+    organization?: { id: string; name: string } | null;
+  }[]>([]);
   const [editingMember, setEditingMember] = useState<string | null>(null);
+  const [confirmMoveUser, setConfirmMoveUser] = useState<{
+    userId: string;
+    userName: string;
+    currentOrgName: string;
+    targetOrgId: string;
+  } | null>(null);
   const [editUserData, setEditUserData] = useState<{
     role: string;
     teamId: string;
@@ -365,10 +378,10 @@ export default function OrganisationClient() {
     return [];
   };
 
-  // Verfügbare User laden (ohne Organisation)
-  const fetchAvailableUsers = async () => {
+  // Verfügbare User laden (alle User, die nicht in der Ziel-Org sind)
+  const fetchAvailableUsers = async (targetOrgId: string) => {
     try {
-      const res = await fetch('/api/organizations/members?withoutOrg=true');
+      const res = await fetch(`/api/organizations/members?excludeOrgId=${targetOrgId}`);
       if (res.ok) {
         const data = await res.json();
         setAvailableUsers(data);
@@ -378,8 +391,29 @@ export default function OrganisationClient() {
     }
   };
 
+  // User aus anderen Organisationen gruppieren
+  const groupUsersByOrg = () => {
+    const groups: { [key: string]: typeof availableUsers } = {
+      'no_org': [],
+    };
+    
+    availableUsers.forEach(user => {
+      if (!user.organizationId) {
+        groups['no_org'].push(user);
+      } else {
+        const orgName = user.organization?.name || 'Andere Organisation';
+        if (!groups[orgName]) {
+          groups[orgName] = [];
+        }
+        groups[orgName].push(user);
+      }
+    });
+
+    return groups;
+  };
+
   // User zu Organisation hinzufügen
-  const addMemberToOrg = async (organizationId: string) => {
+  const addMemberToOrg = async (organizationId: string, moveFromOtherOrg = false) => {
     if (!selectedUserToAdd) {
       toast.error('Bitte wählen Sie einen Benutzer aus');
       return;
@@ -394,21 +428,66 @@ export default function OrganisationClient() {
           userId: selectedUserToAdd,
           organizationId: organizationId,
           orgRole: 'member',
+          moveFromOtherOrg: moveFromOtherOrg,
         }),
       });
+
+      const data = await res.json();
 
       if (res.ok) {
         toast.success('Mitglied hinzugefügt');
         setShowAddMemberModal(null);
         setSelectedUserToAdd('');
+        setConfirmMoveUser(null);
         fetchOrganization();
-        fetchAvailableUsers();
+      } else if (res.status === 409 && data.requiresConfirmation) {
+        // User ist in anderer Org - Bestätigung erforderlich
+        const selectedUser = availableUsers.find(u => u.id === selectedUserToAdd);
+        setConfirmMoveUser({
+          userId: selectedUserToAdd,
+          userName: selectedUser?.name || selectedUser?.email || 'Benutzer',
+          currentOrgName: data.currentOrg,
+          targetOrgId: organizationId,
+        });
       } else {
-        const data = await res.json();
         toast.error(data.error || 'Fehler beim Hinzufügen');
       }
     } catch (error) {
       toast.error('Fehler beim Hinzufügen');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  // Bestätigtes Verschieben aus anderer Organisation
+  const confirmMoveUserToOrg = async () => {
+    if (!confirmMoveUser) return;
+    
+    setProcessing('adding');
+    try {
+      const res = await fetch('/api/organizations/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: confirmMoveUser.userId,
+          organizationId: confirmMoveUser.targetOrgId,
+          orgRole: 'member',
+          moveFromOtherOrg: true,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success('Mitglied verschoben');
+        setShowAddMemberModal(null);
+        setSelectedUserToAdd('');
+        setConfirmMoveUser(null);
+        fetchOrganization();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Fehler beim Verschieben');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Verschieben');
     } finally {
       setProcessing(null);
     }
@@ -679,6 +758,7 @@ export default function OrganisationClient() {
                 onClick={() => {
                   setShowAddMemberModal(null);
                   setSelectedUserToAdd('');
+                  setConfirmMoveUser(null);
                 }}
               >
                 <motion.div
@@ -686,9 +766,9 @@ export default function OrganisationClient() {
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.95, opacity: 0 }}
                   onClick={(e) => e.stopPropagation()}
-                  className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+                  className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden max-h-[80vh] flex flex-col"
                 >
-                  <div className="bg-gradient-to-r from-green-500 to-teal-600 p-6 text-white">
+                  <div className="bg-gradient-to-r from-green-500 to-teal-600 p-6 text-white flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <h2 className="text-xl font-bold flex items-center gap-2">
                         <UserPlus className="w-6 h-6" />
@@ -698,6 +778,7 @@ export default function OrganisationClient() {
                         onClick={() => {
                           setShowAddMemberModal(null);
                           setSelectedUserToAdd('');
+                          setConfirmMoveUser(null);
                         }} 
                         className="p-1 hover:bg-white/20 rounded"
                       >
@@ -705,68 +786,145 @@ export default function OrganisationClient() {
                       </button>
                     </div>
                   </div>
-                  <div className="p-6 space-y-4">
-                    {availableUsers.length > 0 ? (
-                      <>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Benutzer auswählen
-                          </label>
-                          <select
-                            value={selectedUserToAdd}
-                            onChange={(e) => setSelectedUserToAdd(e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                          >
-                            <option value="">-- Benutzer wählen --</option>
-                            {availableUsers.map((user) => (
-                              <option key={user.id} value={user.id}>
-                                {user.name || user.email} ({user.email})
-                              </option>
-                            ))}
-                          </select>
+                  
+                  {/* Bestätigungs-Dialog für Verschieben aus anderer Org */}
+                  {confirmMoveUser ? (
+                    <div className="p-6 space-y-4">
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-amber-100 rounded-lg">
+                            <Building2 className="w-5 h-5 text-amber-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-amber-900">Benutzer verschieben?</h3>
+                            <p className="text-sm text-amber-700 mt-1">
+                              <strong>{confirmMoveUser.userName}</strong> ist bereits Mitglied von <strong>{confirmMoveUser.currentOrgName}</strong>.
+                            </p>
+                            <p className="text-sm text-amber-600 mt-2">
+                              Beim Verschieben werden Team-Zuweisungen der alten Organisation entfernt.
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex gap-3">
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmMoveUser(null)}
+                          className="flex-1 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          Abbrechen
+                        </button>
+                        <button
+                          onClick={confirmMoveUserToOrg}
+                          disabled={processing === 'adding'}
+                          className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {processing === 'adding' ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
+                          Verschieben
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                      {availableUsers.length > 0 ? (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Benutzer auswählen
+                            </label>
+                            <select
+                              value={selectedUserToAdd}
+                              onChange={(e) => setSelectedUserToAdd(e.target.value)}
+                              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                            >
+                              <option value="">-- Benutzer wählen --</option>
+                              {(() => {
+                                const groups = groupUsersByOrg();
+                                const optGroups = [];
+                                
+                                // Zuerst User ohne Organisation
+                                if (groups['no_org']?.length > 0) {
+                                  optGroups.push(
+                                    <optgroup key="no_org" label="📌 Ohne Organisation">
+                                      {groups['no_org'].map((user) => (
+                                        <option key={user.id} value={user.id}>
+                                          {user.name || user.email} ({user.email})
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  );
+                                }
+                                
+                                // Dann User aus anderen Organisationen
+                                Object.entries(groups).forEach(([orgName, users]) => {
+                                  if (orgName !== 'no_org' && users.length > 0) {
+                                    optGroups.push(
+                                      <optgroup key={orgName} label={`🏢 ${orgName}`}>
+                                        {users.map((user) => (
+                                          <option key={user.id} value={user.id}>
+                                            {user.name || user.email} ({user.email})
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    );
+                                  }
+                                });
+                                
+                                return optGroups;
+                              })()}
+                            </select>
+                            
+                            {/* Info-Hinweis wenn User aus anderer Org ausgewählt */}
+                            {selectedUserToAdd && availableUsers.find(u => u.id === selectedUserToAdd)?.organizationId && (
+                              <p className="mt-2 text-sm text-amber-600 flex items-center gap-1">
+                                <Building2 className="w-4 h-4" />
+                                Dieser Benutzer wird aus seiner aktuellen Organisation verschoben.
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowAddMemberModal(null);
+                                setSelectedUserToAdd('');
+                              }}
+                              className="flex-1 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            >
+                              Abbrechen
+                            </button>
+                            <button
+                              onClick={() => addMemberToOrg(showAddMemberModal)}
+                              disabled={!selectedUserToAdd || processing === 'adding'}
+                              className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              {processing === 'adding' ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
+                              Hinzufügen
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <Users className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                          <p className="text-gray-500">
+                            Keine Benutzer zum Hinzufügen verfügbar.
+                          </p>
+                          <p className="text-sm text-gray-400 mt-2">
+                            Alle Benutzer sind bereits in dieser Organisation.
+                          </p>
                           <button
-                            type="button"
                             onClick={() => {
                               setShowAddMemberModal(null);
                               setSelectedUserToAdd('');
                             }}
-                            className="flex-1 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            className="mt-4 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                           >
-                            Abbrechen
-                          </button>
-                          <button
-                            onClick={() => addMemberToOrg(showAddMemberModal)}
-                            disabled={!selectedUserToAdd || processing === 'adding'}
-                            className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                          >
-                            {processing === 'adding' ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
-                            Hinzufügen
+                            Schließen
                           </button>
                         </div>
-                      </>
-                    ) : (
-                      <div className="text-center py-4">
-                        <Users className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                        <p className="text-gray-500">
-                          Keine verfügbaren Benutzer ohne Organisation gefunden.
-                        </p>
-                        <p className="text-sm text-gray-400 mt-2">
-                          Alle Benutzer sind bereits einer Organisation zugewiesen.
-                        </p>
-                        <button
-                          onClick={() => {
-                            setShowAddMemberModal(null);
-                            setSelectedUserToAdd('');
-                          }}
-                          className="mt-4 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                        >
-                          Schließen
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </motion.div>
               </motion.div>
             )}
@@ -874,7 +1032,7 @@ export default function OrganisationClient() {
                             <button
                               onClick={() => {
                                 setShowAddMemberModal(org.id);
-                                fetchAvailableUsers();
+                                fetchAvailableUsers(org.id);
                               }}
                               className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                             >
