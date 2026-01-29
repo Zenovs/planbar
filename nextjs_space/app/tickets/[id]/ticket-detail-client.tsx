@@ -49,6 +49,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { PriorityBadge } from '@/components/priority-badge';
 
 import { ProjectNotes } from '@/components/project-notes';
+import { MocoActualHours } from '@/components/moco-actual-hours';
 import { MilestoneTimeline } from '@/components/milestone-timeline';
 import { RichTextEditor, RichTextDisplay } from '@/components/richtext-editor';
 import { Header } from '@/components/header';
@@ -1480,6 +1481,15 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
               ticketId={ticket.id}
               currentUserId={session?.user?.id || ''}
             />
+
+            {/* Ist Stunden (nur wenn MOCO Projekt-ID vorhanden) */}
+            {ticket.mocoProjectId && (
+              <MocoActualHours
+                ticketId={ticket.id}
+                mocoProjectId={ticket.mocoProjectId}
+                estimatedHours={ticket.estimatedHours}
+              />
+            )}
 
             {/* Meilensteine Timeline */}
             <MilestoneTimeline

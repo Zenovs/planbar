@@ -1,8 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Calendar, User, AlertCircle, ListTodo, Clock } from 'lucide-react';
+import { Calendar, User, AlertCircle, ListTodo, Clock, ExternalLink } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { PriorityBadge } from './priority-badge';
 import { TicketWithRelations } from '@/lib/types';
@@ -15,6 +16,25 @@ interface TicketCardProps {
 }
 
 export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
+  // MOCO Ist-Stunden State
+  const [mocoHours, setMocoHours] = useState<number | null>(null);
+  const [mocoLoading, setMocoLoading] = useState(false);
+
+  // Lade MOCO Ist-Stunden wenn vorhanden
+  useEffect(() => {
+    if (ticket?.mocoProjectId && !mocoHours && !mocoLoading) {
+      setMocoLoading(true);
+      fetch(`/api/moco/activities?ticketId=${ticket.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && typeof data.totalHours === 'number') {
+            setMocoHours(data.totalHours);
+          }
+        })
+        .catch(console.error)
+        .finally(() => setMocoLoading(false));
+    }
+  }, [ticket?.mocoProjectId, ticket?.id]);
   const openSubtasksCount = ticket?._count?.subTasks || 0;
 
   // Berechne Progress und Stunden
@@ -135,12 +155,12 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
               </div>
             )}
 
-            {/* Budget-Anzeige */}
+            {/* Budget-Anzeige (Geplante Stunden) */}
             {estimatedHours > 0 && (
               <div className="mb-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-medium text-purple-700 dark:text-purple-400">
-                    Projekt-Budget
+                    Geplante Stunden
                   </span>
                   <span className={`text-xs font-semibold ${
                     budgetUsedPercentage > 90 
@@ -169,7 +189,7 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
                 </div>
                 <div className="flex items-center justify-between mt-1.5">
                   <span className="text-xs text-gray-600 dark:text-gray-400">
-                    {totalEstimatedHours}h von {estimatedHours}h verwendet
+                    {totalEstimatedHours}h von {estimatedHours}h geplant
                   </span>
                   <span className={`text-xs font-medium ${
                     totalEstimatedHours > estimatedHours 
@@ -181,6 +201,71 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
                       : `${(estimatedHours - totalEstimatedHours).toFixed(1)}h verfügbar`}
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* Ist Stunden (MOCO) - nur wenn mocoProjectId vorhanden */}
+            {ticket?.mocoProjectId && (
+              <div className="mb-3 bg-green-50 dark:bg-green-900/10 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-medium text-green-700 dark:text-green-400 flex items-center gap-1">
+                    <ExternalLink className="w-3 h-3" />
+                    Ist Stunden (MOCO)
+                  </span>
+                  {mocoLoading ? (
+                    <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                  ) : mocoHours !== null && estimatedHours > 0 ? (
+                    <span className={`text-xs font-semibold ${
+                      mocoHours > estimatedHours 
+                        ? 'text-red-600' 
+                        : mocoHours > estimatedHours * 0.9 
+                        ? 'text-orange-600' 
+                        : 'text-green-600'
+                    }`}>
+                      {Math.round((mocoHours / estimatedHours) * 100)}%
+                    </span>
+                  ) : null}
+                </div>
+                {mocoHours !== null ? (
+                  <>
+                    <div className="w-full bg-green-200 dark:bg-green-900/30 rounded-full h-2 overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${estimatedHours > 0 ? Math.min((mocoHours / estimatedHours) * 100, 100) : 0}%` }}
+                        transition={{ duration: 0.8, delay: index * 0.05 + 0.3 }}
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          background: mocoHours > estimatedHours
+                            ? 'linear-gradient(to right, #dc2626, #991b1b)'
+                            : mocoHours > estimatedHours * 0.9
+                            ? 'linear-gradient(to right, #ea580c, #c2410c)'
+                            : 'linear-gradient(to right, #10b981, #059669)',
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-xs text-gray-600 dark:text-gray-400">
+                        {mocoHours.toFixed(1)}h erfasst
+                        {estimatedHours > 0 && ` von ${estimatedHours}h`}
+                      </span>
+                      {estimatedHours > 0 && (
+                        <span className={`text-xs font-medium ${
+                          mocoHours > estimatedHours 
+                            ? 'text-red-600' 
+                            : 'text-green-600'
+                        }`}>
+                          {mocoHours > estimatedHours 
+                            ? `+${(mocoHours - estimatedHours).toFixed(1)}h über Budget` 
+                            : `${(estimatedHours - mocoHours).toFixed(1)}h übrig`}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-gray-500">
+                    {mocoLoading ? 'Lade Daten...' : 'Keine Daten verfügbar'}
+                  </div>
+                )}
               </div>
             )}
             

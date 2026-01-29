@@ -1,5 +1,50 @@
 import { decrypt } from './encryption';
 
+// MOCO Activity (Zeiterfassung) - Ist-Stunden
+export interface MocoActivity {
+  id: number;
+  date: string;
+  hours: number;
+  seconds: number;
+  description: string;
+  billed: boolean;
+  billable: boolean;
+  tag: string | null;
+  remote_service: string | null;
+  remote_id: string | null;
+  remote_url: string | null;
+  project: {
+    id: number;
+    name: string;
+    billable: boolean;
+  };
+  task: {
+    id: number;
+    name: string;
+    billable: boolean;
+  };
+  customer: {
+    id: number;
+    name: string;
+  };
+  user: {
+    id: number;
+    firstname: string;
+    lastname: string;
+  };
+  hourly_rate: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MocoActivitiesResponse {
+  success: boolean;
+  data?: MocoActivity[];
+  totalHours?: number;
+  byUser?: { userId: number; userName: string; hours: number }[];
+  error?: string;
+}
+
 // MOCO Schedule Entry (basierend auf offizieller API-Dokumentation)
 interface MocoSchedule {
   id: number;
@@ -281,7 +326,7 @@ export async function fetchMocoSchedules(
 }
 
 // Legacy-Funktion für Abwärtskompatibilität
-export async function fetchMocoActivities(
+export async function fetchMocoSchedulesLegacy(
   apiKeyEncrypted: string,
   apiKeyIv: string,
   instanceDomain: string,
@@ -289,6 +334,96 @@ export async function fetchMocoActivities(
   toDate: string
 ): Promise<MocoApiResponse> {
   return fetchMocoSchedules(apiKeyEncrypted, apiKeyIv, instanceDomain, fromDate, toDate);
+}
+
+/**
+ * Ruft die Zeiteinträge (Ist-Stunden) für ein MOCO Projekt ab
+ * @param mocoProjectId - MOCO Projekt-ID
+ */
+export async function fetchMocoProjectActivities(
+  apiKeyEncrypted: string,
+  apiKeyIv: string,
+  instanceDomain: string,
+  mocoProjectId: string
+): Promise<MocoActivitiesResponse> {
+  try {
+    const apiKey = decrypt(apiKeyEncrypted, apiKeyIv);
+    const baseUrl = `https://${instanceDomain}.mocoapp.com/api/v1`;
+    
+    // Abrufen aller Zeiteinträge für das Projekt
+    const url = `${baseUrl}/activities?project_id=${mocoProjectId}`;
+    console.log('MOCO Activities API Request:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Token token=${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      const statusCode = response.status;
+      let errorMessage = '';
+      
+      switch (statusCode) {
+        case 401:
+          errorMessage = 'Ungültiger API-Key';
+          break;
+        case 403:
+          errorMessage = 'Keine Berechtigung für Zeiteinträge';
+          break;
+        case 404:
+          errorMessage = 'Projekt nicht gefunden';
+          break;
+        default:
+          errorMessage = `MOCO API Fehler: ${statusCode}`;
+      }
+      
+      console.error(`MOCO Activities Fehler: ${statusCode}`);
+      return { success: false, error: errorMessage };
+    }
+    
+    const activities: MocoActivity[] = await response.json();
+    
+    if (!Array.isArray(activities)) {
+      return { success: false, error: 'Unerwartete API-Antwort' };
+    }
+    
+    // Berechne Gesamtstunden und gruppiere nach User
+    const totalHours = activities.reduce((sum, a) => sum + a.hours, 0);
+    
+    const userHoursMap = new Map<number, { userId: number; userName: string; hours: number }>();
+    activities.forEach(a => {
+      const existing = userHoursMap.get(a.user.id);
+      if (existing) {
+        existing.hours += a.hours;
+      } else {
+        userHoursMap.set(a.user.id, {
+          userId: a.user.id,
+          userName: `${a.user.firstname} ${a.user.lastname}`,
+          hours: a.hours
+        });
+      }
+    });
+    
+    const byUser = Array.from(userHoursMap.values()).sort((a, b) => b.hours - a.hours);
+    
+    console.log(`MOCO Projekt ${mocoProjectId}: ${totalHours}h von ${byUser.length} Personen`);
+    
+    return {
+      success: true,
+      data: activities,
+      totalHours: Math.round(totalHours * 100) / 100,
+      byUser
+    };
+  } catch (error) {
+    console.error('MOCO Activities Exception:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Verbindungsfehler'
+    };
+  }
 }
 
 /**
