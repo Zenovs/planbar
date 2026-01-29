@@ -167,6 +167,11 @@ export async function POST(request: NextRequest) {
       where: { id: userId },
       include: {
         organization: true,
+        organizationMemberships: {
+          include: {
+            organization: true,
+          },
+        },
       },
     });
 
@@ -174,43 +179,57 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
     }
 
-    // Prüfen ob User bereits in der Ziel-Organisation ist
-    if (targetUser.organizationId === organizationId) {
+    // Prüfen ob User bereits in der Ziel-Organisation ist (über OrganizationMember)
+    const existingMembership = await prisma.organizationMember.findUnique({
+      where: {
+        userId_organizationId: {
+          userId: userId,
+          organizationId: organizationId,
+        },
+      },
+    });
+
+    if (existingMembership) {
       return NextResponse.json({ error: 'User ist bereits in dieser Organisation' }, { status: 400 });
     }
 
-    // Prüfen ob User in einer anderen Organisation ist
-    if (targetUser.organizationId && !moveFromOtherOrg) {
-      // User ist in anderer Org - Frontend muss bestätigen
-      return NextResponse.json({ 
-        error: 'User ist bereits in einer anderen Organisation',
-        requiresConfirmation: true,
-        currentOrg: targetUser.organization?.name || 'Unbekannt',
-      }, { status: 409 });
-    }
+    // User zur Organisation hinzufügen (Multi-Org: OHNE aus anderer Org zu entfernen)
+    // 1. OrganizationMember-Eintrag erstellen
+    await prisma.organizationMember.create({
+      data: {
+        userId: userId,
+        organizationId: organizationId,
+        orgRole: orgRole,
+      },
+    });
 
-    // Wenn User aus anderer Org verschoben wird, alte Team-Mitgliedschaften entfernen
-    if (targetUser.organizationId && moveFromOtherOrg) {
-      // TeamMember-Einträge der alten Org löschen
-      await prisma.teamMember.deleteMany({
-        where: { userId },
+    // 2. Wenn User noch keine primäre Organisation hat, diese setzen
+    if (!targetUser.organizationId) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          organizationId: organizationId,
+          orgRole: orgRole,
+        },
       });
     }
 
-    // User zur Organisation hinzufügen (oder verschieben)
-    const updatedUser = await prisma.user.update({
+    // Aktualisierte User-Daten zurückgeben
+    const updatedUser = await prisma.user.findUnique({
       where: { id: userId },
-      data: {
-        organizationId: organizationId,
-        orgRole: orgRole,
-        teamId: null, // Team zurücksetzen bei Wechsel
-      },
       select: {
         id: true,
         name: true,
         email: true,
         orgRole: true,
         role: true,
+        organizationMemberships: {
+          include: {
+            organization: {
+              select: { id: true, name: true },
+            },
+          },
+        },
       },
     });
 

@@ -153,12 +153,7 @@ export default function OrganisationClient() {
     organization?: { id: string; name: string } | null;
   }[]>([]);
   const [editingMember, setEditingMember] = useState<string | null>(null);
-  const [confirmMoveUser, setConfirmMoveUser] = useState<{
-    userId: string;
-    userName: string;
-    currentOrgName: string;
-    targetOrgId: string;
-  } | null>(null);
+
   const [editUserData, setEditUserData] = useState<{
     role: string;
     teamId: string;
@@ -430,7 +425,6 @@ export default function OrganisationClient() {
           userId: selectedUserToAdd,
           organizationId: organizationId,
           orgRole: 'member',
-          moveFromOtherOrg: moveFromOtherOrg,
         }),
       });
 
@@ -440,56 +434,12 @@ export default function OrganisationClient() {
         toast.success('Mitglied hinzugefügt');
         setShowAddMemberModal(null);
         setSelectedUserToAdd('');
-        setConfirmMoveUser(null);
         fetchOrganization();
-      } else if (res.status === 409 && data.requiresConfirmation) {
-        // User ist in anderer Org - Bestätigung erforderlich
-        const selectedUser = availableUsers.find(u => u.id === selectedUserToAdd);
-        setConfirmMoveUser({
-          userId: selectedUserToAdd,
-          userName: selectedUser?.name || selectedUser?.email || 'Benutzer',
-          currentOrgName: data.currentOrg,
-          targetOrgId: organizationId,
-        });
       } else {
         toast.error(data.error || 'Fehler beim Hinzufügen');
       }
     } catch (error) {
       toast.error('Fehler beim Hinzufügen');
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  // Bestätigtes Verschieben aus anderer Organisation
-  const confirmMoveUserToOrg = async () => {
-    if (!confirmMoveUser) return;
-    
-    setProcessing('adding');
-    try {
-      const res = await fetch('/api/organizations/members', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: confirmMoveUser.userId,
-          organizationId: confirmMoveUser.targetOrgId,
-          orgRole: 'member',
-          moveFromOtherOrg: true,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success('Mitglied verschoben');
-        setShowAddMemberModal(null);
-        setSelectedUserToAdd('');
-        setConfirmMoveUser(null);
-        fetchOrganization();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || 'Fehler beim Verschieben');
-      }
-    } catch (error) {
-      toast.error('Fehler beim Verschieben');
     } finally {
       setProcessing(null);
     }
@@ -792,7 +742,6 @@ export default function OrganisationClient() {
                 onClick={() => {
                   setShowAddMemberModal(null);
                   setSelectedUserToAdd('');
-                  setConfirmMoveUser(null);
                 }}
               >
                 <motion.div
@@ -812,7 +761,6 @@ export default function OrganisationClient() {
                         onClick={() => {
                           setShowAddMemberModal(null);
                           setSelectedUserToAdd('');
-                          setConfirmMoveUser(null);
                         }} 
                         className="p-1 hover:bg-white/20 rounded"
                       >
@@ -821,45 +769,7 @@ export default function OrganisationClient() {
                     </div>
                   </div>
                   
-                  {/* Bestätigungs-Dialog für Verschieben aus anderer Org */}
-                  {confirmMoveUser ? (
-                    <div className="p-6 space-y-4">
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-amber-100 rounded-lg">
-                            <Building2 className="w-5 h-5 text-amber-600" />
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-amber-900">Benutzer verschieben?</h3>
-                            <p className="text-sm text-amber-700 mt-1">
-                              <strong>{confirmMoveUser.userName}</strong> ist bereits Mitglied von <strong>{confirmMoveUser.currentOrgName}</strong>.
-                            </p>
-                            <p className="text-sm text-amber-600 mt-2">
-                              Beim Verschieben werden Team-Zuweisungen der alten Organisation entfernt.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setConfirmMoveUser(null)}
-                          className="flex-1 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50"
-                        >
-                          Abbrechen
-                        </button>
-                        <button
-                          onClick={confirmMoveUserToOrg}
-                          disabled={processing === 'adding'}
-                          className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          {processing === 'adding' ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
-                          Verschieben
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                  <div className="p-6 space-y-4 overflow-y-auto flex-1">
                       {availableUsers.length > 0 ? (
                         <>
                           <div>
@@ -908,11 +818,11 @@ export default function OrganisationClient() {
                               })()}
                             </select>
                             
-                            {/* Info-Hinweis wenn User aus anderer Org ausgewählt */}
+                            {/* Info-Hinweis wenn User bereits in anderer Org ist */}
                             {selectedUserToAdd && availableUsers.find(u => u.id === selectedUserToAdd)?.organizationId && (
-                              <p className="mt-2 text-sm text-amber-600 flex items-center gap-1">
+                              <p className="mt-2 text-sm text-blue-600 flex items-center gap-1">
                                 <Building2 className="w-4 h-4" />
-                                Dieser Benutzer wird aus seiner aktuellen Organisation verschoben.
+                                Dieser Benutzer wird zusätzlich zu dieser Organisation hinzugefügt (Multi-Org).
                               </p>
                             )}
                           </div>
@@ -958,7 +868,6 @@ export default function OrganisationClient() {
                         </div>
                       )}
                     </div>
-                  )}
                 </motion.div>
               </motion.div>
             )}
