@@ -382,30 +382,93 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User nicht gefunden' }, { status: 404 });
     }
 
-    // System-Admin kann aus jedes Unternehmens entfernen
-    // Org-Admin nur aus seiner eigenen Organisation
-    if (!isSystemAdmin) {
-      if (!currentUser.organizationId || targetUser.organizationId !== currentUser.organizationId) {
-        return NextResponse.json({ error: 'Keine Berechtigung für dieses Unternehmen' }, { status: 403 });
-      }
-    } else if (organizationId && targetUser.organizationId !== organizationId) {
-      return NextResponse.json({ error: 'User nicht in diesem Unternehmen' }, { status: 404 });
+    // Bestimme die Organisation, aus der der User entfernt werden soll
+    const targetOrgId = organizationId || targetUser.organizationId;
+    
+    if (!targetOrgId) {
+      return NextResponse.json({ error: 'User ist keinem Unternehmen zugewiesen' }, { status: 400 });
     }
 
-    // User aus Organisation entfernen (nicht löschen!)
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        organizationId: null,
-        orgRole: 'member',
-        teamId: null, // Auch aus Teams entfernen
+    // System-Admin kann aus jedem Unternehmen entfernen
+    // Org-Admin nur aus seiner eigenen Organisation
+    if (!isSystemAdmin) {
+      if (!currentUser.organizationId || targetOrgId !== currentUser.organizationId) {
+        return NextResponse.json({ error: 'Keine Berechtigung für dieses Unternehmen' }, { status: 403 });
+      }
+    }
+
+    // Prüfe ob User überhaupt in diesem Unternehmen ist (über OrganizationMember oder primäre Organization)
+    const membership = await prisma.organizationMember.findUnique({
+      where: {
+        userId_organizationId: {
+          userId: userId,
+          organizationId: targetOrgId,
+        },
       },
     });
 
-    // TeamMember-Einträge löschen
-    await prisma.teamMember.deleteMany({
-      where: { userId },
+    const isPrimaryOrg = targetUser.organizationId === targetOrgId;
+
+    if (!membership && !isPrimaryOrg) {
+      return NextResponse.json({ error: 'User nicht in diesem Unternehmen' }, { status: 404 });
+    }
+
+    // 1. OrganizationMember-Eintrag für diese Organisation löschen (falls vorhanden)
+    if (membership) {
+      await prisma.organizationMember.delete({
+        where: {
+          userId_organizationId: {
+            userId: userId,
+            organizationId: targetOrgId,
+          },
+        },
+      });
+    }
+
+    // 2. TeamMember-Einträge für Teams in dieser Organisation löschen
+    const teamsInOrg = await prisma.team.findMany({
+      where: { organizationId: targetOrgId },
+      select: { id: true },
     });
+    const teamIdsInOrg = teamsInOrg.map(t => t.id);
+    
+    await prisma.teamMember.deleteMany({
+      where: {
+        userId: userId,
+        teamId: { in: teamIdsInOrg },
+      },
+    });
+
+    // 3. Prüfe ob User noch in anderen Organisationen ist
+    const remainingMemberships = await prisma.organizationMember.findMany({
+      where: { userId: userId },
+      include: { organization: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // 4. User-Daten aktualisieren
+    if (remainingMemberships.length > 0) {
+      // User hat noch andere Organisationen -> zur ersten wechseln
+      const nextOrg = remainingMemberships[0];
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          organizationId: nextOrg.organizationId,
+          orgRole: nextOrg.orgRole || 'member',
+          teamId: null, // Team zurücksetzen (könnte in anderer Org sein)
+        },
+      });
+    } else {
+      // User hat keine Organisationen mehr -> komplett entfernen
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          organizationId: null,
+          orgRole: 'member',
+          teamId: null,
+        },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
