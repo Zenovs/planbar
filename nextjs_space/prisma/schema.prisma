@@ -396,6 +396,7 @@ model MocoIntegration {
   apiKeyEncrypted     String    // Verschlüsselter API-Key
   apiKeyIv            String    // Initialization Vector für Verschlüsselung
   instanceDomain      String    // z.B. "meinefirma" für meinefirma.mocoapp.com
+  mocoEmail           String?   // MOCO Login-E-Mail für User-Validierung
   lastSyncAt          DateTime? // Letzter erfolgreicher Sync
   lastSyncStatus      String?   // "success" | "error"
   lastSyncError       String?   // Fehlermeldung falls vorhanden

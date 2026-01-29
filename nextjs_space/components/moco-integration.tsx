@@ -14,7 +14,8 @@ import {
   EyeOff,
   Info,
   Clock,
-  Calendar
+  Calendar,
+  Mail
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -28,6 +29,7 @@ interface IntegrationStatus {
   hasIntegration: boolean;
   integration: {
     instanceDomain: string;
+    mocoEmail: string | null;
     lastSyncAt: string | null;
     lastSyncStatus: string | null;
     lastSyncError: string | null;
@@ -45,6 +47,7 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
   
   const [apiKey, setApiKey] = useState('');
   const [instanceDomain, setInstanceDomain] = useState('');
+  const [mocoEmail, setMocoEmail] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
@@ -60,6 +63,7 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
       setStatus(data);
       if (data.integration) {
         setInstanceDomain(data.integration.instanceDomain);
+        setMocoEmail(data.integration.mocoEmail || '');
       }
     } catch (error) {
       console.error('Fehler beim Laden:', error);
@@ -72,8 +76,15 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!apiKey.trim() || !instanceDomain.trim()) {
+    if (!apiKey.trim() || !instanceDomain.trim() || !mocoEmail.trim()) {
       toast.error('Bitte füllen Sie alle Felder aus');
+      return;
+    }
+
+    // E-Mail-Format prüfen
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(mocoEmail.trim())) {
+      toast.error('Bitte geben Sie eine gültige E-Mail-Adresse ein');
       return;
     }
 
@@ -84,7 +95,8 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKey: apiKey.trim(),
-          instanceDomain: instanceDomain.trim()
+          instanceDomain: instanceDomain.trim(),
+          mocoEmail: mocoEmail.trim()
         })
       });
 
@@ -191,6 +203,14 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
                   Synchronisiert: Ferien, Feiertage, Krankheit, Schulungen
                 </li>
               </ul>
+              <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800">
+                <p className="text-amber-700 dark:text-amber-300 text-xs font-medium">
+                  ⚠️ Einseitige Synchronisation
+                </p>
+                <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                  Es werden nur Daten von MOCO nach planbar geholt. Änderungen in planbar werden <strong>nicht</strong> zurück zu MOCO geschrieben.
+                </p>
+              </div>
               <p className="mt-2 text-xs opacity-75">
                 Ihr API-Key wird verschlüsselt gespeichert und ist für andere nicht einsehbar.
                 Die Einträge erscheinen mit [MOCO] Prefix im Kalender.
@@ -224,6 +244,15 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
                 {status.integration.instanceDomain}.mocoapp.com
               </span>
             </div>
+
+            {status.integration.mocoEmail && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">MOCO E-Mail</span>
+                <span className="text-sm text-gray-900 dark:text-white">
+                  {status.integration.mocoEmail}
+                </span>
+              </div>
+            )}
 
             {status.integration.lastSyncAt && (
               <div className="flex items-center justify-between">
@@ -315,7 +344,23 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Der Teil vor .mocoapp.com in Ihrer MOCO-URL
+                  Der Teil vor .mocoapp.com in Ihrer MOCO-URL (z.B. https://<strong>meinefirma</strong>.mocoapp.com)
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Ihre MOCO Login E-Mail
+                </label>
+                <input
+                  type="email"
+                  value={mocoEmail}
+                  onChange={(e) => setMocoEmail(e.target.value)}
+                  placeholder="ihre.email@firma.ch"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Die E-Mail-Adresse, mit der Sie sich bei MOCO anmelden. So werden nur <strong>Ihre</strong> persönlichen Abwesenheiten synchronisiert.
                 </p>
               </div>
 
@@ -346,7 +391,7 @@ export function MocoIntegration({ onClose }: MocoIntegrationProps) {
 
               <button
                 type="submit"
-                disabled={saving || !apiKey.trim() || !instanceDomain.trim()}
+                disabled={saving || !apiKey.trim() || !instanceDomain.trim() || !mocoEmail.trim()}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
               >
                 {saving ? (

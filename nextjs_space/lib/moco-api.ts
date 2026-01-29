@@ -32,6 +32,14 @@ interface MocoSessionResponse {
   email: string;
 }
 
+// MOCO User für E-Mail-Validierung
+interface MocoUserResponse {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string;
+}
+
 export interface MocoApiResponse {
   success: boolean;
   data?: MocoSchedule[];
@@ -70,7 +78,7 @@ function isAllowedAbsence(name: string | undefined): boolean {
 export async function getMocoCurrentUser(
   apiKey: string,
   instanceDomain: string
-): Promise<{ success: boolean; userId?: number; userName?: string; error?: string }> {
+): Promise<{ success: boolean; userId?: number; userName?: string; userEmail?: string; error?: string }> {
   try {
     const baseUrl = `https://${instanceDomain}.mocoapp.com/api/v1`;
     const response = await fetch(`${baseUrl}/session`, {
@@ -89,7 +97,8 @@ export async function getMocoCurrentUser(
     return {
       success: true,
       userId: data.id,
-      userName: `${data.firstname} ${data.lastname}`
+      userName: `${data.firstname} ${data.lastname}`,
+      userEmail: data.email
     };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -97,31 +106,95 @@ export async function getMocoCurrentUser(
 }
 
 /**
- * Ruft NUR die Abwesenheiten (Ferien, Krank, Feiertage) des aktuellen MOCO-Users ab
+ * Sucht einen MOCO User anhand seiner E-Mail-Adresse
+ * Wird verwendet, um sicherzustellen, dass nur eigene Daten synchronisiert werden
+ */
+export async function findMocoUserByEmail(
+  apiKey: string,
+  instanceDomain: string,
+  email: string
+): Promise<{ success: boolean; userId?: number; userName?: string; error?: string }> {
+  try {
+    const baseUrl = `https://${instanceDomain}.mocoapp.com/api/v1`;
+    
+    // Alle User abrufen und nach E-Mail filtern
+    const response = await fetch(`${baseUrl}/users`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Token token=${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return { success: false, error: `Users API Fehler: ${response.status}` };
+    }
+
+    const users: MocoUserResponse[] = await response.json();
+    const matchingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    
+    if (!matchingUser) {
+      return { 
+        success: false, 
+        error: `Kein MOCO-Benutzer mit E-Mail "${email}" gefunden. Bitte prüfen Sie die eingegebene E-Mail-Adresse.` 
+      };
+    }
+
+    return {
+      success: true,
+      userId: matchingUser.id,
+      userName: `${matchingUser.firstname} ${matchingUser.lastname}`
+    };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+/**
+ * Ruft NUR die Abwesenheiten (Ferien, Krank, Feiertage) des angegebenen MOCO-Users ab
+ * @param mocoEmail - Optional: E-Mail-Adresse des MOCO-Users dessen Daten geholt werden sollen
  */
 export async function fetchMocoSchedules(
   apiKeyEncrypted: string,
   apiKeyIv: string,
   instanceDomain: string,
   fromDate: string,
-  toDate: string
+  toDate: string,
+  mocoEmail?: string
 ): Promise<MocoApiResponse> {
   try {
     const apiKey = decrypt(apiKeyEncrypted, apiKeyIv);
     const baseUrl = `https://${instanceDomain}.mocoapp.com/api/v1`;
     
-    // 1. Zuerst die MOCO User-ID des API-Key Besitzers holen
-    const userResult = await getMocoCurrentUser(apiKey, instanceDomain);
-    if (!userResult.success || !userResult.userId) {
-      return {
-        success: false,
-        error: userResult.error || 'Konnte MOCO User nicht ermitteln'
-      };
+    let mocoUserId: number;
+    let mocoUserName: string | undefined;
+    
+    // Wenn eine E-Mail angegeben ist, User über E-Mail suchen
+    if (mocoEmail) {
+      console.log(`MOCO: Suche User mit E-Mail: ${mocoEmail}`);
+      const userByEmail = await findMocoUserByEmail(apiKey, instanceDomain, mocoEmail);
+      if (!userByEmail.success || !userByEmail.userId) {
+        return {
+          success: false,
+          error: userByEmail.error || `MOCO-User mit E-Mail "${mocoEmail}" nicht gefunden`
+        };
+      }
+      mocoUserId = userByEmail.userId;
+      mocoUserName = userByEmail.userName;
+      console.log(`MOCO User per E-Mail gefunden: ${mocoUserName} (ID: ${mocoUserId})`);
+    } else {
+      // Fallback: API-Key Besitzer verwenden
+      const userResult = await getMocoCurrentUser(apiKey, instanceDomain);
+      if (!userResult.success || !userResult.userId) {
+        return {
+          success: false,
+          error: userResult.error || 'Konnte MOCO User nicht ermitteln'
+        };
+      }
+      mocoUserId = userResult.userId;
+      mocoUserName = userResult.userName;
+      console.log(`MOCO User (API-Key Owner): ${mocoUserName} (ID: ${mocoUserId})`);
     }
-
-    const mocoUserId = userResult.userId;
-    const mocoUserName = userResult.userName;
-    console.log(`MOCO User: ${mocoUserName} (ID: ${mocoUserId})`);
     
     // 2. Schedules NUR für diesen User abrufen (user_id Parameter!)
     const url = `${baseUrl}/schedules?from=${fromDate}&to=${toDate}&user_id=${mocoUserId}`;
@@ -202,13 +275,15 @@ export async function fetchMocoActivities(
 }
 
 /**
- * Testet die MOCO API Verbindung
+ * Testet die MOCO API Verbindung und validiert optional die E-Mail
+ * @param mocoEmail - Optional: E-Mail zur Validierung, dass dieser User existiert
  */
 export async function testMocoConnection(
   apiKeyEncrypted: string,
   apiKeyIv: string,
-  instanceDomain: string
-): Promise<{ success: boolean; error?: string; userName?: string }> {
+  instanceDomain: string,
+  mocoEmail?: string
+): Promise<{ success: boolean; error?: string; userName?: string; userEmail?: string }> {
   try {
     const apiKey = decrypt(apiKeyEncrypted, apiKeyIv);
     
@@ -231,9 +306,27 @@ export async function testMocoConnection(
     }
     
     const data = await response.json();
+    
+    // Wenn eine E-Mail angegeben wurde, validieren dass dieser User existiert
+    if (mocoEmail) {
+      const userByEmail = await findMocoUserByEmail(apiKey, instanceDomain, mocoEmail);
+      if (!userByEmail.success) {
+        return {
+          success: false,
+          error: userByEmail.error || `E-Mail "${mocoEmail}" in MOCO nicht gefunden`
+        };
+      }
+      return {
+        success: true,
+        userName: userByEmail.userName,
+        userEmail: mocoEmail
+      };
+    }
+    
     return {
       success: true,
-      userName: `${data.firstname} ${data.lastname}`
+      userName: `${data.firstname} ${data.lastname}`,
+      userEmail: data.email
     };
   } catch (error) {
     return {

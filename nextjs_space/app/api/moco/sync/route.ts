@@ -59,13 +59,14 @@ export async function POST() {
     const toDate = format(addMonths(today, 12), 'yyyy-MM-dd');
     console.log(`MOCO Sync Zeitraum: ${fromDate} bis ${toDate}`);
 
-    // Abwesenheiten von MOCO abrufen
+    // Abwesenheiten von MOCO abrufen (mit E-Mail-Filter für exakte User-Zuordnung)
     const result = await fetchMocoSchedules(
       integration.apiKeyEncrypted,
       integration.apiKeyIv,
       integration.instanceDomain,
       fromDate,
-      toDate
+      toDate,
+      integration.mocoEmail || undefined  // E-Mail für User-Identifikation
     );
 
     if (!result.success || !result.data) {

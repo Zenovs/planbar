@@ -27,6 +27,7 @@ export async function GET() {
       select: {
         id: true,
         instanceDomain: true,
+        mocoEmail: true,
         lastSyncAt: true,
         lastSyncStatus: true,
         lastSyncError: true,
@@ -39,6 +40,7 @@ export async function GET() {
       hasIntegration: !!integration,
       integration: integration ? {
         instanceDomain: integration.instanceDomain,
+        mocoEmail: integration.mocoEmail,
         lastSyncAt: integration.lastSyncAt,
         lastSyncStatus: integration.lastSyncStatus,
         lastSyncError: integration.lastSyncError,
@@ -70,12 +72,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { apiKey, instanceDomain } = body;
+    const { apiKey, instanceDomain, mocoEmail } = body;
 
     // Validierung
-    if (!apiKey || !instanceDomain) {
+    if (!apiKey || !instanceDomain || !mocoEmail) {
       return NextResponse.json(
-        { error: 'API-Key und Instance-Domain sind erforderlich' },
+        { error: 'API-Key, Instance-Domain und MOCO E-Mail sind erforderlich' },
+        { status: 400 }
+      );
+    }
+
+    // E-Mail-Format validieren
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(mocoEmail)) {
+      return NextResponse.json(
+        { error: 'Ungültiges E-Mail-Format' },
         { status: 400 }
       );
     }
@@ -104,8 +115,8 @@ export async function POST(request: NextRequest) {
     // API-Key verschlüsseln
     const { encrypted, iv } = encrypt(apiKey);
 
-    // Verbindung testen
-    const testResult = await testMocoConnection(encrypted, iv, cleanDomain);
+    // Verbindung testen UND E-Mail validieren
+    const testResult = await testMocoConnection(encrypted, iv, cleanDomain, mocoEmail.trim());
     if (!testResult.success) {
       return NextResponse.json(
         { error: `Verbindungstest fehlgeschlagen: ${testResult.error}` },
@@ -121,12 +132,14 @@ export async function POST(request: NextRequest) {
         apiKeyEncrypted: encrypted,
         apiKeyIv: iv,
         instanceDomain: cleanDomain,
+        mocoEmail: mocoEmail.trim().toLowerCase(),
         isActive: true
       },
       update: {
         apiKeyEncrypted: encrypted,
         apiKeyIv: iv,
         instanceDomain: cleanDomain,
+        mocoEmail: mocoEmail.trim().toLowerCase(),
         isActive: true,
         lastSyncError: null
       }
@@ -137,6 +150,7 @@ export async function POST(request: NextRequest) {
       message: `Verbindung erfolgreich hergestellt für ${testResult.userName}`,
       integration: {
         instanceDomain: integration.instanceDomain,
+        mocoEmail: integration.mocoEmail,
         isActive: integration.isActive
       }
     });
