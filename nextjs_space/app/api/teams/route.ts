@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
         organizationMemberships: {
           select: {
             organizationId: true,
-            role: true,
+            orgRole: true,
           },
         },
       },
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     const canManageOrgTeams = ['admin_organisation', 'org_admin', 'projektleiter'].includes(userRole);
 
     // Build where clause: Filter by organization first, then by role
-    const whereClause: any = {};
+    const whereClause: Record<string, unknown> = {};
     
     // System-Admin kann nach beliebiger Organisation filtern oder alle sehen
     if (userIsAdmin) {
@@ -55,8 +55,8 @@ export async function GET(req: NextRequest) {
       
       // Zusätzliche Organisationen durch Memberships (nur wenn dort mind. Projektleiter)
       const allowedMembershipRoles = ['admin_organisation', 'org_admin', 'projektleiter'];
-      currentUser?.organizationMemberships?.forEach((m) => {
-        if (allowedMembershipRoles.includes(m.role?.toLowerCase() || '')) {
+      currentUser?.organizationMemberships?.forEach((m: { organizationId: string; orgRole: string | null }) => {
+        if (allowedMembershipRoles.includes(m.orgRole?.toLowerCase() || '')) {
           if (!userOrgIds.includes(m.organizationId)) {
             userOrgIds.push(m.organizationId);
           }
