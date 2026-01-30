@@ -55,6 +55,7 @@ interface Customer {
 interface Organization {
   id: string;
   name: string;
+  userOrgRole?: string;
 }
 
 interface UnassignedTicket {
@@ -242,12 +243,23 @@ export default function KundenClient() {
       const data = await res.json();
       if (res.ok) {
         const orgs: Organization[] = [];
+        // Rollen die Kundenverwaltung erlauben
+        const allowedRoles = ['admin', 'admin_organisation', 'org_admin', 'projektleiter'];
+        
         if (data.userOrganizations) {
-          data.userOrganizations.forEach((org: Organization) => {
-            orgs.push({ id: org.id, name: org.name });
+          data.userOrganizations.forEach((org: { id: string; name: string; userOrgRole?: string }) => {
+            // Nur Organisationen hinzufügen, bei denen der User eine ausreichende Rolle hat
+            const orgRole = org.userOrgRole?.toLowerCase() || '';
+            if (allowedRoles.includes(orgRole)) {
+              orgs.push({ id: org.id, name: org.name, userOrgRole: org.userOrgRole });
+            }
           });
         } else if (data.organization) {
-          orgs.push({ id: data.organization.id, name: data.organization.name });
+          // Fallback: Prüfe die globale orgRole
+          const userOrgRole = data.orgRole?.toLowerCase() || '';
+          if (allowedRoles.includes(userOrgRole) || data.userRole?.toLowerCase() === 'admin') {
+            orgs.push({ id: data.organization.id, name: data.organization.name });
+          }
         }
         setOrganizations(orgs);
         if (orgs.length === 1) {

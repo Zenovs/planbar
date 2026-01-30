@@ -18,7 +18,11 @@ export async function GET(request: NextRequest) {
     const currentUser = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: {
-        organizationMemberships: true,
+        organizationMemberships: {
+          include: {
+            organization: { select: { id: true } },
+          },
+        },
       },
     });
 
@@ -40,16 +44,33 @@ export async function GET(request: NextRequest) {
     const organizationId = searchParams.get('organizationId');
     const activeOnly = searchParams.get('activeOnly') === 'true';
 
-    // Sammle alle Organisations-IDs, auf die der User Zugriff hat
+    // Rollen die Kundenverwaltung erlauben
+    const allowedRoles = ['admin', 'admin_organisation', 'org_admin', 'projektleiter'];
+
+    // Sammle nur Organisations-IDs, bei denen der User eine ausreichende Rolle hat
     const orgIds: string[] = [];
+    
+    // Primäre Organisation: Prüfe orgRole
     if (currentUser.organizationId) {
-      orgIds.push(currentUser.organizationId);
+      const primaryOrgRole = currentUser.orgRole?.toLowerCase() || '';
+      if (isSystemAdmin || allowedRoles.includes(primaryOrgRole)) {
+        orgIds.push(currentUser.organizationId);
+      }
     }
-    currentUser.organizationMemberships?.forEach((m: { organizationId: string }) => {
-      if (!orgIds.includes(m.organizationId)) {
+    
+    // Membership-Organisationen: Prüfe jeweilige orgRole
+    currentUser.organizationMemberships?.forEach((m: { organizationId: string; orgRole: string | null }) => {
+      const membershipRole = m.orgRole?.toLowerCase() || '';
+      if (allowedRoles.includes(membershipRole) && !orgIds.includes(m.organizationId)) {
         orgIds.push(m.organizationId);
       }
     });
+
+    // Sicherheitsprüfung: Wenn organizationId Filter übergeben wurde, 
+    // muss der User auch Zugriff auf diese Organisation haben
+    if (organizationId && !orgIds.includes(organizationId)) {
+      return NextResponse.json({ error: 'Keine Berechtigung für diese Organisation' }, { status: 403 });
+    }
 
     // Build where clause
     const whereClause: any = {
