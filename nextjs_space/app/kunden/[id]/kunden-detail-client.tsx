@@ -133,12 +133,12 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
     name: '',
     description: '',
     levelId: '',
-    teamId: '',
+    teamId: '__none__',
     isExternal: false,
     startDate: '',
     endDate: '',
     color: '#10b981',
-    dependsOnId: '',
+    dependsOnId: '__none__',
     status: 'planned',
   });
 
@@ -270,10 +270,16 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
 
     setProcessing(true);
     try {
+      // Convert __none__ values to empty strings for API
+      const submitData = {
+        ...projectForm,
+        teamId: projectForm.teamId === '__none__' ? '' : projectForm.teamId,
+        dependsOnId: projectForm.dependsOnId === '__none__' ? '' : projectForm.dependsOnId,
+      };
       const res = await fetch(`/api/customers/${customerId}/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(projectForm),
+        body: JSON.stringify(submitData),
       });
 
       if (res.ok) {
@@ -297,10 +303,16 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
 
     setProcessing(true);
     try {
+      // Convert __none__ values to empty strings for API
+      const submitData = {
+        ...projectForm,
+        teamId: projectForm.teamId === '__none__' ? '' : projectForm.teamId,
+        dependsOnId: projectForm.dependsOnId === '__none__' ? '' : projectForm.dependsOnId,
+      };
       const res = await fetch(`/api/customers/${customerId}/projects`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: editingProject.id, ...projectForm }),
+        body: JSON.stringify({ projectId: editingProject.id, ...submitData }),
       });
 
       if (res.ok) {
@@ -344,12 +356,12 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
       name: '',
       description: '',
       levelId: selectedLevelId,
-      teamId: '',
+      teamId: '__none__',
       isExternal: false,
       startDate: '',
       endDate: '',
       color: '#10b981',
-      dependsOnId: '',
+      dependsOnId: '__none__',
       status: 'planned',
     });
   };
@@ -373,12 +385,12 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
         name: project.name,
         description: project.description || '',
         levelId: project.levelId,
-        teamId: project.teamId || '',
+        teamId: project.teamId || '__none__',
         isExternal: project.isExternal,
         startDate: project.startDate ? format(new Date(project.startDate), 'yyyy-MM-dd') : '',
         endDate: project.endDate ? format(new Date(project.endDate), 'yyyy-MM-dd') : '',
         color: project.color,
-        dependsOnId: project.dependsOnId || '',
+        dependsOnId: project.dependsOnId || '__none__',
         status: project.status,
       });
     } else {
@@ -387,12 +399,12 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
         name: '',
         description: '',
         levelId,
-        teamId: '',
+        teamId: '__none__',
         isExternal: false,
         startDate: '',
         endDate: '',
         color: '#10b981',
-        dependsOnId: '',
+        dependsOnId: '__none__',
         status: 'planned',
       });
     }
@@ -1032,7 +1044,7 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
               </div>
               <Switch
                 checked={projectForm.isExternal}
-                onCheckedChange={(checked) => setProjectForm({ ...projectForm, isExternal: checked, teamId: '' })}
+                onCheckedChange={(checked) => setProjectForm({ ...projectForm, isExternal: checked, teamId: '__none__' })}
               />
             </div>
             {!projectForm.isExternal && (
@@ -1046,7 +1058,7 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
                     <SelectValue placeholder="Team auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Kein Team</SelectItem>
+                    <SelectItem value="__none__">Kein Team</SelectItem>
                     {teams.map((team) => (
                       <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
                     ))}
@@ -1082,7 +1094,7 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
                   <SelectValue placeholder="Keine Abhängigkeit" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Keine Abhängigkeit</SelectItem>
+                  <SelectItem value="__none__">Keine Abhängigkeit</SelectItem>
                   {allProjects
                     .filter(p => p.id !== editingProject?.id)
                     .map((project) => (

@@ -60,7 +60,7 @@ export default function KundenClient() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterOrg, setFilterOrg] = useState<string>('');
+  const [filterOrg, setFilterOrg] = useState<string>('all');
   const [filterActive, setFilterActive] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -235,7 +235,7 @@ export default function KundenClient() {
       customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesOrg = !filterOrg || customer.organization.id === filterOrg;
+    const matchesOrg = filterOrg === 'all' || customer.organization.id === filterOrg;
     const matchesActive = filterActive === 'all' || 
       (filterActive === 'active' && customer.isActive) ||
       (filterActive === 'inactive' && !customer.isActive);
@@ -284,7 +284,7 @@ export default function KundenClient() {
                   <SelectValue placeholder="Alle Unternehmen" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Alle Unternehmen</SelectItem>
+                  <SelectItem value="all">Alle Unternehmen</SelectItem>
                   {organizations.map((org) => (
                     <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
                   ))}
