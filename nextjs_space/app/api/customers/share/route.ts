@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
           include: {
             projects: {
               orderBy: { position: 'asc' },
-              where: { isExternal: false }, // Nur nicht-externe Projekte zeigen
+              // Alle Projekte anzeigen (intern und extern)
               include: {
                 team: { select: { name: true, color: true } },
                 dependsOn: { select: { id: true, name: true } },
@@ -31,7 +31,6 @@ export async function GET(request: NextRequest) {
           },
         },
         projects: {
-          where: { isExternal: false },
           orderBy: [{ level: { position: 'asc' } }, { position: 'asc' }],
           include: {
             level: { select: { id: true, name: true, color: true } },
