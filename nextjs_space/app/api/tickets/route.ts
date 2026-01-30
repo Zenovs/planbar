@@ -52,24 +52,34 @@ export async function GET(req: NextRequest) {
     // Role-based filtering
     const userRole = currentUser?.role?.toLowerCase() || '';
     const isSystemAdmin = userRole === 'admin';
-    const isAdminUnternehmen = ['admin_organisation', 'org_admin'].includes(userRole);
-    const isProjektleiter = userRole === 'projektleiter';
     
     // Aus Datenschutzgründen sehen System-Admins keine Projekt-/Ticket-Details
     if (isSystemAdmin) {
       return NextResponse.json({ tickets: [], message: 'Admins haben aus Datenschutzgründen keinen Zugriff auf Projektdetails' });
     }
 
-    // Admin Unternehmen und Projektleiter können alle Tickets ihrer Organisationen sehen
-    const canSeeOrgTickets = isAdminUnternehmen || isProjektleiter;
+    // Prüfe ob User als Admin Unternehmen oder Projektleiter in mind. einer Organisation ist
+    const allowedMembershipRoles = ['admin_organisation', 'org_admin', 'projektleiter'];
+    const isAdminUnternehmen = ['admin_organisation', 'org_admin'].includes(userRole);
+    const isProjektleiter = userRole === 'projektleiter';
+    
+    // Prüfe auch orgRole aus OrganizationMemberships
+    const hasOrgAdminRole = currentUser?.organizationMemberships?.some(
+      (m: { orgRole: string | null }) => allowedMembershipRoles.includes(m.orgRole?.toLowerCase() || '')
+    ) || false;
 
-    // Sammle alle Organisations-IDs des Users
+    // Admin Unternehmen und Projektleiter können alle Tickets ihrer Organisationen sehen
+    const canSeeOrgTickets = isAdminUnternehmen || isProjektleiter || hasOrgAdminRole;
+
+    // Sammle alle Organisations-IDs des Users (für Berechtigte Rollen)
     const userOrgIds: string[] = [];
-    if (currentUser?.organizationId) {
+    
+    // Wenn User eine berechtigte Rolle hat, füge primäre Organisation hinzu
+    if (canSeeOrgTickets && currentUser?.organizationId) {
       userOrgIds.push(currentUser.organizationId);
     }
+    
     // Zusätzliche Organisationen durch Memberships (nur wenn dort mind. Projektleiter)
-    const allowedMembershipRoles = ['admin_organisation', 'org_admin', 'projektleiter'];
     currentUser?.organizationMemberships?.forEach((m: { organizationId: string; orgRole: string | null }) => {
       if (allowedMembershipRoles.includes(m.orgRole?.toLowerCase() || '')) {
         if (!userOrgIds.includes(m.organizationId)) {

@@ -48,7 +48,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { name, description, levelId, teamId, isExternal, startDate, endDate, color, dependsOnId } = body;
+    const { name, description, levelId, teamId, isExternal, startDate, endDate, color, dependsOnId, mocoId, plannedHours } = body;
 
     if (!name || !levelId) {
       return NextResponse.json({ error: 'Name und Level sind erforderlich' }, { status: 400 });
@@ -71,8 +71,8 @@ export async function POST(
 
     // Erstelle das Projekt
     // Convert empty strings to null for foreign key relations
-    const finalTeamId = isExternal ? null : (teamId && teamId !== '' ? teamId : null);
-    const finalDependsOnId = dependsOnId && dependsOnId !== '' ? dependsOnId : null;
+    const finalTeamId = isExternal ? null : (teamId && teamId !== '' && teamId !== '__none__' ? teamId : null);
+    const finalDependsOnId = dependsOnId && dependsOnId !== '' && dependsOnId !== '__none__' ? dependsOnId : null;
     
     const project = await prisma.customerProject.create({
       data: {
@@ -87,6 +87,8 @@ export async function POST(
         color: color || '#10b981',
         position: maxPosition + 1,
         dependsOnId: finalDependsOnId,
+        mocoId: mocoId || null,
+        plannedHours: plannedHours ? parseFloat(plannedHours) : null,
       },
       include: {
         team: { select: { id: true, name: true, color: true } },
@@ -105,6 +107,7 @@ export async function POST(
           priority: 'medium',
           createdById: currentUser.id,
           teamId: finalTeamId,
+          estimatedHours: plannedHours ? parseFloat(plannedHours) : null,
         },
       });
 
@@ -155,7 +158,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { projectId, name, description, levelId, teamId, isExternal, startDate, endDate, status, color, position, dependsOnId } = body;
+    const { projectId, name, description, levelId, teamId, isExternal, startDate, endDate, status, color, position, dependsOnId, mocoId, plannedHours } = body;
 
     if (!projectId) {
       return NextResponse.json({ error: 'Projekt-ID erforderlich' }, { status: 400 });
@@ -183,8 +186,8 @@ export async function PUT(
 
     // Aktualisiere das Projekt
     // Convert empty strings to null for foreign key relations
-    const updateTeamId = teamId !== undefined ? (teamId && teamId !== '' ? teamId : null) : undefined;
-    const updateDependsOnId = dependsOnId !== undefined ? (dependsOnId && dependsOnId !== '' ? dependsOnId : null) : undefined;
+    const updateTeamId = teamId !== undefined ? (teamId && teamId !== '' && teamId !== '__none__' ? teamId : null) : undefined;
+    const updateDependsOnId = dependsOnId !== undefined ? (dependsOnId && dependsOnId !== '' && dependsOnId !== '__none__' ? dependsOnId : null) : undefined;
     
     const updatedProject = await prisma.customerProject.update({
       where: { id: projectId },
@@ -200,6 +203,8 @@ export async function PUT(
         ...(color !== undefined && { color }),
         ...(position !== undefined && { position }),
         ...(updateDependsOnId !== undefined && { dependsOnId: updateDependsOnId }),
+        ...(mocoId !== undefined && { mocoId: mocoId || null }),
+        ...(plannedHours !== undefined && { plannedHours: plannedHours ? parseFloat(plannedHours) : null }),
       },
       include: {
         team: { select: { id: true, name: true, color: true } },
@@ -211,13 +216,14 @@ export async function PUT(
     });
 
     // Aktualisiere auch das verknüpfte Ticket wenn vorhanden
-    if (project.ticket && (name !== undefined || description !== undefined || updateTeamId !== undefined)) {
+    if (project.ticket && (name !== undefined || description !== undefined || updateTeamId !== undefined || plannedHours !== undefined)) {
       await prisma.ticket.update({
         where: { id: project.ticket.id },
         data: {
           ...(name !== undefined && { title: name }),
           ...(description !== undefined && { description }),
           ...(updateTeamId !== undefined && !isExternal && { teamId: updateTeamId }),
+          ...(plannedHours !== undefined && { estimatedHours: plannedHours ? parseFloat(plannedHours) : null }),
         },
       });
     }

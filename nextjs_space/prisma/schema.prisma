@@ -445,6 +445,8 @@ model CustomerProject {
   isExternal    Boolean              @default(false)
   position      Int                  @default(0)
   color         String               @default("#10b981")
+  mocoId        String?
+  plannedHours  Float?
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   customerId    String

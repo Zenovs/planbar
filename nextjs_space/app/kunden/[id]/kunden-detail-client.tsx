@@ -140,6 +140,8 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
     color: '#10b981',
     dependsOnId: '__none__',
     status: 'planned',
+    mocoId: '',
+    plannedHours: '',
   });
 
   // Timeline state
@@ -392,6 +394,8 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
         color: project.color,
         dependsOnId: project.dependsOnId || '__none__',
         status: project.status,
+        mocoId: (project as Project & { mocoId?: string }).mocoId || '',
+        plannedHours: (project as Project & { plannedHours?: number }).plannedHours?.toString() || '',
       });
     } else {
       setEditingProject(null);
@@ -406,6 +410,8 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
         color: '#10b981',
         dependsOnId: '__none__',
         status: 'planned',
+        mocoId: '',
+        plannedHours: '',
       });
     }
     setShowProjectModal(true);
@@ -1104,6 +1110,27 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
                     ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Moco ID</Label>
+                <Input
+                  placeholder="z.B. 12345"
+                  value={projectForm.mocoId}
+                  onChange={(e) => setProjectForm({ ...projectForm, mocoId: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Vorgabe-Stunden</Label>
+                <Input
+                  type="number"
+                  placeholder="z.B. 40"
+                  min="0"
+                  step="0.5"
+                  value={projectForm.plannedHours}
+                  onChange={(e) => setProjectForm({ ...projectForm, plannedHours: e.target.value })}
+                />
+              </div>
             </div>
             <div>
               <Label>Farbe</Label>
