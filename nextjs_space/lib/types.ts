@@ -21,9 +21,26 @@ export type SimpleUser = Pick<User, 'id' | 'name' | 'email'>;
 // User with role and creation date
 export type UserInfo = Pick<User, 'id' | 'name' | 'email' | 'role' | 'createdAt'>;
 
+// Customer project info for ticket relations
+export interface CustomerProjectInfo {
+  id: string;
+  name: string;
+  customer: {
+    id: string;
+    name: string;
+    color: string;
+  };
+  level: {
+    id: string;
+    name: string;
+    color: string;
+  };
+}
+
 export type TicketWithRelations = Ticket & {
   assignedTo: SimpleUser | null;
   createdBy: SimpleUser;
+  customerProject?: CustomerProjectInfo | null;
   _count?: {
     subTasks?: number;
   };

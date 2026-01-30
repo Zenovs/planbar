@@ -222,6 +222,26 @@ export async function GET(req: NextRequest) {
           },
           orderBy: { position: 'asc' },
         },
+        customerProject: {
+          select: {
+            id: true,
+            name: true,
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+              },
+            },
+            level: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             subTasks: {

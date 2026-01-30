@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Calendar, User, AlertCircle, ListTodo, Clock, ExternalLink } from 'lucide-react';
+import { Calendar, User, AlertCircle, ListTodo, Clock, ExternalLink, Building2 } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { PriorityBadge } from './priority-badge';
 import { TicketWithRelations } from '@/lib/types';
@@ -75,6 +75,21 @@ export function TicketCard({ ticket, index = 0 }: TicketCardProps) {
                 >
                   <ListTodo className="w-3 h-3" />
                   <span>{openSubtasksCount}</span>
+                </span>
+              )}
+              {/* Kunden-Badge */}
+              {ticket?.customerProject?.customer && (
+                <span 
+                  className="px-2 py-0.5 rounded-full text-xs font-medium border flex items-center gap-1"
+                  style={{ 
+                    backgroundColor: `${ticket.customerProject.customer.color}15`,
+                    borderColor: `${ticket.customerProject.customer.color}40`,
+                    color: ticket.customerProject.customer.color 
+                  }}
+                  title={`Kunde: ${ticket.customerProject.customer.name}`}
+                >
+                  <Building2 className="w-3 h-3" />
+                  <span className="truncate max-w-[100px]">{ticket.customerProject.customer.name}</span>
                 </span>
               )}
             </div>

@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, email, phone, address, description, contactPerson, color, organizationId } = body;
+    const { name, email, phone, address, description, contactPerson, color, organizationId, levels, projectAssignments } = body;
 
     if (!name) {
       return NextResponse.json({ error: 'Name ist erforderlich' }, { status: 400 });
@@ -150,22 +150,113 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const customer = await prisma.customer.create({
-      data: {
-        name,
-        email,
-        phone,
-        address,
-        description,
-        contactPerson,
-        color: color || '#3b82f6',
-        organizationId: targetOrgId,
-      },
-      include: {
-        organization: {
-          select: { id: true, name: true },
+    // Erstelle Kunden mit Levels und Projektzuordnungen in einer Transaktion
+    const customer = await prisma.$transaction(async (tx) => {
+      // Erstelle den Kunden
+      const newCustomer = await tx.customer.create({
+        data: {
+          name,
+          email,
+          phone,
+          address,
+          description,
+          contactPerson,
+          color: color || '#3b82f6',
+          organizationId: targetOrgId,
         },
-      },
+      });
+
+      // Erstelle Levels falls vorhanden
+      interface LevelInput {
+        name: string;
+        description?: string;
+        color?: string;
+        position?: number;
+        tempId?: string;
+      }
+      
+      const levelMap = new Map<string, string>(); // tempId -> realId
+      
+      if (levels && Array.isArray(levels) && levels.length > 0) {
+        for (let i = 0; i < levels.length; i++) {
+          const level: LevelInput = levels[i];
+          const createdLevel = await tx.customerLevel.create({
+            data: {
+              name: level.name,
+              description: level.description || null,
+              color: level.color || '#6366f1',
+              position: level.position ?? i,
+              customerId: newCustomer.id,
+            },
+          });
+          if (level.tempId) {
+            levelMap.set(level.tempId, createdLevel.id);
+          }
+        }
+      }
+
+      // Erstelle Projektzuordnungen falls vorhanden
+      interface ProjectAssignment {
+        ticketId: string;
+        levelTempId: string;
+        name?: string;
+        startDate?: string;
+        endDate?: string;
+        status?: string;
+        color?: string;
+      }
+      
+      if (projectAssignments && Array.isArray(projectAssignments) && projectAssignments.length > 0) {
+        for (const assignment of projectAssignments as ProjectAssignment[]) {
+          const realLevelId = levelMap.get(assignment.levelTempId);
+          if (realLevelId && assignment.ticketId) {
+            // Hole Ticket-Informationen für den Namen
+            const ticket = await tx.ticket.findUnique({
+              where: { id: assignment.ticketId },
+              select: { title: true, teamId: true },
+            });
+            
+            if (ticket) {
+              await tx.customerProject.create({
+                data: {
+                  name: assignment.name || ticket.title,
+                  customerId: newCustomer.id,
+                  levelId: realLevelId,
+                  ticketId: assignment.ticketId,
+                  teamId: ticket.teamId,
+                  startDate: assignment.startDate ? new Date(assignment.startDate) : null,
+                  endDate: assignment.endDate ? new Date(assignment.endDate) : null,
+                  status: assignment.status || 'planned',
+                  color: assignment.color || '#10b981',
+                },
+              });
+            }
+          }
+        }
+      }
+
+      // Lade den kompletten Kunden mit allen Relationen
+      return tx.customer.findUnique({
+        where: { id: newCustomer.id },
+        include: {
+          organization: {
+            select: { id: true, name: true },
+          },
+          levels: {
+            orderBy: { position: 'asc' },
+          },
+          projects: {
+            include: {
+              team: { select: { id: true, name: true, color: true } },
+              level: { select: { id: true, name: true } },
+              ticket: { select: { id: true, title: true } },
+            },
+          },
+          _count: {
+            select: { levels: true, projects: true },
+          },
+        },
+      });
     });
 
     return NextResponse.json({ customer }, { status: 201 });
