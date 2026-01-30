@@ -365,6 +365,8 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
       color: '#10b981',
       dependsOnId: '__none__',
       status: 'planned',
+      mocoId: '',
+      plannedHours: '',
     });
   };
 
