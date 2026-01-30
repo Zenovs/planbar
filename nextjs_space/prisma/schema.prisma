@@ -21,6 +21,7 @@ model Organization {
   teams       Team[]
   users       User[]
   members     OrganizationMember[]
+  customers   Customer[]
 
   @@map("organizations")
 }
@@ -151,18 +152,19 @@ model VerificationToken {
 }
 
 model Team {
-  id             String        @id @default(cuid())
-  name           String
-  description    String?
-  color          String        @default("#3b82f6")
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organizationId String?
-  teamMembers    TeamMember[]
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  templates      Template[]
-  tickets        Ticket[]
-  members        User[]
+  id               String            @id @default(cuid())
+  name             String
+  description      String?
+  color            String            @default("#3b82f6")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  organizationId   String?
+  teamMembers      TeamMember[]
+  organization     Organization?     @relation(fields: [organizationId], references: [id])
+  templates        Template[]
+  tickets          Ticket[]
+  members          User[]
+  customerProjects CustomerProject[]
 
   @@map("teams")
 }
@@ -206,6 +208,7 @@ model Ticket {
   createdBy        User             @relation("CreatedTickets", fields: [createdById], references: [id])
   projectManager   User?            @relation("ManagedTickets", fields: [projectManagerId], references: [id])
   team             Team?            @relation(fields: [teamId], references: [id])
+  customerProject  CustomerProject?
 
   @@map("tickets")
 }
@@ -392,4 +395,69 @@ model MocoCalendarEntry {
 
   @@unique([mocoId, integrationId])
   @@map("moco_calendar_entries")
+}
+
+// Kunden-Management
+model Customer {
+  id             String            @id @default(cuid())
+  name           String
+  email          String?
+  phone          String?
+  address        String?
+  description    String?
+  contactPerson  String?
+  color          String            @default("#3b82f6")
+  isActive       Boolean           @default(true)
+  shareToken     String?           @unique
+  shareEnabled   Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  levels         CustomerLevel[]
+  projects       CustomerProject[]
+
+  @@map("customers")
+}
+
+model CustomerLevel {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  position    Int               @default(0)
+  color       String            @default("#6366f1")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  customerId  String
+  customer    Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  projects    CustomerProject[]
+
+  @@map("customer_levels")
+}
+
+model CustomerProject {
+  id            String               @id @default(cuid())
+  name          String
+  description   String?
+  status        String               @default("planned")
+  startDate     DateTime?
+  endDate       DateTime?
+  isExternal    Boolean              @default(false)
+  position      Int                  @default(0)
+  color         String               @default("#10b981")
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  customerId    String
+  levelId       String
+  teamId        String?
+  ticketId      String?              @unique
+  dependsOnId   String?
+  customer      Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  level         CustomerLevel        @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  team          Team?                @relation(fields: [teamId], references: [id])
+  ticket        Ticket?              @relation(fields: [ticketId], references: [id])
+  dependsOn     CustomerProject?     @relation("ProjectDependency", fields: [dependsOnId], references: [id])
+  dependents    CustomerProject[]    @relation("ProjectDependency")
+
+  @@map("customer_projects")
 }

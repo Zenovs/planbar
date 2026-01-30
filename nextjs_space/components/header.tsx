@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Ticket, LogOut, Users, LayoutDashboard, User, Settings, Sparkles, Menu, X, CalendarDays, CheckSquare, Wallet, Building2 } from 'lucide-react';
+import { Ticket, LogOut, Users, LayoutDashboard, User, Settings, Sparkles, Menu, X, CalendarDays, CheckSquare, Wallet, Building2, Briefcase } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   DropdownMenu,
@@ -32,6 +32,9 @@ export function Header() {
   const canManageOrganizations = isAdmin || isAdminOrganisation;
   const isMitglied = userRole === 'mitglied';
   
+  const isProjektleiter = userRole === 'projektleiter';
+  const canManageCustomers = isAdmin || isAdminOrganisation || isProjektleiter;
+  
   const navItems = [
     // Dashboard nur für Admins sichtbar
     ...(isAdmin ? [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] : []),
@@ -40,6 +43,8 @@ export function Header() {
     ...(!isAdmin ? [{ href: '/tickets', label: 'Projekte', icon: Ticket }] : []),
     // Team für alle ausser Admins sichtbar (Mitglieder sehen ihre eigenen Teams)
     ...(!isAdmin ? [{ href: '/team', label: 'Team', icon: Users }] : []),
+    // Kunden für Admin Unternehmen und Projektleiter sichtbar
+    ...(canManageCustomers ? [{ href: '/kunden', label: 'Kunden', icon: Briefcase }] : []),
     // Kalender NICHT für Admins (Datenschutz) - nur für Koordinator/Projektleiter
     ...(!isAdmin && !isMitglied ? [{ href: '/kalenderplanung', label: 'Kalender', icon: CalendarDays }] : []),
     // Kosten nur für Admins sichtbar
