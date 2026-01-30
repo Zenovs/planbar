@@ -109,7 +109,7 @@ export async function POST(
     }
 
     // Return updated team
-    const team = await prisma.team.findUnique({
+    const updatedTeam = await prisma.team.findUnique({
       where: { id: params.id },
       include: {
         members: {
@@ -128,7 +128,7 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ team });
+    return NextResponse.json({ team: updatedTeam });
   } catch (error) {
     console.error('Error managing team members:', error);
     return NextResponse.json(
