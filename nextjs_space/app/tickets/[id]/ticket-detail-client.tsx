@@ -29,7 +29,10 @@ import {
   List,
   LayoutGrid,
   GripVertical,
-  Link2
+  Link2,
+  Building2,
+  Layers,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,6 +113,33 @@ interface Projekt {
   subTasks?: SubTask[];
 }
 
+interface CustomerLevel {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface Customer {
+  id: string;
+  name: string;
+  color: string;
+  levels: CustomerLevel[];
+}
+
+interface CustomerAssignment {
+  id: string;
+  customer: {
+    id: string;
+    name: string;
+    color: string;
+  };
+  level: {
+    id: string;
+    name: string;
+    color: string;
+  } | null;
+}
+
 interface ProjektDetailClientProps {
   ticket: Projekt;
   users: User[];
@@ -150,6 +180,15 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [draggedSubTask, setDraggedSubTask] = useState<string | null>(null);
   const [selectedKanbanSubTask, setSelectedKanbanSubTask] = useState<SubTask | null>(null);
+
+  // Kundenzuweisung States
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerAssignment, setCustomerAssignment] = useState<CustomerAssignment | null>(null);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [savingCustomerAssignment, setSavingCustomerAssignment] = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [selectedLevelId, setSelectedLevelId] = useState<string>('');
 
   // Gefilterte Subtasks
   const filteredSubTasks = useMemo(() => {
@@ -334,9 +373,101 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
     }
   }, []);
 
+  // Kunden laden
+  const loadCustomers = useCallback(async () => {
+    setLoadingCustomers(true);
+    try {
+      const res = await fetch('/api/customers');
+      if (res.ok) {
+        const data = await res.json();
+        setCustomers(data.customers || []);
+      }
+    } catch (error) {
+      console.error('Error loading customers:', error);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  }, []);
+
+  // Aktuelle Kundenzuweisung laden
+  const loadCustomerAssignment = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/customer-assignment`);
+      if (res.ok) {
+        const data = await res.json();
+        setCustomerAssignment(data.customerProject || null);
+      }
+    } catch (error) {
+      console.error('Error loading customer assignment:', error);
+    }
+  }, [ticket.id]);
+
+  // Kundenzuweisung speichern
+  const handleSaveCustomerAssignment = async () => {
+    if (!selectedCustomerId) {
+      toast.error('Bitte wählen Sie einen Kunden');
+      return;
+    }
+
+    setSavingCustomerAssignment(true);
+    try {
+      const levelIdToSend = selectedLevelId && selectedLevelId !== '__none__' ? selectedLevelId : null;
+      const res = await fetch(`/api/tickets/${ticket.id}/customer-assignment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: selectedCustomerId,
+          levelId: levelIdToSend,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCustomerAssignment(data.customerProject);
+        setShowCustomerModal(false);
+        setSelectedCustomerId('');
+        setSelectedLevelId('');
+        toast.success('Kunde zugewiesen');
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Fehler beim Zuweisen');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Zuweisen');
+    } finally {
+      setSavingCustomerAssignment(false);
+    }
+  };
+
+  // Kundenzuweisung entfernen
+  const handleRemoveCustomerAssignment = async () => {
+    if (!confirm('Kundenzuweisung wirklich entfernen?')) return;
+
+    setSavingCustomerAssignment(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/customer-assignment`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setCustomerAssignment(null);
+        toast.success('Kundenzuweisung entfernt');
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Fehler beim Entfernen');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Entfernen');
+    } finally {
+      setSavingCustomerAssignment(false);
+    }
+  };
+
   useEffect(() => {
     loadResources();
-  }, [loadResources]);
+    loadCustomers();
+    loadCustomerAssignment();
+  }, [loadResources, loadCustomers, loadCustomerAssignment]);
 
   const handleSave = async () => {
     if (!formData.title.trim()) {
@@ -1597,6 +1728,78 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
               </CardContent>
             </Card>
 
+            {/* Kundenzuweisung Card */}
+            <Card>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  Kundenzuweisung
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 space-y-3">
+                {customerAssignment ? (
+                  <>
+                    {/* Aktueller Kunde */}
+                    <div className="p-3 rounded-lg border" style={{ 
+                      backgroundColor: `${customerAssignment.customer.color}10`,
+                      borderColor: customerAssignment.customer.color 
+                    }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: customerAssignment.customer.color }}
+                        />
+                        <span className="font-medium text-sm">{customerAssignment.customer.name}</span>
+                      </div>
+                      {customerAssignment.level ? (
+                        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                          <Layers className="w-3 h-3" />
+                          <span>{customerAssignment.level.name}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs text-orange-600">
+                          <Layers className="w-3 h-3" />
+                          <span>Kein Level zugewiesen</span>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      onClick={handleRemoveCustomerAssignment}
+                      variant="outline"
+                      size="sm"
+                      className="w-full min-h-[44px] text-red-600 hover:text-red-700 hover:bg-red-50"
+                      disabled={savingCustomerAssignment}
+                    >
+                      {savingCustomerAssignment ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <X className="w-4 h-4 mr-2" />
+                      )}
+                      Zuweisung entfernen
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-500">
+                      Kein Kunde zugewiesen
+                    </p>
+                    <Button
+                      onClick={() => {
+                        setShowCustomerModal(true);
+                        loadCustomers();
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="w-full min-h-[44px]"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Kunde zuweisen
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Share Link */}
             {ticket.shareToken && (
               <Card>
@@ -1854,6 +2057,169 @@ export function ProjektDetailClient({ ticket: initialTicket, users, teams }: Pro
               >
                 Schließen
               </Button>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Kundenzuweisung Modal */}
+        {showCustomerModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+            onClick={() => {
+              setShowCustomerModal(false);
+              setSelectedCustomerId('');
+              setSelectedLevelId('');
+            }}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              className="bg-white dark:bg-gray-800 p-5 sm:p-6 rounded-t-2xl sm:rounded-xl w-full sm:max-w-md max-h-[85vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  Kunde zuweisen
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowCustomerModal(false);
+                    setSelectedCustomerId('');
+                    setSelectedLevelId('');
+                  }}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Kunde auswählen */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Kunde *</Label>
+                  {loadingCustomers ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                    </div>
+                  ) : customers.length === 0 ? (
+                    <p className="text-sm text-gray-500 py-4 text-center">
+                      Keine Kunden vorhanden. Bitte erstellen Sie zuerst einen Kunden.
+                    </p>
+                  ) : (
+                    <Select
+                      value={selectedCustomerId}
+                      onValueChange={(value) => {
+                        setSelectedCustomerId(value);
+                        setSelectedLevelId(''); // Reset Level bei Kundenwechsel
+                      }}
+                    >
+                      <SelectTrigger className="min-h-[44px]">
+                        <SelectValue placeholder="Kunde auswählen..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: customer.color }}
+                              />
+                              {customer.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                {/* Level auswählen (optional) */}
+                {selectedCustomerId && (
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">
+                      Level (optional)
+                    </Label>
+                    {(() => {
+                      const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+                      if (!selectedCustomer?.levels?.length) {
+                        return (
+                          <p className="text-sm text-gray-500 py-2">
+                            Keine Levels vorhanden. Das Projekt kann später einem Level zugewiesen werden.
+                          </p>
+                        );
+                      }
+                      return (
+                        <Select
+                          value={selectedLevelId}
+                          onValueChange={setSelectedLevelId}
+                        >
+                          <SelectTrigger className="min-h-[44px]">
+                            <SelectValue placeholder="Kein Level (später zuweisen)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">
+                              <span className="text-gray-500">Kein Level (später zuweisen)</span>
+                            </SelectItem>
+                            {selectedCustomer.levels.map((level) => (
+                              <SelectItem key={level.id} value={level.id}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: level.color }}
+                                  />
+                                  {level.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Info-Hinweis */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-3 rounded-lg text-sm">
+                  <p>
+                    Das Projekt wird dem Kunden zugewiesen und erscheint in dessen Timeline.
+                    {!selectedLevelId && selectedCustomerId && (
+                      <span className="block mt-1">
+                        Ohne Level-Zuweisung erscheint das Projekt als &quot;Nicht zugeordnet&quot;.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-2 mt-6">
+                <Button
+                  onClick={() => {
+                    setShowCustomerModal(false);
+                    setSelectedCustomerId('');
+                    setSelectedLevelId('');
+                  }}
+                  variant="outline"
+                  className="flex-1 min-h-[44px]"
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  onClick={handleSaveCustomerAssignment}
+                  disabled={!selectedCustomerId || savingCustomerAssignment}
+                  className="flex-1 min-h-[44px]"
+                >
+                  {savingCustomerAssignment ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Check className="w-4 h-4 mr-2" />
+                  )}
+                  Zuweisen
+                </Button>
+              </div>
             </motion.div>
           </motion.div>
         )}

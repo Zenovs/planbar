@@ -450,12 +450,12 @@ model CustomerProject {
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
   customerId    String
-  levelId       String
+  levelId       String?
   teamId        String?
   ticketId      String?              @unique
   dependsOnId   String?
   customer      Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  level         CustomerLevel        @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  level         CustomerLevel?       @relation(fields: [levelId], references: [id], onDelete: SetNull)
   team          Team?                @relation(fields: [teamId], references: [id])
   ticket        Ticket?              @relation(fields: [ticketId], references: [id])
   dependsOn     CustomerProject?     @relation("ProjectDependency", fields: [dependsOnId], references: [id])

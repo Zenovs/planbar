@@ -32,6 +32,7 @@ import {
   GripVertical,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format, addDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, isSameMonth, addMonths, subMonths } from 'date-fns';
@@ -146,6 +147,18 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
 
   // Timeline state
   const [timelineMonth, setTimelineMonth] = useState(new Date());
+
+  // Level-Zuweisung für unzugeordnete Projekte
+  const [showAssignLevelModal, setShowAssignLevelModal] = useState(false);
+  const [projectToAssignLevel, setProjectToAssignLevel] = useState<Project | null>(null);
+  const [assignLevelId, setAssignLevelId] = useState<string>('');
+  const [assigningLevel, setAssigningLevel] = useState(false);
+
+  // Memoized unzugeordnete Projekte (levelId === null)
+  const unassignedProjects = useMemo(() => {
+    if (!customer) return [];
+    return customer.projects.filter(p => !p.levelId);
+  }, [customer]);
 
   useEffect(() => {
     loadCustomer();
@@ -351,6 +364,47 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
     } catch (error) {
       toast.error('Fehler beim Löschen');
     }
+  };
+
+  // Level einem unzugeordneten Projekt zuweisen
+  const handleAssignLevel = async () => {
+    if (!projectToAssignLevel || !assignLevelId) {
+      toast.error('Bitte wählen Sie ein Level');
+      return;
+    }
+
+    setAssigningLevel(true);
+    try {
+      const res = await fetch(`/api/customers/${customerId}/projects`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: projectToAssignLevel.id,
+          levelId: assignLevelId,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success('Level zugewiesen');
+        setShowAssignLevelModal(false);
+        setProjectToAssignLevel(null);
+        setAssignLevelId('');
+        loadCustomer();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Fehler beim Zuweisen');
+      }
+    } catch (error) {
+      toast.error('Fehler beim Zuweisen');
+    } finally {
+      setAssigningLevel(false);
+    }
+  };
+
+  const openAssignLevelModal = (project: Project) => {
+    setProjectToAssignLevel(project);
+    setAssignLevelId('');
+    setShowAssignLevelModal(true);
   };
 
   const resetProjectForm = () => {
@@ -803,6 +857,119 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
                 ))}
               </div>
             )}
+
+            {/* Nicht zugeordnete Projekte */}
+            {unassignedProjects.length > 0 && (
+              <Card className="border-orange-200 bg-orange-50/50">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <AlertCircle className="w-5 h-5 text-orange-600" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">Nicht zugeordnete Projekte</CardTitle>
+                        <p className="text-sm text-gray-500">
+                          Diese Projekte sind keinem Level zugewiesen
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="border-orange-300 text-orange-700">
+                      {unassignedProjects.length} {unassignedProjects.length === 1 ? 'Projekt' : 'Projekte'}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {unassignedProjects.map((project) => {
+                    const statusInfo = getStatusInfo(project.status);
+                    return (
+                      <div
+                        key={project.id}
+                        className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200 hover:border-orange-300 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-2 h-8 rounded"
+                            style={{ backgroundColor: project.color }}
+                          />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{project.name}</span>
+                              <Badge className={`${statusInfo.color} text-white text-xs`}>
+                                {statusInfo.label}
+                              </Badge>
+                              {project.isExternal ? (
+                                <Badge variant="outline" className="text-xs">
+                                  <ExternalLink className="w-3 h-3 mr-1" />
+                                  Extern
+                                </Badge>
+                              ) : project.team && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs"
+                                  style={{ borderColor: project.team.color, color: project.team.color }}
+                                >
+                                  <Users className="w-3 h-3 mr-1" />
+                                  {project.team.name}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                              {project.startDate && project.endDate && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {format(new Date(project.startDate), 'dd.MM.yy')} - {format(new Date(project.endDate), 'dd.MM.yy')}
+                                </span>
+                              )}
+                              {project.ticket && (
+                                <span className="flex items-center gap-1 text-blue-600">
+                                  <Link2 className="w-3 h-3" />
+                                  Verknüpft mit Ticket
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {customer && customer.levels.length > 0 ? (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => openAssignLevelModal(project)}
+                              className="bg-orange-600 hover:bg-orange-700"
+                            >
+                              <Layers className="w-4 h-4 mr-1" />
+                              Level zuweisen
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-gray-500">
+                              Erstellen Sie zuerst ein Level
+                            </span>
+                          )}
+                          {project.ticket && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => router.push(`/tickets/${project.ticket!.id}`)}
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteProject(project.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Timeline Tab */}
@@ -1198,6 +1365,79 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowShareModal(false)}>Schließen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Level zuweisen Modal */}
+      <Dialog open={showAssignLevelModal} onOpenChange={(open) => {
+        setShowAssignLevelModal(open);
+        if (!open) {
+          setProjectToAssignLevel(null);
+          setAssignLevelId('');
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-orange-600" />
+              Level zuweisen
+            </DialogTitle>
+            <DialogDescription>
+              Weisen Sie das Projekt einem Level zu
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {projectToAssignLevel && (
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="font-medium">{projectToAssignLevel.name}</p>
+                {projectToAssignLevel.ticket && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Verknüpft mit Ticket
+                  </p>
+                )}
+              </div>
+            )}
+            <div>
+              <Label>Level auswählen *</Label>
+              <Select value={assignLevelId} onValueChange={setAssignLevelId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Level auswählen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {customer?.levels.map((level) => (
+                    <SelectItem key={level.id} value={level.id}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: level.color }}
+                        />
+                        {level.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAssignLevelModal(false);
+                setProjectToAssignLevel(null);
+                setAssignLevelId('');
+              }}
+            >
+              Abbrechen
+            </Button>
+            <Button 
+              onClick={handleAssignLevel} 
+              disabled={!assignLevelId || assigningLevel}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {assigningLevel ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Zuweisen'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
