@@ -16,20 +16,65 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const filterOrgId = searchParams.get('organizationId');
 
-    // Check if user is admin - only admins see all teams
+    // Hole User mit Organisation-Memberships
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
+      include: {
+        organizationMemberships: {
+          select: {
+            organizationId: true,
+            role: true,
+          },
+        },
+      },
     });
+    
     const userIsAdmin = isAdmin(currentUser?.role);
+    const userRole = currentUser?.role?.toLowerCase() || '';
+    
+    // Admin Unternehmen oder Projektleiter können alle Teams ihrer Organisationen sehen
+    const canManageOrgTeams = ['admin_organisation', 'org_admin', 'projektleiter'].includes(userRole);
 
     // Build where clause: Filter by organization first, then by role
     const whereClause: any = {};
     
-    // Admin kann nach beliebiger Organisation filtern
-    if (userIsAdmin && filterOrgId) {
-      whereClause.organizationId = filterOrgId;
-    } else if (!userIsAdmin) {
-      // Normaler User sieht nur Teams, in denen er Mitglied ist (über alle Organisationen hinweg)
+    // System-Admin kann nach beliebiger Organisation filtern oder alle sehen
+    if (userIsAdmin) {
+      if (filterOrgId) {
+        whereClause.organizationId = filterOrgId;
+      }
+      // Ohne Filter: alle Teams
+    } else if (canManageOrgTeams) {
+      // Admin Unternehmen und Projektleiter sehen alle Teams ihrer Organisationen
+      const userOrgIds: string[] = [];
+      
+      // Primäre Organisation
+      if (currentUser?.organizationId) {
+        userOrgIds.push(currentUser.organizationId);
+      }
+      
+      // Zusätzliche Organisationen durch Memberships (nur wenn dort mind. Projektleiter)
+      const allowedMembershipRoles = ['admin_organisation', 'org_admin', 'projektleiter'];
+      currentUser?.organizationMemberships?.forEach((m) => {
+        if (allowedMembershipRoles.includes(m.role?.toLowerCase() || '')) {
+          if (!userOrgIds.includes(m.organizationId)) {
+            userOrgIds.push(m.organizationId);
+          }
+        }
+      });
+      
+      if (userOrgIds.length > 0) {
+        whereClause.organizationId = { in: userOrgIds };
+      } else {
+        // Fallback: nur Teams, in denen sie Mitglied sind
+        whereClause.teamMembers = {
+          some: {
+            userId: session.user.id,
+          },
+        };
+      }
+    } else {
+      // Normale User (Koordinator, Member) sehen nur Teams, in denen sie Mitglied sind
       whereClause.teamMembers = {
         some: {
           userId: session.user.id,

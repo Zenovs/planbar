@@ -173,10 +173,14 @@ export default function TeamClient() {
 
   const userRole = session?.user?.role?.toLowerCase() || '';
   const isAdmin = status === 'authenticated' && ['admin', 'administrator'].includes(userRole);
+  const isAdminUnternehmen = status === 'authenticated' && ['admin_organisation', 'org_admin'].includes(userRole);
   const isProjektleiter = status === 'authenticated' && userRole === 'projektleiter';
   const isKoordinator = status === 'authenticated' && userRole === 'koordinator';
-  const isMitglied = status === 'authenticated' && !isAdmin && !isProjektleiter && !isKoordinator;
-  const canManageUsers = isAdmin || isProjektleiter;
+  const isMitglied = status === 'authenticated' && !isAdmin && !isAdminUnternehmen && !isProjektleiter && !isKoordinator;
+  const canManageUsers = isAdmin || isAdminUnternehmen || isProjektleiter;
+  
+  // Admin Unternehmen und Projektleiter können Teams ihrer Organisation verwalten
+  const canManageOrgTeams = isAdmin || isAdminUnternehmen || isProjektleiter;
 
   // Check if user is member of a specific team
   const isTeamMember = (team: Team): boolean => {
@@ -184,11 +188,17 @@ export default function TeamClient() {
     return team.teamMembers?.some(m => m.userId === session.user.id) || false;
   };
 
-  // Check if user can manage a specific team (Admin: all, Projektleiter: only own teams)
+  // Check if user can manage a specific team
+  // Admin: alle Teams
+  // Admin Unternehmen & Projektleiter: alle Teams ihrer Organisation (die sie sehen können)
+  // Koordinator: nur Teams, in denen sie Mitglied sind
   const canManageTeam = (team: Team): boolean => {
     if (isAdmin) return true;
-    // Projektleiter und Koordinatoren können ihre eigenen Teams verwalten
-    if (isProjektleiter || isKoordinator) return isTeamMember(team);
+    // Admin Unternehmen und Projektleiter können alle Teams verwalten, die sie sehen
+    // (die API filtert bereits nach Organisation)
+    if (isAdminUnternehmen || isProjektleiter) return true;
+    // Koordinatoren können nur ihre eigenen Teams verwalten
+    if (isKoordinator) return isTeamMember(team);
     return false;
   };
 
@@ -204,12 +214,12 @@ export default function TeamClient() {
     }
   }, [isAdmin]);
 
-  // Lade verwaltbare Organisationen für Projektleiter und höher (für Team-Erstellung)
+  // Lade verwaltbare Organisationen für Admin Unternehmen, Projektleiter und höher (für Team-Erstellung)
   useEffect(() => {
-    if (isAdmin || isProjektleiter) {
+    if (isAdmin || isAdminUnternehmen || isProjektleiter) {
       loadManageableOrganizations();
     }
-  }, [isAdmin, isProjektleiter]);
+  }, [isAdmin, isAdminUnternehmen, isProjektleiter]);
 
   // Wenn sich die ausgewählte Organisation ändert, Teams und Users neu laden
   useEffect(() => {
@@ -631,7 +641,7 @@ export default function TeamClient() {
             </div>
             {canManageUsers && (
               <div className="flex gap-2 w-full sm:w-auto">
-                {(isAdmin || isProjektleiter) && (
+                {canManageOrgTeams && (
                   <Button
                     onClick={() => setShowAddTeamModal(true)}
                     className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-purple-600 text-white min-h-[44px]"
@@ -642,8 +652,8 @@ export default function TeamClient() {
                 )}
                 <Button
                   onClick={() => setShowAddUserModal(true)}
-                  variant={(isAdmin || isProjektleiter) ? "outline" : "default"}
-                  className={`flex-1 sm:flex-none min-h-[44px] ${!(isAdmin || isProjektleiter) ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : ''}`}
+                  variant={canManageOrgTeams ? "outline" : "default"}
+                  className={`flex-1 sm:flex-none min-h-[44px] ${!canManageOrgTeams ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : ''}`}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   <span>Benutzer</span>
