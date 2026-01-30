@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/db';
-import { canManageTeams } from '@/lib/auth-helpers';
+import { canManageTeams, isAdmin } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,12 +17,58 @@ export async function POST(
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
-    // Check if user can manage teams (admin or projektleiter)
+    // Get user with organization memberships
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
+      include: {
+        organizationMemberships: {
+          select: {
+            organizationId: true,
+            orgRole: true,
+          },
+        },
+      },
     });
 
-    if (!canManageTeams(user?.role)) {
+    // Get the team to check organization
+    const team = await prisma.team.findUnique({
+      where: { id: params.id },
+      select: { id: true, organizationId: true },
+    });
+
+    if (!team) {
+      return NextResponse.json({ error: 'Team nicht gefunden' }, { status: 404 });
+    }
+
+    // Check if user can manage this team's members
+    // System admins can manage all teams
+    const isSystemAdmin = isAdmin(user?.role);
+    
+    // Check if user has admin_organisation or projektleiter role for this team's organization
+    let canManageThisTeam = isSystemAdmin;
+    
+    if (!canManageThisTeam && team.organizationId) {
+      // Check user's primary organization
+      if (user?.organizationId === team.organizationId && canManageTeams(user?.role)) {
+        canManageThisTeam = true;
+      }
+      
+      // Check organization memberships
+      if (!canManageThisTeam && user?.organizationMemberships) {
+        const membership = user.organizationMemberships.find(
+          m => m.organizationId === team.organizationId
+        );
+        if (membership) {
+          const orgRole = membership.orgRole?.toLowerCase() || '';
+          // Allow if user has admin_organisation or projektleiter role in this org
+          if (['admin_organisation', 'org_admin', 'projektleiter'].includes(orgRole)) {
+            canManageThisTeam = true;
+          }
+        }
+      }
+    }
+
+    if (!canManageThisTeam) {
       return NextResponse.json(
         { error: 'Keine Berechtigung zum Verwalten von Teammitgliedern' },
         { status: 403 }
