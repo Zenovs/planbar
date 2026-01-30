@@ -6,16 +6,61 @@ import { isAdmin, isAdminOrProjektleiter, isKoordinatorOrHigher } from '@/lib/au
 
 // Helper: Check if user can manage a specific team
 async function canManageTeam(userId: string, userRole: string, teamId: string): Promise<boolean> {
+  // System-Admin kann alles
   if (isAdmin(userRole)) return true;
   
-  // Projektleiter und Koordinatoren können ihre eigenen Teams verwalten
-  if (!isKoordinatorOrHigher(userRole)) return false;
-  
-  // Projektleiter/Koordinator can only manage teams they are members of
-  const membership = await prisma.teamMember.findUnique({
-    where: { userId_teamId: { userId, teamId } },
+  // Hole das Team mit der Organisation
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { organizationId: true },
   });
-  return !!membership;
+  
+  if (!team) return false;
+  
+  // Hole den Benutzer mit Organisationszugehörigkeiten
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      organizationMemberships: {
+        select: {
+          organizationId: true,
+          orgRole: true,
+        },
+      },
+    },
+  });
+  
+  if (!user) return false;
+  
+  // Prüfe, ob der Benutzer Admin Unternehmen oder Projektleiter in der Team-Organisation ist
+  const allowedOrgRoles = ['admin_organisation', 'org_admin', 'projektleiter'];
+  
+  // Primäre Organisation mit passender User-Rolle
+  if (team.organizationId && user.organizationId === team.organizationId) {
+    if (isAdminOrProjektleiter(user.role)) {
+      return true;
+    }
+  }
+  
+  // OrganizationMembership mit passender orgRole
+  if (team.organizationId && user.organizationMemberships) {
+    const membership = user.organizationMemberships.find(
+      m => m.organizationId === team.organizationId
+    );
+    if (membership && allowedOrgRoles.includes(membership.orgRole?.toLowerCase() || '')) {
+      return true;
+    }
+  }
+  
+  // Koordinatoren können nur Teams verwalten, in denen sie Mitglied sind
+  if (isKoordinatorOrHigher(userRole)) {
+    const teamMembership = await prisma.teamMember.findUnique({
+      where: { userId_teamId: { userId, teamId } },
+    });
+    return !!teamMembership;
+  }
+  
+  return false;
 }
 
 // GET - Alle Team-Mitgliedschaften eines Users oder alle eines Teams
