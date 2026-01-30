@@ -1274,7 +1274,7 @@ export default function KundenDetailClient({ customerId }: { customerId: string 
                     .filter(p => p.id !== editingProject?.id)
                     .map((project) => (
                       <SelectItem key={project.id} value={project.id}>
-                        {project.level.name} - {project.name}
+                        {project.level?.name ? `${project.level.name} - ` : ''}{project.name}
                       </SelectItem>
                     ))}
                 </SelectContent>
