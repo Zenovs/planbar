@@ -97,6 +97,13 @@ export async function POST(req: NextRequest) {
     // Check if user can manage teams (admin or projektleiter)
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
+      include: {
+        organizationMemberships: {
+          include: {
+            organization: true,
+          },
+        },
+      },
     });
 
     if (!canManageTeams(user?.role)) {
@@ -107,7 +114,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, description, color } = body;
+    const { name, description, color, organizationId } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -116,16 +123,49 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Bestimme die Ziel-Organisation
+    let targetOrgId = organizationId;
+    
+    // Wenn eine spezifische Organisation angegeben wurde, prüfe ob User dort berechtigt ist
+    if (targetOrgId) {
+      const userIsAdmin = isAdmin(user?.role);
+      
+      // System-Admin kann überall Teams erstellen
+      if (!userIsAdmin) {
+        // Prüfe ob User in der Ziel-Organisation mindestens Projektleiter ist
+        const isPrimaryOrgMatch = user?.organizationId === targetOrgId;
+        const membershipInOrg = user?.organizationMemberships?.find(
+          (m: { organizationId: string }) => m.organizationId === targetOrgId
+        );
+        
+        // User muss entweder primär in der Org sein oder eine Membership haben
+        if (!isPrimaryOrgMatch && !membershipInOrg) {
+          return NextResponse.json(
+            { error: 'Keine Berechtigung für dieses Unternehmen' },
+            { status: 403 }
+          );
+        }
+      }
+    } else {
+      // Fallback: primäre Organisation des Users
+      targetOrgId = user?.organizationId;
+    }
+
     const team = await prisma.team.create({
       data: {
         name,
         description,
         color: color || '#3b82f6',
-        // Team automatisch der Organisation des Users zuordnen
-        ...(user?.organizationId && { organizationId: user.organizationId }),
+        ...(targetOrgId && { organizationId: targetOrgId }),
       },
       include: {
         members: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         _count: {
           select: {
             tickets: true,

@@ -159,7 +159,11 @@ export default function TeamClient() {
     name: '',
     description: '',
     color: '#3b82f6',
+    organizationId: '',
   });
+
+  // Organisationen, in denen der User mindestens Projektleiter ist (für Team-Erstellung)
+  const [manageableOrgs, setManageableOrgs] = useState<{ id: string; name: string }[]>([]);
 
   const [assignForm, setAssignForm] = useState({
     userId: '',
@@ -199,6 +203,13 @@ export default function TeamClient() {
       loadOrganizations();
     }
   }, [isAdmin]);
+
+  // Lade verwaltbare Organisationen für Projektleiter und höher (für Team-Erstellung)
+  useEffect(() => {
+    if (isAdmin || isProjektleiter) {
+      loadManageableOrganizations();
+    }
+  }, [isAdmin, isProjektleiter]);
 
   // Wenn sich die ausgewählte Organisation ändert, Teams und Users neu laden
   useEffect(() => {
@@ -258,6 +269,46 @@ export default function TeamClient() {
       }
     } catch (error) {
       console.error('Error loading organizations:', error);
+    }
+  };
+
+  // Lade Organisationen, in denen der User mindestens Projektleiter ist
+  const loadManageableOrganizations = async () => {
+    try {
+      const res = await fetch('/api/organizations');
+      const data = await res.json();
+      if (res.ok) {
+        const orgs: { id: string; name: string }[] = [];
+        
+        // Für Admins: Alle Organisationen
+        if (isAdmin && data.organizations) {
+          data.organizations.forEach((org: { id: string; name: string }) => {
+            orgs.push({ id: org.id, name: org.name });
+          });
+        } else if (data.userOrganizations) {
+          // Für Projektleiter: Nur Organisationen, in denen sie mind. Projektleiter sind
+          const allowedRoles = ['admin_organisation', 'org_admin', 'projektleiter'];
+          data.userOrganizations.forEach((org: { id: string; name: string; userOrgRole?: string }) => {
+            if (allowedRoles.includes(org.userOrgRole?.toLowerCase() || '')) {
+              orgs.push({ id: org.id, name: org.name });
+            }
+          });
+        }
+        
+        // Fallback: Primäre Organisation
+        if (orgs.length === 0 && data.organization) {
+          orgs.push({ id: data.organization.id, name: data.organization.name });
+        }
+        
+        setManageableOrgs(orgs);
+        
+        // Wenn nur eine Organisation vorhanden, automatisch auswählen
+        if (orgs.length === 1) {
+          setNewTeamForm(prev => ({ ...prev, organizationId: orgs[0].id }));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading manageable organizations:', error);
     }
   };
 
@@ -349,18 +400,32 @@ export default function TeamClient() {
       return;
     }
 
+    // Wenn mehrere Organisationen verfügbar und keine ausgewählt
+    if (manageableOrgs.length > 1 && !newTeamForm.organizationId) {
+      toast.error('Bitte ein Unternehmen auswählen');
+      return;
+    }
+
     setLoading(true);
     try {
+      // Wenn nur eine Organisation, automatisch diese verwenden
+      const payload = {
+        ...newTeamForm,
+        organizationId: newTeamForm.organizationId || (manageableOrgs.length === 1 ? manageableOrgs[0].id : undefined),
+      };
+
       const res = await fetch('/api/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTeamForm),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         toast.success('Team erfolgreich erstellt');
         setShowAddTeamModal(false);
-        setNewTeamForm({ name: '', description: '', color: '#3b82f6' });
+        // Reset mit Standard-Organisation wenn nur eine vorhanden
+        const defaultOrgId = manageableOrgs.length === 1 ? manageableOrgs[0].id : '';
+        setNewTeamForm({ name: '', description: '', color: '#3b82f6', organizationId: defaultOrgId });
         loadTeams();
       } else {
         const data = await res.json();
@@ -793,12 +858,20 @@ export default function TeamClient() {
                     <Card key={team.id} className="hover:shadow-lg transition-shadow">
                       <CardHeader className="p-4 sm:p-6">
                         <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div
-                              className="w-4 h-4 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: team.color }}
-                            />
-                            <CardTitle className="text-lg truncate">{team.name}</CardTitle>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-4 h-4 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: team.color }}
+                              />
+                              <CardTitle className="text-lg truncate">{team.name}</CardTitle>
+                            </div>
+                            {team.organization && (
+                              <div className="flex items-center gap-1.5 mt-1 ml-6">
+                                <Building2 className="w-3 h-3 text-gray-400" />
+                                <span className="text-xs text-gray-500">{team.organization.name}</span>
+                              </div>
+                            )}
                           </div>
                           {canManageTeam(team) && (
                             <div className="flex gap-1 flex-shrink-0">
@@ -1116,6 +1189,34 @@ export default function TeamClient() {
             <DialogTitle>Neues Team erstellen</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Organisations-Auswahl nur anzeigen wenn mehrere verfügbar */}
+            {manageableOrgs.length > 1 && (
+              <div>
+                <Label>Unternehmen</Label>
+                <Select 
+                  value={newTeamForm.organizationId} 
+                  onValueChange={(v) => setNewTeamForm({ ...newTeamForm, organizationId: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Unternehmen auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manageableOrgs.map((org) => (
+                      <SelectItem key={org.id} value={org.id}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {/* Wenn nur ein Unternehmen, Info anzeigen */}
+            {manageableOrgs.length === 1 && (
+              <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                <Building2 className="w-4 h-4" />
+                <span>Team wird in <strong>{manageableOrgs[0].name}</strong> erstellt</span>
+              </div>
+            )}
             <div>
               <Label>Team-Name</Label>
               <Input
