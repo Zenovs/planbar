@@ -13,13 +13,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Nicht autorisiert' }, { status: 401 });
     }
 
-    // Get current user with team info
+    // Get current user with team info and organization memberships
     const currentUser = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
         id: true,
         role: true,
         teamId: true,
+        organizationId: true,
+        organizationMemberships: {
+          select: {
+            organizationId: true,
+            orgRole: true,
+          },
+        },
       },
     });
 
@@ -33,47 +40,95 @@ export async function GET(req: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     // Get user's team memberships
     const userTeamMemberships = await prisma.teamMember.findMany({
       where: { userId: session.user.id },
       select: { teamId: true },
     }).catch(() => []);
-    const userTeamIds = userTeamMemberships.map((tm: any) => tm.teamId);
+    const userTeamIds = userTeamMemberships.map((tm: { teamId: string }) => tm.teamId);
 
-    // Team-based filtering
-    const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+    // Role-based filtering
+    const userRole = currentUser?.role?.toLowerCase() || '';
+    const isSystemAdmin = userRole === 'admin';
+    const isAdminUnternehmen = ['admin_organisation', 'org_admin'].includes(userRole);
+    const isProjektleiter = userRole === 'projektleiter';
     
-    // Aus Datenschutzgründen sehen Admins keine Projekt-/Ticket-Details
-    if (isAdmin) {
+    // Aus Datenschutzgründen sehen System-Admins keine Projekt-/Ticket-Details
+    if (isSystemAdmin) {
       return NextResponse.json({ tickets: [], message: 'Admins haben aus Datenschutzgründen keinen Zugriff auf Projektdetails' });
     }
+
+    // Admin Unternehmen und Projektleiter können alle Tickets ihrer Organisationen sehen
+    const canSeeOrgTickets = isAdminUnternehmen || isProjektleiter;
+
+    // Sammle alle Organisations-IDs des Users
+    const userOrgIds: string[] = [];
+    if (currentUser?.organizationId) {
+      userOrgIds.push(currentUser.organizationId);
+    }
+    // Zusätzliche Organisationen durch Memberships (nur wenn dort mind. Projektleiter)
+    const allowedMembershipRoles = ['admin_organisation', 'org_admin', 'projektleiter'];
+    currentUser?.organizationMemberships?.forEach((m: { organizationId: string; orgRole: string | null }) => {
+      if (allowedMembershipRoles.includes(m.orgRole?.toLowerCase() || '')) {
+        if (!userOrgIds.includes(m.organizationId)) {
+          userOrgIds.push(m.organizationId);
+        }
+      }
+    });
+
+    // Hole alle Team-IDs der Organisationen des Users (für Projektleiter/Admin Unternehmen)
+    let orgTeamIds: string[] = [];
+    if (canSeeOrgTickets && userOrgIds.length > 0) {
+      const orgTeams = await prisma.team.findMany({
+        where: { organizationId: { in: userOrgIds } },
+        select: { id: true },
+      });
+      orgTeamIds = orgTeams.map(t => t.id);
+    }
     
-    // Wenn ein spezifisches Team gefiltert wird und User Mitglied ist
+    // Wenn ein spezifisches Team gefiltert wird
     if (teamId && teamId !== 'all') {
-      const isMember = userTeamIds.includes(teamId) || currentUser?.teamId === teamId;
-      if (isMember) {
+      // Projektleiter/Admin Unternehmen können alle Teams ihrer Organisation filtern
+      if (canSeeOrgTickets && orgTeamIds.includes(teamId)) {
         where.teamId = teamId;
       } else {
-        // User ist nicht Mitglied des Teams - zeige keine Tickets
-        where.id = 'none';
+        // Normale User: nur wenn sie Mitglied sind
+        const isMember = userTeamIds.includes(teamId) || currentUser?.teamId === teamId;
+        if (isMember) {
+          where.teamId = teamId;
+        } else {
+          // User ist nicht Mitglied des Teams - zeige keine Tickets
+          where.id = 'none';
+        }
       }
     } else {
-      // Ohne Team-Filter: Zeige Tickets des Users oder seiner Teams
-      const orConditions: any[] = [
-        { createdById: currentUser?.id },
-        { assignedToId: currentUser?.id },
-      ];
-      
-      if (currentUser?.teamId) {
-        orConditions.push({ teamId: currentUser.teamId });
+      // Ohne Team-Filter
+      if (canSeeOrgTickets && orgTeamIds.length > 0) {
+        // Projektleiter/Admin Unternehmen: Zeige alle Tickets ihrer Organisation
+        const orConditions: Record<string, unknown>[] = [
+          { createdById: currentUser?.id },
+          { assignedToId: currentUser?.id },
+          { teamId: { in: orgTeamIds } },
+        ];
+        where.OR = orConditions;
+      } else {
+        // Normale User: Zeige Tickets des Users oder seiner Teams
+        const orConditions: Record<string, unknown>[] = [
+          { createdById: currentUser?.id },
+          { assignedToId: currentUser?.id },
+        ];
+        
+        if (currentUser?.teamId) {
+          orConditions.push({ teamId: currentUser.teamId });
+        }
+        if (userTeamIds.length > 0) {
+          orConditions.push({ teamId: { in: userTeamIds } });
+        }
+        
+        where.OR = orConditions;
       }
-      if (userTeamIds.length > 0) {
-        orConditions.push({ teamId: { in: userTeamIds } });
-      }
-      
-      where.OR = orConditions;
     }
 
     if (status && status !== 'all') {
