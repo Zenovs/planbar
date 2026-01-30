@@ -70,19 +70,23 @@ export async function POST(
       : -1;
 
     // Erstelle das Projekt
+    // Convert empty strings to null for foreign key relations
+    const finalTeamId = isExternal ? null : (teamId && teamId !== '' ? teamId : null);
+    const finalDependsOnId = dependsOnId && dependsOnId !== '' ? dependsOnId : null;
+    
     const project = await prisma.customerProject.create({
       data: {
         name,
         description,
         levelId,
         customerId: params.id,
-        teamId: isExternal ? null : teamId,
+        teamId: finalTeamId,
         isExternal: isExternal || false,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         color: color || '#10b981',
         position: maxPosition + 1,
-        dependsOnId,
+        dependsOnId: finalDependsOnId,
       },
       include: {
         team: { select: { id: true, name: true, color: true } },
@@ -92,7 +96,7 @@ export async function POST(
     });
 
     // Wenn nicht extern und ein Team zugewiesen ist, erstelle auch ein Ticket
-    if (!isExternal && teamId) {
+    if (!isExternal && finalTeamId) {
       const ticket = await prisma.ticket.create({
         data: {
           title: name,
@@ -100,7 +104,7 @@ export async function POST(
           status: 'open',
           priority: 'medium',
           createdById: currentUser.id,
-          teamId: teamId,
+          teamId: finalTeamId,
         },
       });
 
@@ -178,20 +182,24 @@ export async function PUT(
     }
 
     // Aktualisiere das Projekt
+    // Convert empty strings to null for foreign key relations
+    const updateTeamId = teamId !== undefined ? (teamId && teamId !== '' ? teamId : null) : undefined;
+    const updateDependsOnId = dependsOnId !== undefined ? (dependsOnId && dependsOnId !== '' ? dependsOnId : null) : undefined;
+    
     const updatedProject = await prisma.customerProject.update({
       where: { id: projectId },
       data: {
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
         ...(levelId !== undefined && { levelId }),
-        ...(isExternal !== undefined && { isExternal, teamId: isExternal ? null : teamId }),
-        ...(teamId !== undefined && !isExternal && { teamId }),
+        ...(isExternal !== undefined && { isExternal, teamId: isExternal ? null : updateTeamId }),
+        ...(updateTeamId !== undefined && !isExternal && { teamId: updateTeamId }),
         ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
         ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
         ...(status !== undefined && { status }),
         ...(color !== undefined && { color }),
         ...(position !== undefined && { position }),
-        ...(dependsOnId !== undefined && { dependsOnId }),
+        ...(updateDependsOnId !== undefined && { dependsOnId: updateDependsOnId }),
       },
       include: {
         team: { select: { id: true, name: true, color: true } },
@@ -203,13 +211,13 @@ export async function PUT(
     });
 
     // Aktualisiere auch das verknüpfte Ticket wenn vorhanden
-    if (project.ticket && (name !== undefined || description !== undefined || teamId !== undefined)) {
+    if (project.ticket && (name !== undefined || description !== undefined || updateTeamId !== undefined)) {
       await prisma.ticket.update({
         where: { id: project.ticket.id },
         data: {
           ...(name !== undefined && { title: name }),
           ...(description !== undefined && { description }),
-          ...(teamId !== undefined && !isExternal && { teamId }),
+          ...(updateTeamId !== undefined && !isExternal && { teamId: updateTeamId }),
         },
       });
     }
