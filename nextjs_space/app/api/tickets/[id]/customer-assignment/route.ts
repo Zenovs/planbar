@@ -74,8 +74,19 @@ export async function POST(
       );
     }
 
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return NextResponse.json(
+        { error: 'Ungültiges Request-Format' },
+        { status: 400 }
+      );
+    }
+    
     const { customerId, levelId, startDate, endDate } = body;
+    console.log('Customer assignment request:', { customerId, levelId, startDate, endDate });
 
     if (!customerId) {
       return NextResponse.json(
@@ -156,8 +167,9 @@ export async function POST(
     return NextResponse.json({ customerProject }, { status: 201 });
   } catch (error) {
     console.error('Error creating customer assignment:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
     return NextResponse.json(
-      { error: 'Fehler beim Erstellen der Kundenzuweisung' },
+      { error: `Fehler beim Erstellen der Kundenzuweisung: ${errorMessage}` },
       { status: 500 }
     );
   }
